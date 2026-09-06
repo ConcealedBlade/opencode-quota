@@ -324,10 +324,10 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
             {
               model_name: "MiniMax-M*",
               current_interval_total_count: 100,
-              current_interval_usage_count: 35,
+              current_interval_usage_count: -5,
               remains_time: 3_600_000,
               current_weekly_total_count: 200,
-              current_weekly_usage_count: 160,
+              current_weekly_usage_count: -20,
               weekly_remains_time: 86_400_000,
             },
           ],
@@ -693,7 +693,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     await hooks.dispose?.();
   });
 
-  it("renders non-empty MiniMax five-hour and weekly quota on all four surfaces", async () => {
+  it("keeps over-quota MiniMax results in cache, export, and all four displays", async () => {
     currentConfig = configForMiniMax();
     mocks.loadConfig.mockImplementation(async () => currentConfig);
     const { minimaxCodingPlanProvider } = await import("../src/providers/minimax-coding-plan.js");
@@ -718,9 +718,40 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(serverOutput).toContain("MiniMax Token Plan");
     expect(serverOutput).toContain("Five-hour quota");
     expect(serverOutput).toContain("Weekly quota");
-    expect(serverOutput).toContain("35%");
-    expect(serverOutput).toContain("80%");
+    expect(serverOutput).toContain("0% left");
+    expect(serverOutput).toContain("Remaining: -5 requests");
+    expect(serverOutput).toContain("Remaining: -20 requests");
     expect(serverOutput).not.toContain("Invalid normalized provider result");
+
+    const { resolveQuotaRuntimeContext } = await import("../src/lib/quota-runtime-context.js");
+    const runtime = await resolveQuotaRuntimeContext({
+      client: client as never,
+      roots: { workspaceRoot: process.cwd() },
+      config: currentConfig,
+      providers: [minimaxCodingPlanProvider],
+      configureTelemetry: false,
+    });
+    const { buildQuotaExport, createExportProviderContext } = await import(
+      "../src/lib/quota-export.js"
+    );
+    const fetchCallsBeforeExport = vi.mocked(globalThis.fetch).mock.calls.length;
+    const exportData = await buildQuotaExport({
+      providers: [minimaxCodingPlanProvider],
+      ctx: createExportProviderContext(runtime),
+      ttlMs: currentConfig.minIntervalMs,
+      fromCache: true,
+    });
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(fetchCallsBeforeExport);
+    const exportedProvider = exportData.providers["minimax-coding-plan"];
+    expect(exportedProvider?.status).toBe("ok");
+    if (!exportedProvider || !("entries" in exportedProvider)) {
+      throw new Error("Expected cached MiniMax export entries");
+    }
+    expect(
+      exportedProvider.entries.map((entry) =>
+        entry.renderType === "percent" ? entry.percentRemaining : entry.value,
+      ),
+    ).toEqual([-5, -10]);
 
     await hooks.event?.({
       event: {
@@ -732,8 +763,9 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(toastOutput).toContain("MiniMax Token Plan");
     expect(toastOutput).toContain("Five-hour");
     expect(toastOutput).toContain("Weekly");
-    expect(toastOutput).toContain("35%");
-    expect(toastOutput).toContain("80%");
+    expect(toastOutput).toContain("0% left");
+    expect(toastOutput).toContain("Remaining: -5 requests");
+    expect(toastOutput).toContain("Remaining: -20 requests");
 
     const tuiApi = {
       state: {
@@ -757,13 +789,13 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(sidebarOutput).toContain("MiniMax Token Plan");
     expect(sidebarOutput).toContain("Five-hour");
     expect(sidebarOutput).toContain("Weekly");
-    expect(sidebarOutput).toContain("35%");
-    expect(sidebarOutput).toContain("80%");
+    expect(sidebarOutput).toContain("0% left");
+    expect(sidebarOutput).toContain("Remaining: -5 requests");
+    expect(sidebarOutput).toContain("Remaining: -20 requests");
 
     expect(surfaces.compact.status).toBe("ready");
     const compactOutput = surfaces.compact.status === "ready" ? surfaces.compact.text : "";
-    expect(compactOutput).toContain("35%");
-    expect(compactOutput).toContain("80%");
+    expect(compactOutput.match(/0%/gu)).toHaveLength(2);
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
 
     await hooks.dispose?.();

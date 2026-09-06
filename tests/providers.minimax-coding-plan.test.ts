@@ -174,10 +174,17 @@ describe("minimax-coding-plan provider", () => {
       percentRemaining: 98,
       semantic: { metric: { kind: "window", window: "five_hour" } },
       basis: {
-        used: { quantity: { decimal: "70", unit: { kind: "count", unit: "request" } } },
-        limit: { quantity: { decimal: "4500", unit: { kind: "count", unit: "request" } } },
+        used: {
+          quantity: { decimal: "70", unit: { kind: "count", unit: "request" } },
+          authority: "locally_derived",
+        },
+        limit: {
+          quantity: { decimal: "4500", unit: { kind: "count", unit: "request" } },
+          authority: "provider_reported",
+        },
         remaining: {
           quantity: { decimal: "4430", unit: { kind: "count", unit: "request" } },
+          authority: "provider_reported",
         },
       },
     });
@@ -262,9 +269,9 @@ describe("minimax-coding-plan provider", () => {
       percentRemaining: 20,
       semantic: { metric: { kind: "window", window: "five_hour" } },
       basis: {
-        used: { quantity: { decimal: "1200" } },
-        limit: { quantity: { decimal: "1500" } },
-        remaining: { quantity: { decimal: "300" } },
+        used: { quantity: { decimal: "1200" }, authority: "provider_reported" },
+        limit: { quantity: { decimal: "1500" }, authority: "provider_reported" },
+        remaining: { quantity: { decimal: "300" }, authority: "locally_derived" },
       },
     });
     expect(out.entries[0]).not.toHaveProperty("window");
@@ -671,9 +678,9 @@ describe("minimax-coding-plan provider", () => {
     expect(out.entries[0]).toMatchObject({
       percentRemaining: -1,
       basis: {
-        used: { quantity: { decimal: "4550" } },
-        limit: { quantity: { decimal: "4500" } },
-        remaining: { quantity: { decimal: "-50" } },
+        used: { quantity: { decimal: "4550" }, authority: "locally_derived" },
+        limit: { quantity: { decimal: "4500" }, authority: "provider_reported" },
+        remaining: { quantity: { decimal: "-50" }, authority: "provider_reported" },
       },
     });
     expect(out.entries[1]).toMatchObject({

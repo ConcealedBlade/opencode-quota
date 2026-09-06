@@ -186,9 +186,15 @@ function computeMiniMaxEntryData(
     const { used, remaining } = normalizeMiniMaxCounts(total, rawCount, countSemantics);
     const percentRemaining = roundPercent((remaining / total) * 100);
     const basis: AccountingPercentageBasis = {
-      used: { quantity: quantity(used, REQUEST_UNIT), authority: "provider_reported" },
+      used: {
+        quantity: quantity(used, REQUEST_UNIT),
+        authority: countSemantics === "used" ? "provider_reported" : "locally_derived",
+      },
       limit: { quantity: quantity(total, REQUEST_UNIT), authority: "provider_reported" },
-      remaining: { quantity: quantity(remaining, REQUEST_UNIT), authority: "locally_derived" },
+      remaining: {
+        quantity: quantity(remaining, REQUEST_UNIT),
+        authority: countSemantics === "remaining" ? "provider_reported" : "locally_derived",
+      },
     };
     return { basis, percentRemaining, resetTimeIso };
   }
