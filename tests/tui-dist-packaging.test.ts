@@ -29,6 +29,8 @@ async function exists(url: URL): Promise<boolean> {
   }
 }
 
+const packagedTui = await import("../dist/tui.js");
+
 describe("tui dist packaging", () => {
   it("ships the precompiled TUI entry and removes stale jsx artifacts", async () => {
     const distTui = new URL("../dist/tui.js", import.meta.url);
@@ -52,12 +54,10 @@ describe("tui dist packaging", () => {
     expect(source).not.toContain("jsx-dev-runtime");
   });
 
-  it("can load the packaged TUI module", async () => {
-    const mod = await import("../dist/tui.js");
-
-    expect(mod.default).toMatchObject({
+  it("can load the packaged TUI module", () => {
+    expect(packagedTui.default).toMatchObject({
       id: "@slkiser/opencode-quota",
     });
-    expect(typeof mod.default.tui).toBe("function");
+    expect(typeof packagedTui.default.tui).toBe("function");
   });
 });
