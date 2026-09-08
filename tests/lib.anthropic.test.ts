@@ -26,11 +26,13 @@ import {
   clearAnthropicDiagnosticsCacheForTests,
   getAnthropicDiagnostics,
   hasAnthropicCredentialsConfigured,
+  parseOAuthUsageResponse,
   parseUsageResponse,
   queryAnthropicQuota,
   resolveAnthropicAuthIdentity,
 } from "../src/lib/anthropic.js";
 import { fetchWithTimeout } from "../src/lib/http.js";
+import fableWeeklyUsage from "./fixtures/anthropic/fable-weekly.sanitized.json";
 
 vi.mock("child_process", () => ({
   execFile: vi.fn(),
@@ -269,6 +271,78 @@ describe("parseUsageResponse", () => {
     );
 
     expect(result?.extra_usage).toBeUndefined();
+  });
+
+  it("parses the exact Fable weekly_scoped window from a sanitized response", () => {
+    const result = parseOAuthUsageResponse(fableWeeklyUsage);
+
+    expect(parseUsageResponse(fableWeeklyUsage)).not.toHaveProperty("fable_weekly");
+    expect(result).toEqual({
+      success: true,
+      five_hour: {
+        percentRemaining: 58,
+        resetTimeIso: "2026-07-21T14:10:00.268Z",
+      },
+      seven_day: {
+        percentRemaining: 72,
+        resetTimeIso: "2026-07-27T07:00:00.268Z",
+      },
+      fable_weekly: {
+        percentRemaining: 98,
+        resetTimeIso: "2026-07-27T07:00:00.268Z",
+      },
+    });
+  });
+
+  it("keeps the existing windows when Fable scoped data is absent or malformed", () => {
+    const withoutFable = parseOAuthUsageResponse({
+      five_hour: { utilization: 20 },
+      seven_day: { utilization: 30 },
+      limits: [
+        {
+          kind: "weekly_scoped",
+          percent: 40,
+          scope: { model: { display_name: "Opus" } },
+        },
+        {
+          kind: "weekly_scoped",
+          percent: 40,
+          scope: { model: { display_name: "Claude Fable 5" } },
+        },
+        {
+          kind: "weekly_scoped",
+          percent: "not-a-number",
+          scope: { model: { display_name: "Fable" } },
+        },
+      ],
+    });
+
+    expect(withoutFable).toEqual({
+      success: true,
+      five_hour: { percentRemaining: 80, resetTimeIso: undefined },
+      seven_day: { percentRemaining: 70, resetTimeIso: undefined },
+    });
+  });
+
+  it("accepts a zero-percent Fable window without a reset timestamp", () => {
+    const result = parseOAuthUsageResponse({
+      five_hour: { utilization: 20 },
+      seven_day: { utilization: 30 },
+      limits: [
+        {
+          kind: "weekly_scoped",
+          percent: 0,
+          resets_at: null,
+          scope: { model: { display_name: "Fable" } },
+          is_active: false,
+        },
+      ],
+    });
+
+    expect(result?.fable_weekly).toEqual({
+      percentRemaining: 100,
+      resetTimeIso: undefined,
+    });
   });
 
   it("drops invalid reset timestamps and only caps percent remaining above 100", () => {
@@ -648,17 +722,8 @@ describe("Claude CLI diagnostics", () => {
     );
     fetchResponseMock.mockResolvedValue(
       mockJsonResponse({
-        oauth_usage: {
-          fiveHour: {
-            usedPercent: 35,
-            resetAt: "2026-03-25T18:00:00.000Z",
-          },
-          sevenDay: {
-            percent_used: 15,
-            resetsAt: "2026-04-01T00:00:00.000Z",
-          },
-          extra_usage: { is_enabled: true, utilization: 37.8 },
-        },
+        ...fableWeeklyUsage,
+        extra_usage: { is_enabled: true, utilization: 37.8 },
       }),
     );
 
@@ -667,11 +732,15 @@ describe("Claude CLI diagnostics", () => {
     expect(diagnostics.authStatus).toBe("authenticated");
     expect(diagnostics.quotaSupported).toBe(true);
     expect(diagnostics.quotaSource).toBe("claude-credentials-oauth-api");
-    expect(diagnostics.quota?.five_hour.percentRemaining).toBe(65);
-    expect(diagnostics.quota?.five_hour.resetTimeIso).toBe("2026-03-25T18:00:00.000Z");
-    expect(diagnostics.quota?.seven_day.percentRemaining).toBe(85);
-    expect(diagnostics.quota?.seven_day.resetTimeIso).toBe("2026-04-01T00:00:00.000Z");
+    expect(diagnostics.quota?.five_hour.percentRemaining).toBe(58);
+    expect(diagnostics.quota?.five_hour.resetTimeIso).toBe("2026-07-21T14:10:00.268Z");
+    expect(diagnostics.quota?.seven_day.percentRemaining).toBe(72);
+    expect(diagnostics.quota?.seven_day.resetTimeIso).toBe("2026-07-27T07:00:00.268Z");
     expect(diagnostics.quota?.extra_usage).toEqual({ percentRemaining: 62 });
+    expect(diagnostics.quota?.fable_weekly).toEqual({
+      percentRemaining: 98,
+      resetTimeIso: "2026-07-27T07:00:00.268Z",
+    });
     expect(fetchWithTimeoutMock).toHaveBeenCalledWith(ANTHROPIC_USAGE_URL, {
       request: {
         headers: {
@@ -686,8 +755,9 @@ describe("Claude CLI diagnostics", () => {
     const quota = await queryAnthropicQuota();
     expect(quota?.success).toBe(true);
     if (quota?.success) {
-      expect(quota.five_hour.percentRemaining).toBe(65);
-      expect(quota.seven_day.percentRemaining).toBe(85);
+      expect(quota.five_hour.percentRemaining).toBe(58);
+      expect(quota.seven_day.percentRemaining).toBe(72);
+      expect(quota.fable_weekly?.percentRemaining).toBe(98);
     }
 
     expect(execFileMock).toHaveBeenCalledTimes(2);

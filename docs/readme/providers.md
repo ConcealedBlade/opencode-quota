@@ -391,6 +391,8 @@ When Claude Code does not expose quota windows itself, quota is read from Anthro
 
 When that OAuth response includes enabled Usage Credits with numeric utilization, quota displays show a separate monthly **Claude Usage Credits** group; missing or invalid credit data leaves the regular 5-hour and weekly rows unchanged.
 
+If that response includes Anthropic's model-scoped Fable weekly window, OpenCode Quota shows it as a separate `Fable` row. The row is omitted when Anthropic does not return the window; OpenCode Quota does not infer eligibility from the account's plan name. See [Claude Fable models on your plan](https://support.claude.com/en/articles/15424964-claude-fable-models-on-your-plan) for Anthropic's current eligibility rules.
+
 <a id="cursor"></a>
 
 ### Cursor

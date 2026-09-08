@@ -51,6 +51,9 @@ const mocks = vi.hoisted(() => ({
   getMiniMaxAuthDiagnostics: vi.fn(),
   resolveMiniMaxChinaAuthCached: vi.fn(),
   getMiniMaxChinaAuthDiagnostics: vi.fn(),
+  getAnthropicDiagnostics: vi.fn(),
+  hasAnthropicCredentialsConfigured: vi.fn(),
+  queryAnthropicQuota: vi.fn(),
   fetchSessionTokensForDisplay: vi.fn(),
 }));
 
@@ -104,6 +107,11 @@ vi.mock("../src/lib/minimax-auth.js", () => ({
   getMiniMaxAuthDiagnostics: mocks.getMiniMaxAuthDiagnostics,
   resolveMiniMaxChinaAuthCached: mocks.resolveMiniMaxChinaAuthCached,
   getMiniMaxChinaAuthDiagnostics: mocks.getMiniMaxChinaAuthDiagnostics,
+}));
+vi.mock("../src/lib/anthropic.js", () => ({
+  getAnthropicDiagnostics: mocks.getAnthropicDiagnostics,
+  hasAnthropicCredentialsConfigured: mocks.hasAnthropicCredentialsConfigured,
+  queryAnthropicQuota: mocks.queryAnthropicQuota,
 }));
 vi.mock("../src/lib/opencode-runtime-paths.js", () =>
   createPluginRuntimePathsMockModule(TEST_RUNTIME_ROOT, { includeCandidates: true }),
@@ -163,7 +171,7 @@ function configFor(formatStyle: "allWindows" | "singleWindow") {
   });
 }
 
-function configForMiniMax(providerId = "minimax-coding-plan") {
+function configForSingleProvider(providerId = "minimax-coding-plan") {
   return makeQuotaToastTestConfig({
     enabled: true,
     enabledProviders: [providerId],
@@ -694,7 +702,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
   });
 
   it("keeps over-quota MiniMax results in cache, export, and all four displays", async () => {
-    currentConfig = configForMiniMax();
+    currentConfig = configForSingleProvider();
     mocks.loadConfig.mockImplementation(async () => currentConfig);
     const { minimaxCodingPlanProvider } = await import("../src/providers/minimax-coding-plan.js");
     minimaxCodingPlanProvider.cachePolicy = { kind: "account-neutral" };
@@ -801,8 +809,96 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     await hooks.dispose?.();
   });
 
+  it("shows the optional Anthropic Fable weekly row on all four displays", async () => {
+    currentConfig = configForSingleProvider("anthropic");
+    mocks.loadConfig.mockImplementation(async () => currentConfig);
+    mocks.hasAnthropicCredentialsConfigured.mockResolvedValue(true);
+    const quota = {
+      success: true,
+      five_hour: { percentRemaining: 58, resetTimeIso: "2026-07-21T14:10:00.268Z" },
+      seven_day: { percentRemaining: 72, resetTimeIso: "2026-07-27T07:00:00.268Z" },
+      fable_weekly: {
+        percentRemaining: 98,
+        resetTimeIso: "2026-07-27T07:00:00.268Z",
+      },
+    };
+    mocks.getAnthropicDiagnostics.mockResolvedValue({
+      installed: true,
+      version: "2.1.258",
+      authStatus: "authenticated",
+      quotaSupported: true,
+      quotaSource: "opencode-auth-oauth-api",
+      oauthCredentialSource: "opencode-auth",
+      checkedCommands: ["claude --version"],
+      quota,
+    });
+    mocks.queryAnthropicQuota.mockResolvedValue(quota);
+
+    const { anthropicProvider } = await import("../src/providers/anthropic.js");
+    anthropicProvider.cachePolicy = { kind: "account-neutral" };
+    mocks.getProviders.mockReturnValue([anthropicProvider]);
+
+    const client = createClient();
+    client.config.providers.mockResolvedValue({
+      data: { providers: [{ id: "anthropic" }] },
+    });
+
+    const { QuotaToastPlugin } = await import("../src/plugin.js");
+    const hooks = (await QuotaToastPlugin({ client } as never)) as PluginHooks;
+
+    await expectHandled(
+      hooks["command.execute.before"]?.({
+        command: "quota",
+        sessionID: "anthropic-fable-session",
+      }),
+    );
+    const serverOutput = getPromptText(client);
+    expect(serverOutput).toContain("Claude");
+    expect(serverOutput).toContain("Fable");
+    expect(serverOutput).toContain("98% left");
+
+    await hooks.event?.({
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "anthropic-fable-session" },
+      },
+    });
+    const toastOutput = getToastMessage(client);
+    expect(toastOutput).toContain("Fable");
+    expect(toastOutput).toContain("98%");
+
+    const tuiApi = {
+      state: {
+        provider: [{ id: "anthropic" }],
+        path: { worktree: process.cwd(), directory: process.cwd() },
+        session: { messages: () => [] },
+      },
+      client,
+    } as never;
+    const { loadTuiSessionQuotaSurfaces } = await import("../src/lib/tui-runtime.js");
+    const surfaces = await loadTuiSessionQuotaSurfaces({
+      api: tuiApi,
+      sessionID: "anthropic-fable-session",
+    });
+
+    expect(surfaces.sidebar.status).toBe("ready");
+    const sidebarOutput = [
+      ...surfaces.sidebar.lines,
+      ...(surfaces.sidebar.linesExpanded ?? []),
+    ].join("\n");
+    expect(sidebarOutput).toContain("Fable");
+    expect(sidebarOutput).toContain("98%");
+
+    expect(surfaces.compact.status).toBe("ready");
+    const compactOutput = surfaces.compact.status === "ready" ? surfaces.compact.text : "";
+    expect(compactOutput).toContain("Fable");
+    expect(compactOutput).toContain("98%");
+
+    await hooks.dispose?.();
+  });
+
   it("renders CN general percentage quota and excludes video on all four surfaces", async () => {
-    currentConfig = configForMiniMax("minimax-china-coding-plan");
+    currentConfig = configForSingleProvider("minimax-china-coding-plan");
     mocks.loadConfig.mockImplementation(async () => currentConfig);
     mocks.resolveMiniMaxChinaAuthCached.mockResolvedValue({
       state: "configured",
