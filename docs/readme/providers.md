@@ -389,6 +389,8 @@ If Claude lives at a custom path, set `anthropicBinaryPath` in `opencode-quota/q
 
 When Claude Code does not expose quota windows itself, quota is read from Anthropic's OAuth usage endpoint using the first usable access token: OpenCode's own `anthropic` OAuth credential from `auth.json`, then Claude Code's credentials. `/quota_status` reports which store answered as `oauth_credential_source`.
 
+If that response includes Anthropic's model-scoped Fable weekly window, OpenCode Quota shows it as a separate `Fable` row. The row is omitted when Anthropic does not return the window; OpenCode Quota does not infer eligibility from the account's plan name. See [Claude Fable models on your plan](https://support.claude.com/en/articles/15424964-claude-fable-models-on-your-plan) for Anthropic's current eligibility rules.
+
 <a id="cursor"></a>
 
 ### Cursor

@@ -75,6 +75,75 @@ describe("anthropic provider", () => {
     });
   });
 
+  it("adds the Fable weekly row and diagnostic when the OAuth response reports it", async () => {
+    const { getAnthropicDiagnostics, queryAnthropicQuota } = await import(
+      "../src/lib/anthropic.js"
+    );
+    const quota = {
+      success: true,
+      five_hour: { percentRemaining: 58, resetTimeIso: "2026-07-21T14:10:00.268Z" },
+      seven_day: { percentRemaining: 72, resetTimeIso: "2026-07-27T07:00:00.268Z" },
+      fable_weekly: {
+        percentRemaining: 98,
+        resetTimeIso: "2026-07-27T07:00:00.268Z",
+      },
+    };
+    (getAnthropicDiagnostics as any).mockResolvedValueOnce({
+      installed: true,
+      version: "2.1.258",
+      authStatus: "authenticated",
+      quotaSupported: true,
+      quotaSource: "opencode-auth-oauth-api",
+      oauthCredentialSource: "opencode-auth",
+      checkedCommands: ["claude --version"],
+      quota,
+    });
+    (queryAnthropicQuota as any).mockResolvedValueOnce(quota);
+
+    const out = await anthropicProvider.fetch({} as any);
+
+    expectAttemptedWithNoErrors(out);
+    expect(out.statusDetails).toContainEqual({
+      key: "fable_weekly_remaining",
+      value: "98% reset_at=2026-07-27T07:00:00.268Z",
+    });
+    expect(visibleEntries(out.entries, "anthropic")).toEqual([
+      {
+        name: "Claude 5h",
+        group: "Claude",
+        label: "5h:",
+        percentRemaining: 58,
+        resetTimeIso: "2026-07-21T14:10:00.268Z",
+      },
+      {
+        name: "Claude Weekly",
+        group: "Claude",
+        label: "Weekly:",
+        percentRemaining: 72,
+        resetTimeIso: "2026-07-27T07:00:00.268Z",
+      },
+      {
+        name: "Claude Fable Weekly",
+        group: "Claude",
+        label: "Fable:",
+        semantic: {
+          metric: { kind: "named", name: "Fable weekly" },
+          prominence: "primary",
+        },
+        percentRemaining: 98,
+        resetTimeIso: "2026-07-27T07:00:00.268Z",
+      },
+    ]);
+    expect(out.entries.map((entry) => entry.accounting)).toEqual(
+      Array.from({ length: 3 }, () => ({
+        resultType: "quota",
+        acquisitionMethod: "remote_api",
+        ownership: "maintained",
+        authority: "provider_reported",
+      })),
+    );
+  });
+
   it("returns attempted:false when Anthropic quota is unavailable locally", async () => {
     const { queryAnthropicQuota } = await import("../src/lib/anthropic.js");
     (queryAnthropicQuota as any).mockResolvedValueOnce(null);

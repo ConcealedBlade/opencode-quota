@@ -54,12 +54,14 @@ export interface AnthropicQuotaWindow {
 export interface AnthropicUsageResponse {
   five_hour: AnthropicQuotaWindow;
   seven_day: AnthropicQuotaWindow;
+  limits?: unknown[];
 }
 
 export interface AnthropicQuotaResult {
   success: true;
   five_hour: { percentRemaining: number; resetTimeIso?: string };
   seven_day: { percentRemaining: number; resetTimeIso?: string };
+  fable_weekly?: { percentRemaining: number; resetTimeIso?: string };
 }
 
 export interface AnthropicQuotaError {
@@ -357,6 +359,38 @@ function getUsageRoots(data: unknown): Record<string, unknown>[] {
   return roots;
 }
 
+function parseFableWeeklyWindow(
+  limits: unknown,
+): { percentRemaining: number; resetTimeIso?: string } | undefined {
+  if (!Array.isArray(limits)) {
+    return undefined;
+  }
+
+  for (const value of limits) {
+    const limit = asRecord(value);
+    if (!limit || limit["kind"] !== "weekly_scoped") {
+      continue;
+    }
+
+    const scope = asRecord(limit["scope"]);
+    const model = asRecord(scope?.["model"]);
+    const displayName = model?.["display_name"];
+    if (displayName !== "Fable") {
+      continue;
+    }
+
+    const window = parseQuotaWindow({
+      utilization: limit["percent"],
+      resets_at: limit["resets_at"],
+    });
+    if (window) {
+      return window;
+    }
+  }
+
+  return undefined;
+}
+
 function parseUsageResponse(data: unknown): AnthropicQuotaResult | null {
   for (const root of getUsageRoots(data)) {
     const fiveHour = parseQuotaWindow(root["five_hour"] ?? root["fiveHour"]);
@@ -370,6 +404,27 @@ function parseUsageResponse(data: unknown): AnthropicQuotaResult | null {
       success: true,
       five_hour: fiveHour,
       seven_day: sevenDay,
+    };
+  }
+
+  return null;
+}
+
+function parseOAuthUsageResponse(data: unknown): AnthropicQuotaResult | null {
+  for (const root of getUsageRoots(data)) {
+    const fiveHour = parseQuotaWindow(root["five_hour"] ?? root["fiveHour"]);
+    const sevenDay = parseQuotaWindow(root["seven_day"] ?? root["sevenDay"]);
+
+    if (!fiveHour || !sevenDay) {
+      continue;
+    }
+
+    const fableWeekly = parseFableWeeklyWindow(root["limits"]);
+    return {
+      success: true,
+      five_hour: fiveHour,
+      seven_day: sevenDay,
+      ...(fableWeekly ? { fable_weekly: fableWeekly } : {}),
     };
   }
 
@@ -771,7 +826,7 @@ async function performAnthropicOAuthUsageRequest(
           };
         }
 
-        const quota = parseUsageResponse(data);
+        const quota = parseOAuthUsageResponse(data);
         if (!quota) {
           return {
             state: "unavailable",
@@ -1408,4 +1463,4 @@ export async function queryAnthropicQuota(
   }
 }
 
-export { parseUsageResponse };
+export { parseOAuthUsageResponse, parseUsageResponse };
