@@ -695,6 +695,7 @@ function parseOpenRouterKeyV1(
       };
     }
     const percentRemaining = (remainingValue / limit) * 100;
+    const usedUsd = typeof remaining === "number" ? limit - remainingValue : usage;
     return {
       success: true,
       entries: [
@@ -704,7 +705,7 @@ function parseOpenRouterKeyV1(
           name: `${source.label} budget`,
           group: source.label,
           label: "Budget:",
-          right: `${formatUsd(usage)}/${formatUsd(limit)}`,
+          right: `${formatUsd(usedUsd)}/${formatUsd(limit)}`,
           percentRemaining,
         },
       ],
