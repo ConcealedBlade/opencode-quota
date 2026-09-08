@@ -79,6 +79,9 @@ export const anthropicProvider: QuotaProvider = {
         seven_day_remaining: quota
           ? `${quota.seven_day.percentRemaining}% reset_at=${quota.seven_day.resetTimeIso ?? "(none)"}`
           : undefined,
+        fable_weekly_remaining: quota?.fable_weekly
+          ? `${quota.fable_weekly.percentRemaining}% reset_at=${quota.fable_weekly.resetTimeIso ?? "(none)"}`
+          : undefined,
       });
     } catch (error) {
       statusDetails = statusDetailsFromRecord({
@@ -137,6 +140,26 @@ export const anthropicProvider: QuotaProvider = {
         group: "Claude Usage Credits",
         label: "Monthly:",
         percentRemaining: result.extra_usage.percentRemaining,
+      });
+    }
+
+    if (result.fable_weekly) {
+      entries.push({
+        accounting: {
+          resultType: "quota",
+          acquisitionMethod,
+          ownership: "maintained",
+          authority: "provider_reported",
+        },
+        name: "Claude Fable Weekly",
+        group: "Claude",
+        label: "Fable:",
+        semantic: {
+          metric: { kind: "named", name: "Fable weekly" },
+          prominence: "primary",
+        },
+        percentRemaining: result.fable_weekly.percentRemaining,
+        resetTimeIso: result.fable_weekly.resetTimeIso,
       });
     }
 
