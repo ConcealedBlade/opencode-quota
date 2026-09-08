@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
   QuotaProvider,
   QuotaProviderContext,
@@ -29,6 +31,12 @@ const OPENCODE_GO_WINDOW_LABELS: Record<OpenCodeGoWindowKey, { name: string; lab
   weekly: { name: `${OPENCODE_GO_PROVIDER_LABEL} Weekly`, label: "Weekly:" },
   monthly: { name: `${OPENCODE_GO_PROVIDER_LABEL} Monthly`, label: "Monthly:" },
 };
+
+let notSubscribedCredentialFingerprint: string | null = null;
+
+export function __resetOpenCodeGoNotSubscribedForTests(): void {
+  notSubscribedCredentialFingerprint = null;
+}
 
 function authStatusDetails(diagnostics: OpenCodeGoAuthDiagnostics): QuotaProviderStatusDetail[] {
   return statusDetailsFromRecord({
@@ -99,14 +107,28 @@ export const opencodeGoProvider: QuotaProvider = {
     });
 
     if (auth.state === "none") {
+      notSubscribedCredentialFingerprint = null;
       return withStatusDetails(notAttemptedResult(), statusDetails);
     }
 
     if (auth.state === "invalid") {
+      notSubscribedCredentialFingerprint = null;
       return withStatusDetails(
         attemptedErrorResult(OPENCODE_GO_PROVIDER_LABEL, auth.error),
         statusDetails,
       );
+    }
+
+    const credentialFingerprint = createHash("sha256").update(auth.apiKey).digest("hex");
+    if (notSubscribedCredentialFingerprint !== credentialFingerprint) {
+      notSubscribedCredentialFingerprint = null;
+    }
+
+    if (notSubscribedCredentialFingerprint !== null) {
+      return withStatusDetails(attemptedResult([]), [
+        ...statusDetails,
+        { key: "opencode_go_state", value: "not_subscribed" },
+      ]);
     }
 
     const result = await queryOpenCodeGoQuota(auth.apiKey, {
@@ -114,6 +136,13 @@ export const opencodeGoProvider: QuotaProvider = {
     });
 
     if (!result.success) {
+      if (result.notSubscribed === true) {
+        notSubscribedCredentialFingerprint = credentialFingerprint;
+        return withStatusDetails(attemptedResult([]), [
+          ...statusDetails,
+          { key: "opencode_go_state", value: "not_subscribed" },
+        ]);
+      }
       return withStatusDetails(
         attemptedErrorResult(OPENCODE_GO_PROVIDER_LABEL, result.error, {
           retryable: result.retryable,
