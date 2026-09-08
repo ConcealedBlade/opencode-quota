@@ -266,6 +266,39 @@ describe("queryOpenCodeGoQuota", () => {
     );
   });
 
+  it("flags a 403 EntitlementError body as not subscribed", async () => {
+    mockHttpFailure(
+      403,
+      '{"type":"error","error":{"type":"EntitlementError","message":"OpenCode Go subscription required."}}',
+    );
+
+    const result = await queryOpenCodeGoQuota("token");
+
+    expect(result).toEqual({
+      success: false,
+      error: "OpenCode Go not subscribed (403 EntitlementError)",
+      notSubscribed: true,
+      retryable: false,
+    });
+  });
+
+  it.each([
+    [403, '{"error":"forbidden"}'],
+    [403, '{"error":{"type":"EntitlementError"}}'],
+    [403, '{"type":"error","error":{"type":"entitlementerror"}}'],
+    [403, '{"error":{"type":"PermissionError","message":"subscription required"}}'],
+    [403, "not-json EntitlementError"],
+    [401, '{"type":"error","error":{"type":"EntitlementError"}}'],
+  ])("keeps unrelated HTTP %s body %s as an ordinary error", async (status, body) => {
+    mockHttpFailure(status, body);
+
+    const result = await queryOpenCodeGoQuota("token");
+
+    expect(result).toMatchObject({ success: false, retryable: false });
+    expect((result as { error: string }).error).toContain(`OpenCode Go API error ${status}`);
+    expect((result as { notSubscribed?: true }).notSubscribed).toBeUndefined();
+  });
+
   it("retains the HTTP status when reading a non-success body fails", async () => {
     const token = "distinctive-secret-token";
     mocks.fetchResponse.mockResolvedValueOnce({

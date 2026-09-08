@@ -911,7 +911,7 @@ export type OpenCodeGoResult =
       weekly: OpenCodeGoWindow;
       monthly: OpenCodeGoWindow;
     }
-  | QuotaError;
+  | (QuotaError & { notSubscribed?: true });
 
 /** Cached toast data */
 export interface CachedToast {
