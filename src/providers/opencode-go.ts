@@ -85,7 +85,11 @@ export const opencodeGoProvider: QuotaProvider = {
     const auth = await resolveOpenCodeGoAuthCached({
       maxAgeMs: DEFAULT_OPENCODE_GO_AUTH_CACHE_MAX_AGE_MS,
     });
-    return auth.state === "configured";
+    if (auth.state !== "configured") {
+      notSubscribedCredentialFingerprint = null;
+      return false;
+    }
+    return true;
   },
 
   matchesCurrentModel(model: string): boolean {

@@ -269,17 +269,19 @@ describe("queryOpenCodeGoQuota", () => {
   });
 
   it.each([
-    '{"error":"forbidden"}',
-    '{"error":{"type":"EntitlementError"}}',
-    '{"error":{"type":"PermissionError","message":"subscription required"}}',
-    "not-json EntitlementError",
-  ])("keeps unrelated 403 body %s as an ordinary error", async (body) => {
-    mockHttpFailure(403, body);
+    [403, '{"error":"forbidden"}'],
+    [403, '{"error":{"type":"EntitlementError"}}'],
+    [403, '{"type":"error","error":{"type":"entitlementerror"}}'],
+    [403, '{"error":{"type":"PermissionError","message":"subscription required"}}'],
+    [403, "not-json EntitlementError"],
+    [401, '{"type":"error","error":{"type":"EntitlementError"}}'],
+  ])("keeps unrelated HTTP %s body %s as an ordinary error", async (status, body) => {
+    mockHttpFailure(status, body);
 
     const result = await queryOpenCodeGoQuota("token");
 
     expect(result).toMatchObject({ success: false, retryable: false });
-    expect((result as { error: string }).error).toContain("OpenCode Go API error 403");
+    expect((result as { error: string }).error).toContain(`OpenCode Go API error ${status}`);
     expect((result as { notSubscribed?: true }).notSubscribed).toBeUndefined();
   });
 
