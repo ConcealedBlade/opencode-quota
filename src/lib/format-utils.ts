@@ -148,7 +148,7 @@ export interface FormatResetCountdownOptions {
   compactRounded?: boolean;
   /**
    * When set with compactRounded, render the largest active unit with this
-   * many decimal places instead of the default integer-day / half-hour steps.
+   * many decimal places.
    */
   decimals?: number;
 }

@@ -388,6 +388,39 @@ describe("formatQuotaCommand", () => {
     expect(out).toContain("reset 2h40m");
   });
 
+  it("renders an expired reset once and omits a missing reset", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+
+    const expired = formatQuotaCommand({
+      entries: [
+        {
+          name: "OpenAI",
+          group: "OpenAI",
+          label: "Weekly:",
+          percentRemaining: 81,
+          resetTimeIso: "2026-01-15T09:59:59.999Z",
+        },
+      ],
+      errors: [],
+    });
+    const missing = formatQuotaCommand({
+      entries: [
+        {
+          name: "OpenAI",
+          group: "OpenAI",
+          label: "Weekly:",
+          percentRemaining: 81,
+        },
+      ],
+      errors: [],
+    });
+
+    expect(expired).toMatch(/\| reset$/mu);
+    expect(expired).not.toContain("reset reset");
+    expect(missing).not.toContain("reset");
+  });
+
   it("aligns reset columns when usage values have different widths", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));

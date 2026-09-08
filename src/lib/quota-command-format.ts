@@ -31,9 +31,10 @@ import {
 import { SESSION_TOKEN_SECTION_HEADING } from "./session-tokens-format.js";
 import type { QuotaToastConfig } from "./types.js";
 
-function formatResetsIn(iso?: string): string {
+function formatCommandReset(iso?: string): string {
   if (!iso || !Number.isFinite(new Date(iso).getTime())) return "";
-  return ` | resets in ${formatResetCountdown(iso)}`;
+  const countdown = formatResetCountdown(iso);
+  return countdown === "reset" ? countdown : `reset ${countdown}`;
 }
 
 export const QUOTA_COMMAND_BAR_WIDTH = 10;
@@ -90,7 +91,7 @@ function getCommandMetricLabel(entry: QuotaToastEntry, semanticLabel: string): s
 
 function formatCommandDetails(entry: QuotaToastEntry, rightWidth: number): string {
   const right = entry.right?.trim();
-  const reset = formatResetsIn(entry.resetTimeIso).replace(/^ \| resets in /u, "reset ");
+  const reset = formatCommandReset(entry.resetTimeIso);
   if (right && reset) return ` | ${padRight(right, rightWidth)} | ${reset}`;
   if (right) return ` | ${right}`;
   if (reset) return ` | ${reset}`;
