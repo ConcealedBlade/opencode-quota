@@ -196,15 +196,24 @@ export function formatQuotaRows(params: {
 
     // Line 1: label + time can use the full available width. Prefer keeping the
     // reset text aligned, but shrink padding before truncating labels that fit.
-    lines.push(
-      buildClassicNameTimeLine({
-        leftText,
-        timeStr,
-        maxWidth,
-        separator,
-        preferredTimeWidth: timeCol,
-      }),
-    );
+    if (
+      timeStr &&
+      leftText.length <= maxWidth &&
+      leftText.length + separator.length + timeStr.length > maxWidth
+    ) {
+      lines.push(leftText);
+      lines.push(padLeft(timeStr, maxWidth));
+    } else {
+      lines.push(
+        buildClassicNameTimeLine({
+          leftText,
+          timeStr,
+          maxWidth,
+          separator,
+          preferredTimeWidth: timeCol,
+        }),
+      );
+    }
 
     // Line 2: bar + displayed percentage
     const barCell = bar(displayedPercent, barWidth);

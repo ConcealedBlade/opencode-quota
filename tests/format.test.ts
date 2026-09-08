@@ -717,6 +717,29 @@ describe("formatQuotaRows", () => {
     expect(lines.every((line) => line.length <= 36)).toBe(true);
   });
 
+  it("wraps long classic provider/account/window labels instead of truncating them", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      entries: [
+        {
+          name: "[Copilot] (personal) Monthly",
+          percentRemaining: 75,
+          resetTimeIso: "2026-02-06T06:10:00.000Z",
+        },
+      ],
+    });
+
+    const lines = out.split("\n");
+    expect(lines[0]).toBe("[Copilot] (personal) Monthly");
+    expect(lines[1]?.trim()).toBe("21d20h10m");
+    expect(lines[2]).toContain("75% left");
+    expect(lines.every((line) => line.length <= 36)).toBe(true);
+  });
+
   it("preserves classic value-row provider/account labels when they fit", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
