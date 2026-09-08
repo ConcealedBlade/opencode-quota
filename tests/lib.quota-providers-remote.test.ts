@@ -272,6 +272,44 @@ describe("quota provider remote runtime", () => {
     });
   });
 
+  it("shows limit-window usage in the OpenRouter budget row when the key's lifetime usage exceeds it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: { usage: 140.7, limit: 100, limit_remaining: 87.459170905 },
+        }),
+      ),
+    );
+
+    await expect(
+      fetchRemoteQuotaProvider(source({ format: "openrouter-key-v1" }), "secret"),
+    ).resolves.toEqual({
+      success: true,
+      entries: [
+        expect.objectContaining({
+          kind: "percent",
+          right: "$12.54/$100.00",
+          percentRemaining: 87.459170905,
+        }),
+      ],
+    });
+  });
+
+  it("falls back to the OpenRouter usage field for the budget row when no limit window is reported", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ data: { usage: 13, limit: 100 } })),
+    );
+
+    await expect(
+      fetchRemoteQuotaProvider(source({ format: "openrouter-key-v1" }), "secret"),
+    ).resolves.toEqual({
+      success: true,
+      entries: [expect.objectContaining({ kind: "percent", right: "$13.00/$100.00" })],
+    });
+  });
+
   it("rejects percent rows for non-remaining accounting result types", async () => {
     vi.stubGlobal(
       "fetch",
@@ -321,7 +359,9 @@ describe("quota provider remote runtime", () => {
     );
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.entries[0]).toEqual(expect.objectContaining({ percentRemaining: -20 }));
+      expect(result.entries[0]).toEqual(
+        expect.objectContaining({ right: "$12.00/$10.00", percentRemaining: -20 }),
+      );
     }
   });
 
