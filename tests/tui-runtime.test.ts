@@ -1657,6 +1657,81 @@ describe("tui runtime helpers", () => {
     });
   });
 
+  it("forwards spaced resets and bare labels to TUI quota displays", async () => {
+    writeFileSync(
+      join(worktreeDir, "opencode.json"),
+      JSON.stringify({
+        experimental: {
+          quotaToast: {
+            enabled: true,
+            percentDisplayMode: "used",
+            percentLabelStyle: "bare",
+            resetTimeSpaced: true,
+            tuiCompactStatus: {
+              enabled: true,
+              sessionPrompt: true,
+              maxWidth: 42,
+            },
+            tuiPromptBar: { enabled: true },
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const data = {
+      entries: [
+        {
+          name: "Copilot 5h",
+          percentRemaining: 18,
+          resetTimeIso: "2026-01-15T13:45:00.000Z",
+        },
+      ],
+      errors: [],
+      sessionTokens: undefined,
+    };
+    collectQuotaRenderData.mockResolvedValue({ active: [], data });
+    buildSidebarQuotaPanelLines.mockReturnValue(["Sidebar quota"]);
+    buildCompactQuotaStatusLine.mockReturnValue("Compact quota");
+
+    const surfaces = await loadTuiSessionQuotaSurfaces({
+      api: {
+        state: {
+          provider: [],
+          path: { worktree: worktreeDir, directory: nestedDir },
+          session: { messages: () => [] },
+        },
+        client: {},
+      } as any,
+      sessionID: "spaced-bare-session",
+    });
+
+    expect(surfaces.sidebar).toEqual({
+      status: "ready",
+      lines: ["Sidebar quota"],
+      headerPercentMode: "used",
+    });
+    expect(surfaces.promptBar).toMatchObject({
+      status: "ready",
+      percentDisplayMode: "used",
+      resetTimeSpaced: true,
+    });
+    expect(buildSidebarQuotaPanelLines).toHaveBeenCalledWith({
+      data,
+      config: expect.objectContaining({
+        percentLabelStyle: "bare",
+        resetTimeSpaced: true,
+      }),
+    });
+    expect(buildCompactQuotaStatusLine).toHaveBeenCalledWith({
+      data,
+      percentDisplayMode: "used",
+      accountingDetail: "summary",
+      resetTimeSpaced: true,
+      maxWidth: 42,
+    });
+  });
+
   it("uses compact fallback text when session collection has no data", async () => {
     writeFileSync(
       join(worktreeDir, "opencode.json"),

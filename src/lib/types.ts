@@ -22,6 +22,7 @@ export type GoogleAgyAuthSourceKey = "google-agy" | "opencode-agy-auth" | "googl
 export type CursorQuotaPlan = "none" | "pro" | "pro-plus" | "ultra";
 export type PricingSnapshotSource = "auto" | "bundled" | "runtime";
 export type PercentDisplayMode = "remaining" | "used";
+export type PercentLabelStyle = "full" | "bare";
 export type AccountingDetail = "summary" | "detailed";
 export type SessionTokenScope = "current" | "tree";
 export type OpenCodeGoWindowKey = "rolling" | "weekly" | "monthly";
@@ -112,6 +113,8 @@ export interface QuotaToastConfig {
   formatStyle: QuotaFormatStyle;
   /** Shared percent meaning for popup toasts and the TUI sidebar. */
   percentDisplayMode: PercentDisplayMode;
+  /** Optional suffix style for percentage labels. Unset preserves full labels. */
+  percentLabelStyle?: PercentLabelStyle;
   /** Whether human surfaces include supplementary semantic accounting rows. */
   accountingDetail: AccountingDetail;
   /**
@@ -119,6 +122,8 @@ export interface QuotaToastConfig {
    * Unset uses the default exact-to-minute DdHhMm display.
    */
   resetTimeDecimals?: number;
+  /** Whether exact multi-unit reset countdowns include spaces between units. */
+  resetTimeSpaced?: boolean;
   minIntervalMs: number;
 
   /** Request timeout in milliseconds for remote provider API calls. */

@@ -7,7 +7,7 @@
  * - quota-command-format.ts (/quota command)
  */
 
-import type { PercentDisplayMode } from "./types.js";
+import type { PercentDisplayMode, PercentLabelStyle } from "./types.js";
 
 /**
  * Clamp a number to an integer within [min, max].
@@ -67,12 +67,22 @@ export function resolveDisplayedPercent(
 export function formatDisplayedPercentLabel(
   percentRemaining: number,
   mode: PercentDisplayMode = "remaining",
+  style: PercentLabelStyle = "full",
 ): string {
   const displayedPercent = resolveDisplayedPercent(percentRemaining, mode);
-  return `${displayedPercent}% ${mode === "used" ? "used" : "left"}`;
+  const percent = `${displayedPercent}%`;
+  return style === "bare" ? percent : `${percent} ${mode === "used" ? "used" : "left"}`;
 }
 
 export const DISPLAYED_PERCENT_LABEL_WIDTH = "100% used".length;
+
+export function displayedPercentLabelWidth(style: PercentLabelStyle = "full"): number {
+  return style === "bare" ? "100%".length : DISPLAYED_PERCENT_LABEL_WIDTH;
+}
+
+export function formatQuotaModeHeading(mode: PercentDisplayMode = "remaining"): string {
+  return `Quota [${mode === "used" ? "Used" : "Remaining"}]`;
+}
 
 /**
  * Format a token count with K/M suffix for compactness.
@@ -151,6 +161,8 @@ export interface FormatResetCountdownOptions {
    * many decimal places.
    */
   decimals?: number;
+  /** Join exact compound countdown units with spaces. */
+  spaced?: boolean;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -191,8 +203,9 @@ export function formatResetCountdown(iso?: string, opts?: FormatResetCountdownOp
     return `0.5h`;
   }
 
-  if (days > 0) return `${days}d${hours}h${minutes}m`;
-  if (hours > 0) return `${hours}h${minutes}m`;
+  const separator = opts?.spaced ? " " : "";
+  if (days > 0) return [`${days}d`, `${hours}h`, `${minutes}m`].join(separator);
+  if (hours > 0) return [`${hours}h`, `${minutes}m`].join(separator);
   return `${minutes}m`;
 }
 

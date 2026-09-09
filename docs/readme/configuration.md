@@ -24,6 +24,8 @@ Strict `.json` files also work. Run `/quota_status` if you are unsure which file
 | Show every reset period                    | `formatStyle: "allWindows"`   |
 | Show one quota window per provider         | `formatStyle: "singleWindow"` |
 | Show quota used instead of left            | `percentDisplayMode: "used"`  |
+| Show percentages without `left` or `used`   | `percentLabelStyle: "bare"`   |
+| Add spaces between reset countdown units    | `resetTimeSpaced: true`         |
 | Show supplementary accounting facts        | `accountingDetail: "detailed"` |
 | Show slash results with messages           | `tuiCommandDisplay: "inline"` |
 | Show slash results in a TUI popup          | `tuiCommandDisplay: "dialog"` |
@@ -48,6 +50,8 @@ The installer chooses `allWindows` by default. If the setting is absent, the bui
   // Show every quota reset period as percentage remaining.
   "formatStyle": "allWindows",
   "percentDisplayMode": "remaining",
+  "percentLabelStyle": "bare",
+  "resetTimeSpaced": true,
   "accountingDetail": "summary",
 
   // Keep TUI slash-command results with normal messages.
@@ -275,6 +279,26 @@ Leave it unset to use the default exact-to-minute display.
 </details>
 
 <details>
+<summary><strong>Space reset units and shorten percent labels</strong></summary>
+
+Set `resetTimeSpaced` to `true` to add spaces between exact compound countdown units. For example, `2d5h14m` becomes `2d 5h 14m`, and `3h45m` becomes `3h 45m`. Minute-only values such as `14m`, expired values shown as `reset`, and partial-minute rounding stay unchanged. This setting applies to `/quota` in Web, Desktop, and the TUI, popup toasts, terminal `show`, the expanded and collapsed Sidebar, Compact status, and the prompt bar.
+
+`resetTimeDecimals` keeps its existing largest-unit decimal format and takes precedence over spacing on the displays where decimal countdowns apply.
+
+Set `percentLabelStyle` to `"bare"` to show `81%` instead of `81% left`, or `19%` instead of `19% used`. Full reports identify the mode as `Quota [Remaining]` or `Quota [Used]`. The Sidebar uses the same heading, keeps its collapse icon, and gives the freed columns to its bars. Compact status and prompt percentages remain bare.
+
+```jsonc
+{
+  "resetTimeSpaced": true,
+  "percentLabelStyle": "bare",
+}
+```
+
+Both settings are optional. Leave them unset to keep the existing compact countdowns and full percent labels.
+
+</details>
+
+<details>
 <summary><strong>Change maintainer notices</strong></summary>
 
 ```jsonc
@@ -349,8 +373,10 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `requestTimeoutMs`            | `5000`         | Remote provider request timeout in milliseconds.                                                                                                                                                                                                                                                                    |
 | `formatStyle`                 | `singleWindow` | Shared quota reset-period display for TUI popup toasts, the Sidebar panel, and Compact status line unless a TUI surface override is set: `singleWindow` shows one reset period per provider; `allWindows` shows all reset periods per provider. Legacy `classic`/`grouped` aliases are still accepted.              |
 | `percentDisplayMode`          | `remaining`    | Percentage/bar direction across human surfaces: `remaining` shows the percentage left; `used` shows the percentage consumed. It does not rename literal basis facts.                                                                                                                                               |
+| `percentLabelStyle`           | unset          | Set to `bare` to remove `left` or `used` from full-report percentage labels. Full reports and the Sidebar name the direction in a `Quota [Remaining]` or `Quota [Used]` heading. `full` is also accepted. Unset keeps full labels.                                                                                  |
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for a largest-unit reset countdown override in popup toasts, the Sidebar panel, terminal `show`, and the prompt bar. Accepts integers `0`–`4`; when unset, the default shows exact remaining days, hours, and minutes as `DdHhMm`. |
+| `resetTimeSpaced`             | unset          | Set to `true` to space exact compound countdowns such as `2d 5h 14m` on `/quota`, popup toasts, terminal `show`, the Sidebar, Compact status, and the prompt bar. `resetTimeDecimals` keeps its legacy decimal format where it applies. Unset or `false` keeps compact spelling.                                       |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `showSessionTokens`           | `true`         | Show the `Session input/output tokens` section when session token data is available. When cached input is present, the section keeps the legacy `in/out` layout and appends cached input in parentheses next to the input amount.                                                                                   |
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |

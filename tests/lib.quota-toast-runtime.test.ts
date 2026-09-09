@@ -1,7 +1,7 @@
 import { rm } from "fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_CONFIG } from "../src/lib/types.js";
+import type { DEFAULT_CONFIG } from "../src/lib/types.js";
 import {
   createAlibabaAuthModuleMock,
   createPluginTestClient as createClient,
@@ -839,6 +839,65 @@ describe("quota toast runtime state machine", () => {
     expect(providerB.fetch).toHaveBeenCalledOnce();
     expect(getToastMessage(clientB)).toContain("Second config");
     expect(getToastMessage(clientB)).not.toContain("First config");
+  });
+
+  it("separates rendered-message cache entries for each display option", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+    const provider = {
+      id: "openai",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [
+          {
+            accounting: TEST_ACCOUNTING,
+            name: "OpenAI Weekly",
+            percentRemaining: 81,
+            resetTimeIso: "2026-01-17T15:14:00.000Z",
+          },
+        ],
+        errors: [],
+      }),
+    };
+    mocks.getProviders.mockReturnValue([provider]);
+
+    mocks.loadConfig.mockResolvedValueOnce(makeToastConfig());
+    const defaultClient = createClient();
+    const { runtime: defaultRuntime } = await createRuntime(defaultClient);
+    await defaultRuntime.handleTrigger({
+      sessionID: "session-display-cache",
+      trigger: "session.idle",
+    });
+    expect(getToastMessage(defaultClient)).toContain("81% left");
+    expect(getToastMessage(defaultClient)).toContain("2d5h14m");
+
+    mocks.loadConfig.mockResolvedValueOnce(makeToastConfig({ resetTimeSpaced: true }));
+    const spacedClient = createClient();
+    const { runtime: spacedRuntime } = await createRuntime(spacedClient);
+    await spacedRuntime.handleTrigger({
+      sessionID: "session-display-cache",
+      trigger: "session.idle",
+    });
+    expect(getToastMessage(spacedClient)).toContain("81% left");
+    expect(getToastMessage(spacedClient)).toContain("2d 5h 14m");
+
+    mocks.loadConfig.mockResolvedValueOnce(
+      makeToastConfig({ percentDisplayMode: "used", percentLabelStyle: "bare" }),
+    );
+    const bareClient = createClient();
+    const { runtime: bareRuntime } = await createRuntime(bareClient);
+    await bareRuntime.handleTrigger({
+      sessionID: "session-display-cache",
+      trigger: "session.idle",
+    });
+    expect(getToastMessage(bareClient)).toContain("19%");
+    expect(getToastMessage(bareClient)).not.toContain("19% used");
+    expect(bareClient.tui.showToast).toHaveBeenCalledWith({
+      body: expect.objectContaining({ title: "Quota [Used]" }),
+    });
+
+    expect(provider.fetch).toHaveBeenCalledTimes(3);
   });
 
   it("emits reset text only from a fresh collection", async () => {

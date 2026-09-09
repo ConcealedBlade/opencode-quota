@@ -92,10 +92,11 @@ function getWindowLabel(entry: QuotaToastEntry): { text: string; isWindow: boole
 
 function formatCompactValueEntrySegment(
   entry: Extract<QuotaToastEntry, { kind: "value" }>,
+  resetTimeSpaced?: boolean,
 ): string | null {
   const name = getProviderName(entry);
   const value = compactText(entry.value);
-  const reset = formatResetCountdown(entry.resetTimeIso);
+  const reset = formatResetCountdown(entry.resetTimeIso, { spaced: resetTimeSpaced });
   const segment = [name, value, reset].filter(Boolean).join(" - ");
   return segment || null;
 }
@@ -135,6 +136,7 @@ function buildSemanticCandidate(
   entry: QuotaToastEntry,
   percentDisplayMode: QuotaToastConfig["percentDisplayMode"],
   accountingDetail: QuotaToastConfig["accountingDetail"],
+  resetTimeSpaced?: boolean,
 ): CompactCandidate | null {
   if (!entry.semantic) return null;
   const shouldRequestBasis =
@@ -159,7 +161,9 @@ function buildSemanticCandidate(
   const label = compactText(interpretation.label);
   const prefix = compactText([provider, label].filter(Boolean).join(": "));
   const displayValue = compactText(
-    [value, formatResetCountdown(entry.resetTimeIso)].filter(Boolean).join(" "),
+    [value, formatResetCountdown(entry.resetTimeIso, { spaced: resetTimeSpaced })]
+      .filter(Boolean)
+      .join(" "),
   );
   const segment = compactText([prefix, displayValue].filter(Boolean).join(" "));
   if (!segment) return null;
@@ -183,6 +187,7 @@ function formatCompactEntryCandidates(params: {
   entries: QuotaRenderData["entries"];
   percentDisplayMode: QuotaToastConfig["percentDisplayMode"];
   accountingDetail: QuotaToastConfig["accountingDetail"];
+  resetTimeSpaced?: boolean;
 }): CompactCandidate[] {
   const semantic: CompactCandidate[] = [];
   const groups = new Map<string, CompactPercentGroup>();
@@ -194,13 +199,14 @@ function formatCompactEntryCandidates(params: {
         entry,
         params.percentDisplayMode,
         params.accountingDetail,
+        params.resetTimeSpaced,
       );
       if (candidate) semantic.push(candidate);
       continue;
     }
 
     if (isValueEntry(entry)) {
-      const segment = formatCompactValueEntrySegment(entry);
+      const segment = formatCompactValueEntrySegment(entry, params.resetTimeSpaced);
       if (segment) pendingLegacy.push({ kind: "value", segment });
       continue;
     }
@@ -210,7 +216,7 @@ function formatCompactEntryCandidates(params: {
     const value = compactText(
       [
         formatCompactPercentLabel(entry.percentRemaining, params.percentDisplayMode),
-        formatResetCountdown(entry.resetTimeIso),
+        formatResetCountdown(entry.resetTimeIso, { spaced: params.resetTimeSpaced }),
       ]
         .filter(Boolean)
         .join(" "),
@@ -358,6 +364,7 @@ export function buildCompactQuotaStatusLine(params: {
   data: QuotaRenderData;
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
+  resetTimeSpaced?: boolean;
   maxWidth: number;
 }): string {
   const maxWidth = normalizeMaxWidth(params.maxWidth);
@@ -370,6 +377,7 @@ export function buildCompactQuotaStatusLine(params: {
     entries: data.entries,
     percentDisplayMode,
     accountingDetail,
+    resetTimeSpaced: params.resetTimeSpaced,
   });
   const sessionTokensSegment = formatCompactSessionTokensSegment(data);
   if (sessionTokensSegment) {

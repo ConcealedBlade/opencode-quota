@@ -487,4 +487,32 @@ describe("formatQuotaCommand", () => {
     expect(metric).not.toContain("```");
     expect(Array.from(metric).length).toBeLessThanOrEqual(76);
   });
+
+  it("uses a report heading to disambiguate bare used labels and spaces reset units", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    const out = formatQuotaCommand({
+      entries: [
+        {
+          accounting: accounting("quota"),
+          name: "OpenAI (Pro) Weekly",
+          group: "OpenAI (Pro)",
+          label: "Weekly:",
+          percentRemaining: 81,
+          resetTimeIso: "2026-01-18T17:14:00.000Z",
+        },
+      ],
+      errors: [],
+      percentDisplayMode: "used",
+      percentLabelStyle: "bare",
+      resetTimeSpaced: true,
+      generatedAtMs: Date.now(),
+    });
+
+    expect(out.split("\n")[0]).toMatch(/^Quota \[Used\] \(\/quota\) /u);
+    expect(out).toContain("19%");
+    expect(out).not.toContain("19% used");
+    expect(out).toContain("reset 3d 5h 14m");
+  });
 });

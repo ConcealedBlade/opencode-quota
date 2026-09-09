@@ -10,8 +10,10 @@ import type { JSX } from "@opentui/solid";
 import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import {
   formatDisplayedPercentLabel,
+  formatQuotaModeHeading,
   formatResetCountdown,
   isResetTimeDecimals,
+  resolveDisplayedPercent,
 } from "./lib/format-utils.js";
 import {
   buildQuotaDialogCommandOutput,
@@ -377,13 +379,19 @@ function SidebarContentView(props: {
 
   const toggleIcon = () => (collapsed() ? "▶" : "▼");
   const providerCount = () => panel().providerCount ?? 0;
+  const headerText = () => {
+    const heading = panel().headerPercentMode
+      ? formatQuotaModeHeading(panel().headerPercentMode)
+      : "Quota";
+    return hasDetailLines() ? `${toggleIcon()} ${heading}` : heading;
+  };
 
   return (
     <Show when={shouldRenderSidebarPanel(panel())}>
       <box gap={0}>
         <box flexDirection="row">
           <text fg={props.api.theme.current.text} onMouseDown={toggleCollapsed}>
-            <b>{hasDetailLines() ? `${toggleIcon()} Quota` : "Quota"}</b>
+            <b>{headerText()}</b>
           </text>
           <Show when={collapsed() && providerCount() > 0}>
             <text fg={props.api.theme.current.textMuted}> ({providerCount()} providers)</text>
@@ -524,7 +532,7 @@ function buildPromptBarParts(params: {
         entry.resetTimeIso,
         isResetTimeDecimals(bar.resetTimeDecimals)
           ? { compactRounded: true, decimals: bar.resetTimeDecimals }
-          : undefined,
+          : { spaced: bar.resetTimeSpaced },
       )
     : "";
 
@@ -541,8 +549,12 @@ function buildPromptBarParts(params: {
   const percent = formatDisplayedPercentLabel(
     entry.percentRemaining ?? 0,
     bar.percentDisplayMode ?? "remaining",
+    "bare",
   );
-  const p = Math.max(0, Math.min(100, Math.round(entry.percentRemaining ?? 0)));
+  const p = Math.min(
+    100,
+    resolveDisplayedPercent(entry.percentRemaining ?? 0, bar.percentDisplayMode ?? "remaining"),
+  );
   const filled = Math.round((p / 100) * PROMPT_BAR_WIDTH);
   const empty = PROMPT_BAR_WIDTH - filled;
   let barText = "█".repeat(filled) + "░".repeat(empty);
@@ -559,9 +571,7 @@ function buildPromptBarParts(params: {
   return {
     label: windowLabel,
     barText,
-    meta: entry.semanticSegment
-      ? reset
-      : [percent.replace(/\s+left$/u, ""), reset].filter(Boolean).join(" | "),
+    meta: entry.semanticSegment ? reset : [percent, reset].filter(Boolean).join(" | "),
   };
 }
 

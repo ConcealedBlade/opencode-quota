@@ -28,6 +28,29 @@ describe("buildCompactQuotaStatusLine", () => {
     expect(line).toBe("OpenAI Weekly 50% 2d5h14m");
   });
 
+  it("spaces exact compound resets while keeping compact percentages bare", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+
+    const line = buildCompactQuotaStatusLine({
+      percentDisplayMode: "used",
+      resetTimeSpaced: true,
+      maxWidth: 96,
+      data: {
+        entries: [
+          {
+            name: "OpenAI Weekly",
+            percentRemaining: 81,
+            resetTimeIso: "2026-01-17T15:14:00.000Z",
+          },
+        ],
+        errors: [],
+      },
+    });
+
+    expect(line).toBe("OpenAI Weekly 19% 2d 5h 14m");
+  });
+
   it("renders expired provider resets once", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
