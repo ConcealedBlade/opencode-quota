@@ -681,6 +681,7 @@ function parseOpenRouterKeyV1(
     (limit !== null &&
       limit !== undefined &&
       (typeof limit !== "number" || !Number.isFinite(limit) || limit < 0)) ||
+    (remaining === null && limit !== null) ||
     (remaining !== null &&
       remaining !== undefined &&
       (typeof remaining !== "number" || !Number.isFinite(remaining)))
