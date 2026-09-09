@@ -25,6 +25,7 @@ import {
 import { getQuotaProviderShape, normalizeQuotaProviderId } from "./provider-metadata.js";
 import { projectQuotaProviderResults } from "./quota-accounting-projection.js";
 import { classifyQuotaWindowText } from "./quota-entry-display.js";
+import { compareQuotaRunwayUrgency } from "./quota-exhaustion-projection.js";
 import {
   buildQuotaExport,
   createExportProviderContext,
@@ -365,6 +366,7 @@ function buildSidebarPanelFromData(params: {
               preferredWindowsByResultIndex: new Map([
                 [openCodeGoResultIndex, OPENCODE_GO_ACCOUNTING_WINDOWS[preferredWindowKey]],
               ]),
+              quotaProjection: params.runtime.config.quotaProjection,
             },
           ),
         }
@@ -468,6 +470,7 @@ function buildSemanticPromptBarEntry(
     semanticSegment,
     ...(isPercentEntry(entry) ? { percentRemaining: entry.percentRemaining } : {}),
     ...(entry.resetTimeIso ? { resetTimeIso: entry.resetTimeIso } : {}),
+    ...(isPercentEntry(entry) && entry.runway ? { runway: entry.runway } : {}),
   };
 }
 
@@ -478,6 +481,25 @@ function pickPromptBarEntry(
   if (!data || !Array.isArray(data.entries)) {
     return undefined;
   }
+
+  const projected = data.entries
+    .map((entry, index) => ({
+      entry,
+      index,
+      promptEntry: buildSemanticPromptBarEntry(entry, percentDisplayMode) ?? entry,
+    }))
+    .filter(
+      ({ entry }) =>
+        isPercentEntry(entry) && Number.isFinite(entry.percentRemaining) && Boolean(entry.runway),
+    )
+    .sort(
+      (left, right) =>
+        compareQuotaRunwayUrgency(
+          isPercentEntry(left.entry) ? left.entry.runway : undefined,
+          isPercentEntry(right.entry) ? right.entry.runway : undefined,
+        ) || left.index - right.index,
+    );
+  if (projected[0]) return projected[0].promptEntry;
 
   for (const entry of data.entries) {
     const semantic = buildSemanticPromptBarEntry(entry, percentDisplayMode);

@@ -851,10 +851,20 @@ describe("quota toast runtime state machine", () => {
         attempted: true,
         entries: [
           {
-            accounting: TEST_ACCOUNTING,
+            accounting: {
+              ...TEST_ACCOUNTING,
+              observedAtIso: "2026-01-15T10:00:00.000Z",
+            },
             name: "OpenAI Weekly",
             percentRemaining: 81,
             resetTimeIso: "2026-01-17T15:14:00.000Z",
+            fixedWindow: {
+              kind: "fixed_window",
+              startedAtIso: "2026-01-15T09:00:00.000Z",
+              observedAtIso: "2026-01-15T10:00:00.000Z",
+              endsAtIso: "2026-01-17T15:14:00.000Z",
+              fullReset: true,
+            },
           },
         ],
         errors: [],
@@ -897,7 +907,17 @@ describe("quota toast runtime state machine", () => {
       body: expect.objectContaining({ title: "Quota [Used]" }),
     });
 
-    expect(provider.fetch).toHaveBeenCalledTimes(3);
+    mocks.loadConfig.mockResolvedValueOnce(makeToastConfig({ quotaProjection: "runway" }));
+    const runwayClient = createClient();
+    const { runtime: runwayRuntime } = await createRuntime(runwayClient);
+    await runwayRuntime.handleTrigger({
+      sessionID: "session-display-cache",
+      trigger: "session.idle",
+    });
+    expect(getToastMessage(runwayClient)).toContain("Runs out");
+    expect(getToastMessage(defaultClient)).not.toContain("Runs out");
+
+    expect(provider.fetch).toHaveBeenCalledTimes(4);
   });
 
   it("emits reset text only from a fresh collection", async () => {

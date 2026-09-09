@@ -250,6 +250,7 @@ export function createQuotaToastRuntime(
       config.onlyCurrentModel && params.sessionID ? (params.sessionMeta?.providerID ?? "") : "";
     const renderIdentity = JSON.stringify({
       accountingDetail: config.accountingDetail,
+      quotaProjection: config.quotaProjection,
       percentLabelStyle: config.percentLabelStyle,
       resetTimeDecimals: config.resetTimeDecimals,
       resetTimeSpaced: config.resetTimeSpaced,

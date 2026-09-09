@@ -12,6 +12,7 @@
  */
 
 import { sanitizeSingleLineDisplaySnippet } from "./display-sanitize.js";
+import type { FixedWindowProjectionEvidence } from "./entries.js";
 import { clampPercent } from "./format-utils.js";
 import { fetchWithTimeout } from "./http.js";
 import { readAuthFile, readAuthFileCached } from "./opencode-auth.js";
@@ -33,6 +34,7 @@ export type XaiLabel = "xAI Lite" | "xAI SuperGrok" | "xAI Heavy";
 export interface XaiWindowValue {
   percentRemaining: number;
   resetTimeIso?: string;
+  fixedWindow?: FixedWindowProjectionEvidence;
   kind: XaiPeriodKind;
 }
 
@@ -127,7 +129,7 @@ export async function resolveXaiAuthIdentity(): Promise<ResolvedAuthIdentity | n
   });
 }
 
-function parseCreditsWindow(payload: unknown): XaiWindowValue | null {
+function parseCreditsWindow(payload: unknown, observedAtMs: number): XaiWindowValue | null {
   if (!isRecord(payload) || !isRecord(payload.config)) {
     throw new Error("xAI credits response returned an unexpected response shape");
   }
@@ -153,9 +155,26 @@ function parseCreditsWindow(payload: unknown): XaiWindowValue | null {
   // current period means 0% used rather than missing quota.
   const usedPercent = hasUsage ? (config.creditUsagePercent as number) : 0;
 
+  const startedAtIso = isoOrUndefined(period?.start);
+  const periodEndsAtIso = isoOrUndefined(period?.end);
+  const resetTimeIso = periodEndsAtIso ?? isoOrUndefined(config.billingPeriodEnd);
+  const startedAtMs = startedAtIso ? Date.parse(startedAtIso) : Number.NaN;
+  const endsAtMs = periodEndsAtIso ? Date.parse(periodEndsAtIso) : Number.NaN;
+  const fixedWindow =
+    Number.isFinite(startedAtMs) && startedAtMs < observedAtMs && observedAtMs < endsAtMs
+      ? ({
+          kind: "fixed_window",
+          startedAtIso: new Date(startedAtMs).toISOString(),
+          observedAtIso: new Date(observedAtMs).toISOString(),
+          endsAtIso: new Date(endsAtMs).toISOString(),
+          fullReset: true,
+        } as const)
+      : undefined;
+
   return {
     percentRemaining: clampPercent(100 - usedPercent),
-    resetTimeIso: isoOrUndefined(period?.end) ?? isoOrUndefined(config.billingPeriodEnd),
+    resetTimeIso,
+    ...(fixedWindow ? { fixedWindow } : {}),
     kind: periodKindFromType(period?.type),
   };
 }
@@ -269,7 +288,8 @@ export async function queryXaiQuota(
           };
         }
 
-        const window = parseCreditsWindow(await response.json());
+        const payload = await response.json();
+        const window = parseCreditsWindow(payload, Date.now());
         if (!window) return { success: false, error: "No weekly quota data" };
 
         return { success: true, window };

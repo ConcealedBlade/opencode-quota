@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import { sanitizeDisplayText } from "../lib/display-sanitize.js";
 import type {
   AccountingMetadata,
+  FixedWindowProjectionEvidence,
   QuotaProviderPresentation,
   QuotaProviderResult,
   QuotaProviderStatusDetail,
@@ -174,6 +175,7 @@ export function groupedPercentWindowEntries(params: {
     window?: {
       percentRemaining: number;
       resetTimeIso?: string;
+      fixedWindow?: FixedWindowProjectionEvidence;
     };
     suffix: string;
     label: string;
@@ -192,6 +194,7 @@ export function groupedPercentWindowEntries(params: {
       label,
       percentRemaining: window.percentRemaining,
       resetTimeIso: window.resetTimeIso,
+      ...(window.fixedWindow ? { fixedWindow: { ...window.fixedWindow } } : {}),
     });
   }
 

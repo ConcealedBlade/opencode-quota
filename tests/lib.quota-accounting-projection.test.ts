@@ -497,6 +497,54 @@ describe("projectQuotaProviderResults", () => {
     expect(second[0]?.accounting).not.toBe(first[0]?.accounting);
   });
 
+  it("adds runway only after window selection and leaves default-off output unchanged", () => {
+    const fixed = {
+      accounting: TEST_ACCOUNTING,
+      name: "Fixed Daily",
+      label: "Daily:",
+      percentRemaining: 55,
+      resetTimeIso: "2026-09-09T05:00:00.000Z",
+      fixedWindow: {
+        kind: "fixed_window",
+        startedAtIso: "2026-09-09T00:00:00.000Z",
+        observedAtIso: "2026-09-09T01:30:00.000Z",
+        endsAtIso: "2026-09-09T05:00:00.000Z",
+        fullReset: true,
+      },
+    } as const satisfies QuotaToastEntry;
+    const rolling = {
+      accounting: TEST_ACCOUNTING,
+      name: "Rolling Weekly",
+      label: "Weekly:",
+      percentRemaining: 80,
+      resetTimeIso: "2026-09-10T00:00:00.000Z",
+    } as const satisfies QuotaToastEntry;
+    const source = result([fixed, rolling]);
+
+    const disabled = projectQuotaProviderResults([source], "allWindows", "summary", {
+      nowMs: Date.parse("2026-09-09T01:30:00.000Z"),
+    });
+    expect(disabled).toEqual([fixed, rolling]);
+    expect(disabled.every((entry) => !("runway" in entry))).toBe(true);
+
+    const allWindows = projectQuotaProviderResults([source], "allWindows", "summary", {
+      quotaProjection: "runway",
+      nowMs: Date.parse("2026-09-09T01:30:00.000Z"),
+    });
+    expect(allWindows[0]).toMatchObject({
+      runway: { kind: "before_reset", projectedAtIso: "2026-09-09T03:20:00.000Z" },
+    });
+    expect(allWindows[1]).not.toHaveProperty("runway");
+
+    const single = projectQuotaProviderResults([source], "singleWindow", "summary", {
+      quotaProjection: "runway",
+      nowMs: Date.parse("2026-09-09T01:30:00.000Z"),
+    });
+    expect(single).toHaveLength(1);
+    expect(single[0]).toHaveProperty("runway.kind", "before_reset");
+    expect(source.entries.every((entry) => !("runway" in entry))).toBe(true);
+  });
+
   it("returns no entries for empty results and empty provider entry arrays", () => {
     expect(projectQuotaProviderResults([], "singleWindow", "summary")).toEqual([]);
     expect(projectQuotaProviderResults([result([])], "allWindows", "detailed")).toEqual([]);

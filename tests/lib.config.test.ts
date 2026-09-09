@@ -860,6 +860,26 @@ describe("loadConfig", () => {
     expect(invalid.config.percentDisplayMode).toBe("remaining");
   });
 
+  it("defaults quotaProjection to off and accepts only runway", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.quotaProjection).toBeUndefined();
+
+    const configured = await loadSdkConfig({ quotaProjection: "runway" });
+    expect(configured.config.quotaProjection).toBe("runway");
+    expect(configured.meta.settingSources).toEqual({
+      quotaProjection: "client.config.get",
+    });
+
+    for (const invalid of ["trend", true, 1, null]) {
+      const rejected = await loadSdkConfig({ quotaProjection: invalid });
+      expect(rejected.config.quotaProjection).toBeUndefined();
+      expect(rejected.meta.settingSources).not.toHaveProperty("quotaProjection");
+      expect(rejected.meta.configIssues).toEqual([
+        expect.objectContaining({ key: "quotaProjection", message: 'expected "runway"' }),
+      ]);
+    }
+  });
+
   it("defaults percentLabelStyle to unset and accepts full or bare overrides", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.percentLabelStyle).toBeUndefined();

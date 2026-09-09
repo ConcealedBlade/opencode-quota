@@ -9,7 +9,7 @@
 
 import { type AccountingRowInterpretation, interpretAccountingRow } from "./accounting-format.js";
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
-import { isValueEntry } from "./entries.js";
+import { isPercentEntry, isValueEntry } from "./entries.js";
 import {
   bar,
   formatDisplayedPercentLabel,
@@ -24,6 +24,7 @@ import {
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import { classifyQuotaWindowText, type QuotaWindowKind } from "./quota-entry-display.js";
+import { formatQuotaRunway } from "./quota-exhaustion-projection.js";
 import {
   type ReportDocument,
   type ReportSection,
@@ -97,10 +98,20 @@ function formatCommandDetails(
 ): string {
   const right = entry.right?.trim();
   const reset = formatCommandReset(entry.resetTimeIso, resetTimeSpaced);
-  if (right && reset) return ` | ${padRight(right, rightWidth)} | ${reset}`;
-  if (right) return ` | ${right}`;
-  if (reset) return ` | ${reset}`;
-  return "";
+  const runway = isPercentEntry(entry) ? formatQuotaRunway(entry.runway) : "";
+  if (!runway) {
+    if (right && reset) return ` | ${padRight(right, rightWidth)} | ${reset}`;
+    if (right) return ` | ${right}`;
+    if (reset) return ` | ${reset}`;
+    return "";
+  }
+
+  const details = [
+    ...(right ? [padRight(right, rightWidth)] : []),
+    ...(reset ? [reset] : []),
+    `Runs out ${runway}`,
+  ];
+  return ` | ${details.join(" | ")}`;
 }
 
 function getCommandBasisLines(basis: AccountingRowInterpretation["basis"]): string[] {

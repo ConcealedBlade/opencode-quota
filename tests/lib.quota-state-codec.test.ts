@@ -174,6 +174,61 @@ describe("quota-state codec", () => {
     expect(normalized?.diagnostics?.[0]?.checkedPaths).toEqual(["env:SYNTHETIC_API_KEY"]);
   });
 
+  it("clones and round-trips fixed-window evidence but rejects presentation projections", () => {
+    const input = createValidResult();
+    const percentEntry = input.entries[0] as any;
+    percentEntry.fixedWindow = {
+      kind: "fixed_window",
+      startedAtIso: "2026-08-01T00:00:00.000Z",
+      observedAtIso: "2026-08-21T12:34:56.000Z",
+      endsAtIso: "2026-09-01T00:00:00.000Z",
+      fullReset: true,
+    };
+
+    const normalized = normalizeQuotaProviderResult(input);
+    expect((normalized?.entries[0] as any).fixedWindow).toEqual(percentEntry.fixedWindow);
+    expect((normalized?.entries[0] as any).fixedWindow).not.toBe(percentEntry.fixedWindow);
+
+    const decoded = decodePersistedQuotaProviderCacheEntry(
+      cloneJson(createEnvelope(input)),
+      EXPECTED_IDENTITY,
+    );
+    expect((decoded?.result.entries[0] as any).fixedWindow).toEqual(percentEntry.fixedWindow);
+
+    percentEntry.runway = {
+      kind: "before_reset",
+      projectedAtIso: "2026-08-25T00:00:00.000Z",
+    };
+    expectInvalidResult(input);
+  });
+
+  it.each([
+    ["missing reset", (entry: any) => delete entry.resetTimeIso],
+    [
+      "end/reset mismatch",
+      (entry: any) => (entry.fixedWindow.endsAtIso = "2026-09-02T00:00:00.000Z"),
+    ],
+    [
+      "zero elapsed",
+      (entry: any) => (entry.fixedWindow.startedAtIso = entry.fixedWindow.observedAtIso),
+    ],
+    ["wrong discriminant", (entry: any) => (entry.fixedWindow.kind = "rolling")],
+    ["no full reset", (entry: any) => (entry.fixedWindow.fullReset = false)],
+    ["extra evidence key", (entry: any) => (entry.fixedWindow.extra = true)],
+  ])("rejects malformed fixed-window evidence: %s", (_label, mutate) => {
+    const input = createValidResult();
+    const entry = input.entries[0] as any;
+    entry.fixedWindow = {
+      kind: "fixed_window",
+      startedAtIso: "2026-08-01T00:00:00.000Z",
+      observedAtIso: "2026-08-21T12:34:56.000Z",
+      endsAtIso: "2026-09-01T00:00:00.000Z",
+      fullReset: true,
+    };
+    mutate(entry);
+    expectInvalidResult(input);
+  });
+
   it("normalizes and round-trips over-quota remaining basis values", () => {
     const input = createValidResult();
     const percentEntry = input.entries[0] as any;
@@ -457,7 +512,8 @@ describe("quota-state codec", () => {
 
   it.each([
     ["V1", { version: 1 }],
-    ["future versions", { version: 3 }],
+    ["V2", { version: 2 }],
+    ["future versions", { version: 4 }],
     ["package identity", { packageVersion: "4.2.1" }],
     ["cache key identity", { key: "other" }],
     ["provider identity", { providerId: "other" }],

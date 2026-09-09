@@ -113,6 +113,8 @@ export interface QuotaToastConfig {
   formatStyle: QuotaFormatStyle;
   /** Shared percent meaning for popup toasts and the TUI sidebar. */
   percentDisplayMode: PercentDisplayMode;
+  /** Optional fixed-window quota exhaustion projection. Unset keeps it disabled. */
+  quotaProjection?: "runway";
   /** Optional suffix style for percentage labels. Unset preserves full labels. */
   percentLabelStyle?: PercentLabelStyle;
   /** Whether human surfaces include supplementary semantic accounting rows. */

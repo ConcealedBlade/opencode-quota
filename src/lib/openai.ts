@@ -6,6 +6,7 @@
  */
 
 import { sanitizeDisplayText } from "./display-sanitize.js";
+import type { FixedWindowProjectionEvidence } from "./entries.js";
 import { clampPercent } from "./format-utils.js";
 import { fetchWithTimeout } from "./http.js";
 import { readAuthFileCached } from "./opencode-auth.js";
@@ -71,6 +72,7 @@ type OpenAIWindowKind = "hourly" | "weekly" | "monthly";
 type OpenAIWindowValue = {
   percentRemaining: number;
   resetTimeIso?: string;
+  fixedWindow?: FixedWindowProjectionEvidence;
 };
 
 const WINDOW_KIND_BY_DURATION: Readonly<Record<number, OpenAIWindowKind>> = {
@@ -86,11 +88,11 @@ function isoFromMilliseconds(milliseconds: number): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-function resetIsoFromNowSeconds(seconds: unknown): string | undefined {
+function resetIsoFromNowSeconds(seconds: unknown, observedAtMs: number): string | undefined {
   if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
     return undefined;
   }
-  return isoFromMilliseconds(Date.now() + Math.round(seconds * 1000));
+  return isoFromMilliseconds(observedAtMs + Math.round(seconds * 1000));
 }
 
 function resetIsoFromResetAt(resetAt: unknown): string | undefined {
@@ -100,7 +102,7 @@ function resetIsoFromResetAt(resetAt: unknown): string | undefined {
   return isoFromMilliseconds(Math.round(resetAt * 1000));
 }
 
-function parseWindowValue(window: unknown): OpenAIWindowValue | null {
+function parseWindowValue(window: unknown, observedAtMs: number): OpenAIWindowValue | null {
   if (!window || typeof window !== "object") return null;
 
   const value = window as Record<string, unknown>;
@@ -111,11 +113,15 @@ function parseWindowValue(window: unknown): OpenAIWindowValue | null {
   return {
     percentRemaining: clampPercent(100 - value.used_percent),
     resetTimeIso:
-      resetIsoFromResetAt(value.reset_at) ?? resetIsoFromNowSeconds(value.reset_after_seconds),
+      resetIsoFromResetAt(value.reset_at) ??
+      resetIsoFromNowSeconds(value.reset_after_seconds, observedAtMs),
   };
 }
 
-function parseRemainingWindowValue(window: unknown): OpenAIWindowValue | null {
+function parseRemainingWindowValue(
+  window: unknown,
+  observedAtMs: number,
+): OpenAIWindowValue | null {
   if (!window || typeof window !== "object") return null;
 
   const value = window as Record<string, unknown>;
@@ -126,12 +132,14 @@ function parseRemainingWindowValue(window: unknown): OpenAIWindowValue | null {
   return {
     percentRemaining: clampPercent(value.remaining_percent),
     resetTimeIso:
-      resetIsoFromResetAt(value.reset_at) ?? resetIsoFromNowSeconds(value.reset_after_seconds),
+      resetIsoFromResetAt(value.reset_at) ??
+      resetIsoFromNowSeconds(value.reset_after_seconds, observedAtMs),
   };
 }
 
 function parseRateLimitWindow(
   window: unknown,
+  observedAtMs: number,
 ): { kind: OpenAIWindowKind; value: OpenAIWindowValue } | null {
   if (!window || typeof window !== "object") return null;
 
@@ -143,8 +151,21 @@ function parseRateLimitWindow(
   const kind = WINDOW_KIND_BY_DURATION[raw.limit_window_seconds];
   if (!kind) return null;
 
-  const value = parseWindowValue(window);
-  return value ? { kind, value } : null;
+  const value = parseWindowValue(window, observedAtMs);
+  if (!value) return null;
+
+  const endsAtMs = value.resetTimeIso ? Date.parse(value.resetTimeIso) : Number.NaN;
+  const startedAtMs = endsAtMs - raw.limit_window_seconds * 1000;
+  if (Number.isFinite(startedAtMs) && startedAtMs < observedAtMs && observedAtMs < endsAtMs) {
+    value.fixedWindow = {
+      kind: "fixed_window",
+      startedAtIso: new Date(startedAtMs).toISOString(),
+      observedAtIso: new Date(observedAtMs).toISOString(),
+      endsAtIso: new Date(endsAtMs).toISOString(),
+      fullReset: true,
+    };
+  }
+  return { kind, value };
 }
 
 function derivePlanLabel(planType: string | undefined): string {
@@ -305,10 +326,17 @@ export async function queryOpenAIQuota(
         }
 
         const data = (await resp.json()) as OpenAIUsageResponse;
-        const primary = parseRateLimitWindow(data.rate_limit?.primary_window);
-        const secondary = parseRateLimitWindow(data.rate_limit?.secondary_window);
-        const individualLimit = parseRemainingWindowValue(data.spend_control?.individual_limit);
-        const codeReview = parseWindowValue(data.code_review_rate_limit?.primary_window);
+        const observedAtMs = Date.now();
+        const primary = parseRateLimitWindow(data.rate_limit?.primary_window, observedAtMs);
+        const secondary = parseRateLimitWindow(data.rate_limit?.secondary_window, observedAtMs);
+        const individualLimit = parseRemainingWindowValue(
+          data.spend_control?.individual_limit,
+          observedAtMs,
+        );
+        const codeReview = parseWindowValue(
+          data.code_review_rate_limit?.primary_window,
+          observedAtMs,
+        );
         const credits = data.credits ?? null;
         const windows: {
           hourly?: OpenAIWindowValue;

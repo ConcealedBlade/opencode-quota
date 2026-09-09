@@ -41,6 +41,35 @@ export function padLeft(str: string, width: number): string {
   return " ".repeat(width - str.length) + str;
 }
 
+export function wrapDisplayText(text: string, maxWidth: number): string[] {
+  if (maxWidth <= 0) return [];
+  const words = text.trim().split(/\s+/u).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    if (word.length > maxWidth) {
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+      for (let offset = 0; offset < word.length; offset += maxWidth) {
+        lines.push(word.slice(offset, offset + maxWidth));
+      }
+      continue;
+    }
+    const next = line ? `${line} ${word}` : word;
+    if (next.length <= maxWidth) {
+      line = next;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 /**
  * Render a progress bar of filled/empty blocks.
  */

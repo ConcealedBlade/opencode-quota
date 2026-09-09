@@ -539,7 +539,16 @@ export async function collectQuotaRenderData(params: {
   });
 
   const style = params.formatStyle ?? params.config.formatStyle;
-  const entries = projectQuotaProviderResults(results, style, params.config.accountingDetail);
+  const projectionOptions = {
+    quotaProjection: params.config.quotaProjection,
+    nowMs: Date.now(),
+  } as const;
+  const entries = projectQuotaProviderResults(
+    results,
+    style,
+    params.config.accountingDetail,
+    projectionOptions,
+  );
   const errors = results.flatMap((result) => result.errors);
   const attemptedAny = results.some((result) => result.attempted);
 
@@ -591,7 +600,12 @@ export async function collectQuotaRenderData(params: {
     const allWindowsEntries =
       style === "allWindows"
         ? entries
-        : projectQuotaProviderResults(results, "allWindows", params.config.accountingDetail);
+        : projectQuotaProviderResults(
+            results,
+            "allWindows",
+            params.config.accountingDetail,
+            projectionOptions,
+          );
     allWindowsData = packageQuotaRenderData({
       entries: allWindowsEntries,
       errors: [...errors],
@@ -604,6 +618,7 @@ export async function collectQuotaRenderData(params: {
           results,
           "singleWindow",
           params.config.accountingDetail,
+          projectionOptions,
         ),
         errors: [...errors],
         sessionTokens,

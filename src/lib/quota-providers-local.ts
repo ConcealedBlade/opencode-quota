@@ -323,6 +323,19 @@ export function computeLocalQuotaProviderEstimate(params: {
     );
     const resetTimeIso =
       window.type === "utc-day" ? nextUtcMidnight(nowMs) : rollingReset(messages, window);
+    const fixedWindow =
+      window.type === "utc-day" &&
+      resetTimeIso !== undefined &&
+      sinceMs < params.state.updatedAt &&
+      params.state.updatedAt < Date.parse(resetTimeIso)
+        ? ({
+            kind: "fixed_window",
+            startedAtIso: new Date(sinceMs).toISOString(),
+            observedAtIso: new Date(params.state.updatedAt).toISOString(),
+            endsAtIso: resetTimeIso,
+            fullReset: true,
+          } as const)
+        : undefined;
 
     entries.push({
       accounting: {
@@ -340,6 +353,7 @@ export function computeLocalQuotaProviderEstimate(params: {
       right: `${messages.length}/${window.requestLimit}`,
       percentRemaining: percentRemaining(messages.length, window.requestLimit),
       ...(resetTimeIso ? { resetTimeIso } : {}),
+      ...(fixedWindow ? { fixedWindow } : {}),
     });
 
     if (window.usdBudget === undefined) continue;
@@ -379,6 +393,7 @@ export function computeLocalQuotaProviderEstimate(params: {
         kind: "percent",
         right: `${formatUsd(costUsd)}/${formatUsd(window.usdBudget)}`,
         percentRemaining: percentRemaining(costUsd, window.usdBudget),
+        ...(fixedWindow ? { fixedWindow } : {}),
       });
     }
   }

@@ -1,10 +1,11 @@
 import { interpretAccountingRow } from "./accounting-format.js";
 import { sanitizeQuotaRenderData, sanitizeSingleLineDisplayText } from "./display-sanitize.js";
-import type { QuotaToastEntry, QuotaToastError } from "./entries.js";
+import type { QuotaRunwayProjection, QuotaToastEntry, QuotaToastError } from "./entries.js";
 import { isPercentEntry, isValueEntry } from "./entries.js";
 import { formatDisplayedPercentLabel, formatResetCountdown } from "./format-utils.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import { extractSingleWindowWindowLabel } from "./quota-entry-display.js";
+import { compareQuotaRunwayUrgency, formatQuotaRunway } from "./quota-exhaustion-projection.js";
 import type { QuotaRenderData } from "./quota-render-data.js";
 import type { QuotaToastConfig } from "./types.js";
 
@@ -103,7 +104,12 @@ function formatCompactValueEntrySegment(
 
 type CompactPercentGroup = {
   provider: string;
-  windows: Array<{ label: string | null; value: string; isWindow: boolean }>;
+  windows: Array<{
+    label: string | null;
+    value: string;
+    isWindow: boolean;
+    runway?: QuotaRunwayProjection;
+  }>;
 };
 
 type CompactCandidate = {
@@ -111,12 +117,17 @@ type CompactCandidate = {
   prominence: 0 | 1;
   detail?: string;
   atomic?: { prefix: string; value: string };
+  fallbackSegment?: string;
+  fallbackAtomic?: { prefix: string; value: string };
+  runway?: QuotaRunwayProjection;
 };
 
 type PendingLegacySegment = { kind: "percent"; key: string } | { kind: "value"; segment: string };
 
-function formatCompactPercentGroupSegment(group: CompactPercentGroup): string | null {
-  const windows = group.windows;
+function formatCompactPercentGroupSegment(
+  group: CompactPercentGroup,
+  windows: CompactPercentGroup["windows"] = group.windows,
+): string | null {
   if (windows.length === 0) return null;
 
   const summary =
@@ -160,8 +171,13 @@ function buildSemanticCandidate(
   const provider = getProviderName(entry);
   const label = compactText(interpretation.label);
   const prefix = compactText([provider, label].filter(Boolean).join(": "));
+  const runway = isPercentEntry(entry) ? formatQuotaRunway(entry.runway) : "";
   const displayValue = compactText(
-    [value, formatResetCountdown(entry.resetTimeIso, { spaced: resetTimeSpaced })]
+    [
+      value,
+      formatResetCountdown(entry.resetTimeIso, { spaced: resetTimeSpaced }),
+      runway ? `r/o ${runway}` : "",
+    ]
       .filter(Boolean)
       .join(" "),
   );
@@ -176,6 +192,7 @@ function buildSemanticCandidate(
   return {
     segment,
     prominence: entry.semantic.prominence === "supplementary" ? 1 : 0,
+    ...(isPercentEntry(entry) && entry.runway ? { runway: entry.runway } : {}),
     ...(detail ? { detail } : {}),
     ...(interpretation.display.kind === "value" && interpretation.display.entryKind !== "value"
       ? { atomic: { prefix, value: displayValue } }
@@ -213,10 +230,12 @@ function formatCompactEntryCandidates(params: {
     if (!isPercentEntry(entry)) continue;
 
     const provider = getProviderName(entry);
+    const runway = formatQuotaRunway(entry.runway);
     const value = compactText(
       [
         formatCompactPercentLabel(entry.percentRemaining, params.percentDisplayMode),
         formatResetCountdown(entry.resetTimeIso, { spaced: params.resetTimeSpaced }),
+        runway ? `r/o ${runway}` : "",
       ]
         .filter(Boolean)
         .join(" "),
@@ -235,17 +254,44 @@ function formatCompactEntryCandidates(params: {
       label: label?.text ?? null,
       value,
       isWindow: label?.isWindow ?? false,
+      ...(entry.runway ? { runway: entry.runway } : {}),
     });
   }
 
   const legacy = pendingLegacy
-    .map((pending) =>
-      pending.kind === "value"
-        ? pending.segment
-        : formatCompactPercentGroupSegment(groups.get(pending.key)!),
-    )
-    .filter((segment): segment is string => Boolean(segment))
-    .map((segment): CompactCandidate => ({ segment, prominence: 0 }));
+    .map((pending): CompactCandidate | null => {
+      if (pending.kind === "value") return { segment: pending.segment, prominence: 0 };
+      const group = groups.get(pending.key)!;
+      const segment = formatCompactPercentGroupSegment(group);
+      if (!segment) return null;
+      const eligible = group.windows
+        .map((window, index) => ({ window, index }))
+        .filter(({ window }) => window.runway)
+        .sort(
+          (left, right) =>
+            compareQuotaRunwayUrgency(left.window.runway, right.window.runway) ||
+            left.index - right.index,
+        );
+      const urgent = eligible[0]?.window;
+      const fallbackValue = urgent
+        ? compactText([urgent.label, urgent.value].filter(Boolean).join(" ")) || undefined
+        : undefined;
+      const fallbackSegment = fallbackValue
+        ? compactText(`${group.provider} ${fallbackValue}`) || undefined
+        : undefined;
+      return {
+        segment,
+        prominence: 0,
+        ...(fallbackSegment && fallbackSegment !== segment && fallbackValue
+          ? {
+              fallbackSegment,
+              fallbackAtomic: { prefix: group.provider, value: fallbackValue },
+            }
+          : {}),
+        ...(urgent?.runway ? { runway: urgent.runway } : {}),
+      };
+    })
+    .filter((candidate): candidate is CompactCandidate => Boolean(candidate));
 
   return [...legacy, ...semantic]
     .map((candidate, index) => ({ candidate, index }))
@@ -275,8 +321,26 @@ function admitCompactCandidates(
   maxWidth: number,
 ): CompactCandidate[] {
   const admitted: CompactCandidate[] = [];
+  const fullLine = candidates.map((candidate) => candidate.segment).join(COMPACT_SEGMENT_SEPARATOR);
+  const ordered =
+    fullLine.length <= maxWidth
+      ? candidates
+      : candidates
+          .map((candidate, index) => ({ candidate, index }))
+          .sort((left, right) => {
+            if (left.candidate.runway && right.candidate.runway) {
+              return (
+                compareQuotaRunwayUrgency(left.candidate.runway, right.candidate.runway) ||
+                left.index - right.index
+              );
+            }
+            if (left.candidate.runway) return -1;
+            if (right.candidate.runway) return 1;
+            return left.index - right.index;
+          })
+          .map(({ candidate }) => candidate);
 
-  for (const candidate of candidates) {
+  for (const candidate of ordered) {
     const separatorWidth = admitted.length > 0 ? COMPACT_SEGMENT_SEPARATOR.length : 0;
     const usedWidth = admitted.reduce(
       (total, item, index) =>
@@ -288,6 +352,26 @@ function admitCompactCandidates(
 
     if (candidate.segment.length <= available) {
       admitted.push({ ...candidate });
+      continue;
+    }
+
+    if (candidate.fallbackSegment) {
+      if (candidate.fallbackSegment.length <= available) {
+        admitted.push({ ...candidate, segment: candidate.fallbackSegment });
+        continue;
+      }
+      if (admitted.length > 0) continue;
+
+      if (candidate.fallbackAtomic) {
+        const fitted = fitAtomicCandidate(candidate.fallbackAtomic, available);
+        if (fitted) {
+          admitted.push({ ...candidate, segment: fitted });
+          continue;
+        }
+      }
+
+      const truncated = truncateSingleLine(candidate.fallbackSegment, available);
+      if (truncated) admitted.push({ ...candidate, segment: truncated });
       continue;
     }
 

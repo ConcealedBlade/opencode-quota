@@ -179,6 +179,18 @@ describe("local quota provider state", () => {
         expect.objectContaining({ label: "Rolling:", right: "1/5" }),
       ]),
     );
+    const dailyEntry = result.entries.find((entry) => entry.label === "Daily:");
+    const rollingEntry = result.entries.find((entry) => entry.label === "Rolling:");
+    expect(dailyEntry).toMatchObject({
+      fixedWindow: {
+        kind: "fixed_window",
+        startedAtIso: "2026-07-16T00:00:00.000Z",
+        observedAtIso: "2026-07-16T12:00:00.000Z",
+        endsAtIso: "2026-07-17T00:00:00.000Z",
+        fullReset: true,
+      },
+    });
+    expect(rollingEntry).not.toHaveProperty("fixedWindow");
   });
 
   it("derives concurrent-session completions from the authoritative storage snapshot", async () => {
