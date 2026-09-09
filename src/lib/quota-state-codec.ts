@@ -9,8 +9,9 @@ import type {
   QuotaToastEntry,
 } from "./entries.js";
 import { cloneQuotaToastEntry } from "./entries.js";
+import { isFixedWindowProjectionEvidence } from "./quota-exhaustion-projection.js";
 
-export const QUOTA_PROVIDER_CACHE_VERSION = 2 as const;
+export const QUOTA_PROVIDER_CACHE_VERSION = 3 as const;
 
 export type PersistedQuotaProviderCacheEntry = {
   version: typeof QUOTA_PROVIDER_CACHE_VERSION;
@@ -292,10 +293,12 @@ function isQuotaToastEntry(value: unknown, safeText: boolean): value is QuotaToa
   }
   return (
     (value.kind === undefined || value.kind === "percent") &&
-    hasOnlyKeys(value, [...COMMON_ENTRY_KEYS, "percentRemaining", "basis"]) &&
+    hasOnlyKeys(value, [...COMMON_ENTRY_KEYS, "percentRemaining", "basis", "fixedWindow"]) &&
     typeof value.percentRemaining === "number" &&
     Number.isFinite(value.percentRemaining) &&
-    (value.basis === undefined || isAccountingPercentageBasis(value.basis, safeText))
+    (value.basis === undefined || isAccountingPercentageBasis(value.basis, safeText)) &&
+    (value.fixedWindow === undefined ||
+      isFixedWindowProjectionEvidence(value.fixedWindow, value.resetTimeIso as string | undefined))
   );
 }
 

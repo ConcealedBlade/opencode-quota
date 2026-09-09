@@ -213,6 +213,69 @@ describe("runCliShowCommand", () => {
     expect(stderr.output).toBe("");
   });
 
+  it("renders default-off runway in human-readable CLI output only when configured", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-09T10:00:00.000Z"));
+    const provider = {
+      id: "synthetic",
+      cachePolicy: { kind: "account-neutral" as const },
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [
+          {
+            accounting: {
+              ...TEST_ACCOUNTING,
+              observedAtIso: "2026-09-09T10:00:00.000Z",
+            },
+            name: "Synthetic Fixed Window",
+            percentRemaining: 55,
+            resetTimeIso: "2026-09-09T14:00:00.000Z",
+            fixedWindow: {
+              kind: "fixed_window",
+              startedAtIso: "2026-09-09T09:20:00.000Z",
+              observedAtIso: "2026-09-09T10:00:00.000Z",
+              endsAtIso: "2026-09-09T14:00:00.000Z",
+              fullReset: true,
+            },
+          },
+        ],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+
+    const run = async (quotaProjection?: "runway") => {
+      writeFileSync(
+        join(workspaceDir, "opencode.json"),
+        JSON.stringify({
+          experimental: {
+            quotaToast: {
+              enabledProviders: ["synthetic"],
+              ...(quotaProjection ? { quotaProjection } : {}),
+            },
+          },
+        }),
+        "utf8",
+      );
+      __resetQuotaStateForTests();
+      const stdout = createCaptureStream();
+      const stderr = createCaptureStream();
+      const code = await runCliShowCommand({
+        argv: [],
+        cwd: workspaceDir,
+        stdout: stdout.stream as any,
+        stderr: stderr.stream as any,
+      });
+      expect(code).toBe(0);
+      expect(stderr.output).toBe("");
+      return stdout.output;
+    };
+
+    expect(await run()).not.toContain("Runs out");
+    expect(await run("runway")).toContain("Runs out  ≈ 49m");
+  });
+
   it("renders two Antigravity account labels in human-readable CLI output", async () => {
     const provider = {
       id: "google-antigravity",

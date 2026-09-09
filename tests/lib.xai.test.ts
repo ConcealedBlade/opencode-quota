@@ -413,6 +413,45 @@ describe("queryXaiQuota", () => {
     });
   });
 
+  it("preserves explicit current-period start, observation, and end evidence", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T12:00:00.000Z"));
+    await mockConfiguredAuth();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          jsonResponse({
+            config: {
+              currentPeriod: {
+                type: "USAGE_PERIOD_TYPE_WEEKLY",
+                start: "2026-07-13T00:00:00Z",
+                end: "2026-07-20T00:00:00Z",
+              },
+              creditUsagePercent: 25,
+            },
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ subscriptions: [] })) as any,
+    );
+
+    await expect(queryXaiQuota()).resolves.toMatchObject({
+      success: true,
+      window: {
+        percentRemaining: 75,
+        resetTimeIso: "2026-07-20T00:00:00.000Z",
+        fixedWindow: {
+          kind: "fixed_window",
+          startedAtIso: "2026-07-13T00:00:00.000Z",
+          observedAtIso: "2026-07-15T12:00:00.000Z",
+          endsAtIso: "2026-07-20T00:00:00.000Z",
+          fullReset: true,
+        },
+      },
+    });
+  });
+
   it("uses the exact billingPeriodEnd reset fallback from the PR", async () => {
     await mockConfiguredAuth();
     vi.stubGlobal(

@@ -24,6 +24,7 @@ Strict `.json` files also work. Run `/quota_status` if you are unsure which file
 | Show every reset period                    | `formatStyle: "allWindows"`   |
 | Show one quota window per provider         | `formatStyle: "singleWindow"` |
 | Show quota used instead of left            | `percentDisplayMode: "used"`  |
+| Estimate when eligible fixed quota runs out | `quotaProjection: "runway"`   |
 | Show percentages without `left` or `used`   | `percentLabelStyle: "bare"`   |
 | Add spaces between reset countdown units    | `resetTimeSpaced: true`         |
 | Show supplementary accounting facts        | `accountingDetail: "detailed"` |
@@ -50,6 +51,8 @@ The installer chooses `allWindows` by default. If the setting is absent, the bui
   // Show every quota reset period as percentage remaining.
   "formatStyle": "allWindows",
   "percentDisplayMode": "remaining",
+  // Optional linear estimate for supported fixed windows. Off when omitted.
+  "quotaProjection": "runway",
   "percentLabelStyle": "bare",
   "resetTimeSpaced": true,
   "accountingDetail": "summary",
@@ -82,6 +85,24 @@ Restart OpenCode after changing the file.
 It applies to human output from `/quota`, terminal `show`, popup toasts, the TUI sidebar, Compact status, and the prompt bar below the input. Narrow, tiny, 36-column sidebar, and compact layouts can omit basis or supplementary detail rather than truncate a financial value. The prompt bar always keeps one primary row and omits supplementary rows and basis details.
 
 This setting is independent of `formatStyle`, which selects quota windows, and `percentDisplayMode`, which selects used or remaining percentage direction. Those display settings do not change provider input or cache identity. Changing only `accountingDetail` reprojects an available snapshot immediately; later collection still follows normal cache expiry, disabled-cache, and refresh rules. The words `Used`, `Limit`, and `Remaining` always keep their literal meanings in either percentage mode.
+
+### Estimate when fixed quota runs out
+
+`quotaProjection: "runway"` is optional and off by default. It adds a **Runs out** estimate to eligible percentage rows on shared Web/Desktop and TUI `/quota`, terminal `show`, popup toasts, the expanded Sidebar, Compact status, and the prompt bar.
+
+```jsonc
+{
+  "quotaProjection": "runway",
+}
+```
+
+The estimate is a straight-line average since the confirmed fixed window began: used percentage divided by elapsed time, then remaining percentage divided by that average rate. It is not a recent-rate forecast, trend, alert, budget, or prediction model. Changing `percentDisplayMode` between `remaining` and `used` does not change the calculation.
+
+The provider's exact reset countdown stays separate from the estimate. If the calculated exhaustion is before reset, full displays use **Runs out ≈ 1h 50m**; Compact status and the prompt bar use **r/o ≈ 1h 50m**, where `r/o` means “runs out.” The approximation marker always has one following space, duration units are spaced, and partial minutes round up. If current use would last through the reset, displays say **lasts past reset**.
+
+Availability is deliberately narrow. A row needs a finite percentage, its original observation time, a nonzero elapsed interval, and explicit fixed-window start, end/reset, and full-reset evidence. OpenAI's known API rate-limit windows, xAI periods with explicit `currentPeriod.start` and `currentPeriod.end`, Cursor cycles with `cursorBillingCycleStartDay`, Qwen's maintained UTC-day window, and configured `local-estimate` `utc-day` windows can qualify. Rolling windows, RPM rows, balance/status/unlimited rows, Cursor's calendar-month fallback, and windows inferred only from labels do not. Unsupported rows are simply unchanged.
+
+This option changes human presentation only. It reuses cached provider snapshots without another provider request, preserves the provider observation time, and does not add fields to JSON export v2.
 
 ### Notify when quota becomes available again
 
@@ -373,6 +394,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `requestTimeoutMs`            | `5000`         | Remote provider request timeout in milliseconds.                                                                                                                                                                                                                                                                    |
 | `formatStyle`                 | `singleWindow` | Shared quota reset-period display for TUI popup toasts, the Sidebar panel, and Compact status line unless a TUI surface override is set: `singleWindow` shows one reset period per provider; `allWindows` shows all reset periods per provider. Legacy `classic`/`grouped` aliases are still accepted.              |
 | `percentDisplayMode`          | `remaining`    | Percentage/bar direction across human surfaces: `remaining` shows the percentage left; `used` shows the percentage consumed. It does not rename literal basis facts.                                                                                                                                               |
+| `quotaProjection`             | unset          | Set to `"runway"` for a linear **Runs out** estimate on explicitly supported fixed, full-reset percentage windows. Off when unset; unsupported rows remain unchanged; JSON export v2 is unchanged.                                                                                                                |
 | `percentLabelStyle`           | unset          | Set to `bare` to remove `left` or `used` from full-report percentage labels. Full reports and the Sidebar name the direction in a `Quota [Remaining]` or `Quota [Used]` heading. `full` is also accepted. Unset keeps full labels.                                                                                  |
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for a largest-unit reset countdown override in popup toasts, the Sidebar panel, terminal `show`, and the prompt bar. Accepts integers `0`–`4`; when unset, the default shows exact remaining days, hours, and minutes as `DdHhMm`. |

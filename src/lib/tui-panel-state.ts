@@ -1,4 +1,5 @@
 import { sanitizeSingleLineDisplayText } from "./display-sanitize.js";
+import type { QuotaRunwayProjection } from "./entries.js";
 import type { PercentDisplayMode } from "./types.js";
 
 const SIDEBAR_LOADING_LINE = "Loading…";
@@ -32,6 +33,7 @@ export type PromptBarEntry = {
   name?: string;
   percentRemaining?: number;
   resetTimeIso?: string;
+  runway?: QuotaRunwayProjection;
 };
 
 export type PromptBarState =

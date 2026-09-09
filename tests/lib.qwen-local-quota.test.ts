@@ -62,7 +62,16 @@ describe("maintained local quota storage derivation", () => {
       recent: [NOW - 1_000],
       updatedAt: NOW,
     });
-    expect(computeQwenQuota({ state, nowMs: NOW }).day.used).toBe(1);
+    const quota = computeQwenQuota({ state, nowMs: NOW });
+    expect(quota.day.used).toBe(1);
+    expect(quota.day.fixedWindow).toEqual({
+      kind: "fixed_window",
+      startedAtIso: "2026-02-24T00:00:00.000Z",
+      observedAtIso: new Date(NOW).toISOString(),
+      endsAtIso: "2026-02-25T00:00:00.000Z",
+      fullReset: true,
+    });
+    expect(quota.rpm).not.toHaveProperty("fixedWindow");
     expect(writes).toEqual([state]);
   });
 

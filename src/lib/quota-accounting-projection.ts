@@ -9,6 +9,7 @@ import type {
 import { cloneQuotaToastEntry, isPercentEntry } from "./entries.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import { classifyQuotaWindowText, type QuotaWindowKind } from "./quota-entry-display.js";
+import { projectQuotaRunway } from "./quota-exhaustion-projection.js";
 import type { QuotaFormatStyle } from "./quota-format-style.js";
 import { getQuotaFormatStyleDefinition } from "./quota-format-style.js";
 import type { QuotaToastConfig } from "./types.js";
@@ -369,9 +370,11 @@ export function projectQuotaProviderResults(
   accountingDetail: QuotaToastConfig["accountingDetail"],
   options?: {
     preferredWindowsByResultIndex?: ReadonlyMap<number, AccountingWindow>;
+    quotaProjection?: QuotaToastConfig["quotaProjection"];
+    nowMs?: number;
   },
 ): QuotaToastEntry[] {
-  return results.flatMap((result, index) =>
+  const entries = results.flatMap((result, index) =>
     projectProviderResultToStyle(
       result,
       style,
@@ -379,4 +382,17 @@ export function projectQuotaProviderResults(
       options?.preferredWindowsByResultIndex?.get(index),
     ),
   );
+  if (options?.quotaProjection !== "runway") return entries;
+
+  const nowMs = options.nowMs ?? Date.now();
+  return entries.map((entry) => {
+    if (!isPercentEntry(entry)) return entry;
+    const runway = projectQuotaRunway({
+      percentRemaining: entry.percentRemaining,
+      fixedWindow: entry.fixedWindow,
+      resetTimeIso: entry.resetTimeIso,
+      nowMs,
+    });
+    return runway ? { ...entry, runway } : entry;
+  });
 }

@@ -18,6 +18,15 @@ describe("sanitizeQuotaProviderResult", () => {
           group: "Example\u001b[0m",
           metricLabel: "Monthly\u001b[31m",
           percentRemaining: 75,
+          resetTimeIso: "2026-09-01T00:00:00.000Z",
+          fixedWindow: {
+            kind: "fixed_window",
+            startedAtIso: "2026-08-01T00:00:00.000Z",
+            observedAtIso: "2026-08-21T12:34:56.000Z",
+            endsAtIso: "2026-09-01T00:00:00.000Z",
+            fullReset: true,
+          },
+          runway: { kind: "before_reset", projectedAtIso: "2026-08-25T00:00:00.000Z" },
           semantic: {
             metric: { kind: "named", name: "Known\u001b[31m API" },
             prominence: "primary",
@@ -77,6 +86,11 @@ describe("sanitizeQuotaProviderResult", () => {
       metricLabel: "Monthly",
       semantic: { metric: { kind: "named", name: "Known API" } },
       basis: { used: { quantity: { unit: { kind: "custom", symbol: "NANO" } } } },
+      fixedWindow: {
+        observedAtIso: "2026-08-21T12:34:56.000Z",
+        endsAtIso: "2026-09-01T00:00:00.000Z",
+      },
+      runway: { kind: "before_reset", projectedAtIso: "2026-08-25T00:00:00.000Z" },
     });
     expect(sanitized.entries[1]).toMatchObject({
       quantity: { decimal: "42.500", unit: { kind: "currency", code: "USD" } },
@@ -103,6 +117,8 @@ describe("sanitizeQuotaProviderResult", () => {
     expect(sanitizedPercent.basis.used.quantity.unit).not.toBe(
       inputPercent.basis.used.quantity.unit,
     );
+    expect(sanitizedPercent.fixedWindow).not.toBe(inputPercent.fixedWindow);
+    expect(sanitizedPercent.runway).not.toBe(inputPercent.runway);
     expect(sanitized.presentation).not.toBe(input.presentation);
     expect(sanitized.statusDetails).not.toBe(input.statusDetails);
     expect(sanitized.rawDetails).not.toBe(input.rawDetails);

@@ -46,6 +46,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "tuiCommandDisplay",
   "formatStyle",
   "percentDisplayMode",
+  "quotaProjection",
   "percentLabelStyle",
   "accountingDetail",
   "resetTimeDecimals",
@@ -160,6 +161,7 @@ type ValidatedQuotaToastPatch = {
   tuiCommandDisplay?: TuiCommandDisplay;
   formatStyle?: QuotaToastConfig["formatStyle"];
   percentDisplayMode?: PercentDisplayMode;
+  quotaProjection?: "runway";
   percentLabelStyle?: PercentLabelStyle;
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
@@ -686,6 +688,14 @@ function extractValidatedQuotaToastPatch(
     patch.percentDisplayMode = quotaToastConfig.percentDisplayMode;
   }
 
+  if (hasOwnKey(quotaToastConfig, "quotaProjection")) {
+    if (quotaToastConfig.quotaProjection === "runway") {
+      patch.quotaProjection = "runway";
+    } else {
+      reportIssue?.("quotaProjection", 'expected "runway"');
+    }
+  }
+
   if (
     hasOwnKey(quotaToastConfig, "percentLabelStyle") &&
     isValidPercentLabelStyle(quotaToastConfig.percentLabelStyle)
@@ -968,6 +978,11 @@ function applyValidatedQuotaToastPatch(
   if (hasOwnKey(patch, "percentDisplayMode")) {
     config.percentDisplayMode = patch.percentDisplayMode!;
     applySettingSource(settingSources, "percentDisplayMode", sourcePath);
+  }
+
+  if (hasOwnKey(patch, "quotaProjection")) {
+    config.quotaProjection = patch.quotaProjection;
+    applySettingSource(settingSources, "quotaProjection", sourcePath);
   }
 
   if (hasOwnKey(patch, "percentLabelStyle")) {

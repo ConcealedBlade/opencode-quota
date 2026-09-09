@@ -150,6 +150,17 @@ describe("buildQuotaExport", () => {
             percentRemaining: 75,
             resetTimeIso: "2026-07-01T00:00:00.000Z",
             label: "Monthly:",
+            fixedWindow: {
+              kind: "fixed_window",
+              startedAtIso: "2026-06-01T00:00:00.000Z",
+              observedAtIso: "2026-06-01T11:00:00.000Z",
+              endsAtIso: "2026-07-01T00:00:00.000Z",
+              fullReset: true,
+            },
+            runway: {
+              kind: "before_reset",
+              projectedAtIso: "2026-06-15T00:00:00.000Z",
+            },
           },
           {
             accounting: QUOTA_ACCOUNTING,

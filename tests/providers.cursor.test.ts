@@ -37,7 +37,7 @@ function usageSummary(params: {
   autoCost?: number;
   autoMessages?: number;
   unknownModels?: Array<Record<string, unknown>>;
-}) {
+}): any {
   const autoCost = params.autoCost ?? 0;
   const autoMessages = params.autoMessages ?? 0;
   return {
@@ -120,6 +120,45 @@ describe("cursor provider", () => {
     expect(out.entries.every((entry) => !("barValue" in entry))).toBe(true);
     expect(out.entries.every((entry) => entry.kind !== "value")).toBe(true);
     expect(out.presentation).toBeUndefined();
+  });
+
+  it("attaches fixed-window evidence only to explicitly configured billing cycles", async () => {
+    const { getCurrentCursorUsageSummary } = await import("../src/lib/cursor-usage.js");
+    const observedAtMs = Date.parse("2026-02-15T12:00:00.000Z");
+    const configured = usageSummary({ apiCost: 5, apiMessages: 2 });
+    configured.window = {
+      source: "configured_day",
+      sinceMs: Date.parse("2026-02-01T00:00:00.000Z"),
+      untilMs: Date.parse(resetTimeIso),
+      resetTimeIso,
+    };
+    configured.observedAtMs = observedAtMs;
+    (getCurrentCursorUsageSummary as any).mockResolvedValueOnce(configured);
+
+    const supported = await cursorProvider.fetch({
+      config: { cursorPlan: "pro", cursorBillingCycleStartDay: 1 },
+    } as any);
+    expect(supported.entries[0]).toMatchObject({
+      fixedWindow: {
+        kind: "fixed_window",
+        startedAtIso: "2026-02-01T00:00:00.000Z",
+        observedAtIso: "2026-02-15T12:00:00.000Z",
+        endsAtIso: resetTimeIso,
+        fullReset: true,
+      },
+    });
+
+    const inferred = usageSummary({ apiCost: 5, apiMessages: 2 });
+    inferred.window = {
+      source: "calendar_month",
+      sinceMs: Date.parse("2026-02-01T00:00:00.000Z"),
+      untilMs: Date.parse(resetTimeIso),
+      resetTimeIso,
+    };
+    inferred.observedAtMs = observedAtMs;
+    (getCurrentCursorUsageSummary as any).mockResolvedValueOnce(inferred);
+    const unsupported = await cursorProvider.fetch({ config: { cursorPlan: "pro" } } as any);
+    expect(unsupported.entries[0]).not.toHaveProperty("fixedWindow");
   });
 
   it("marks an explicit included-API override as user configured", async () => {

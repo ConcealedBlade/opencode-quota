@@ -107,6 +107,18 @@ Structured currency rows use explicit uppercase codes such as `USD 12.50` or `CN
 
 xAI reads OpenCode's existing xAI OAuth login and reports its single Weekly quota window. The credits endpoint remains authoritative for quota; a best-effort subscriptions lookup labels recognized plans as xAI Lite, xAI SuperGrok, or xAI Heavy. If subscription metadata is unavailable or unrecognized, the quota remains visible under the xAI SuperGrok label.
 
+### Runs out projection evidence
+
+The optional `quotaProjection: "runway"` estimate is intentionally limited to fixed windows with trustworthy start, observation, end/reset, and full-reset evidence. Labels such as Five-hour, Weekly, Monthly, or RPM never make a row eligible by themselves.
+
+- **OpenAI:** recognized 5-hour, weekly, or monthly rate-limit API windows with `limit_window_seconds` and an exact reset. Individual spend-control rows, code-review rows, and unknown durations are excluded.
+- **xAI:** credits responses with both explicit `currentPeriod.start` and `currentPeriod.end` around the observation. A billing-end fallback without a period start is excluded.
+- **Cursor:** included API budget when `cursorBillingCycleStartDay` defines the cycle. The unconfigured calendar-month fallback, partial/unknown model spend, and spend-only rows are excluded.
+- **Qwen Code:** the maintained UTC-day request window. Its RPM window is excluded.
+- **Configured local estimates:** `utc-day` request percentages and priced budget percentages. Every `rolling` window and unpriced value row is excluded.
+
+Other providers and window shapes remain unchanged. The estimate uses the average use since the fixed window began, not a recent-rate trend. Exact reset remains separate; **lasts past reset** means the linear exhaustion instant is at or beyond that reset.
+
 OpenRouter reads the existing OpenCode API key and calls OpenRouter's current-key endpoint. Limited keys show used budget and the remaining percentage; unlimited keys show spend. It does not invent a reset time.
 
 ## Custom providers
@@ -405,11 +417,15 @@ opencode auth login --provider cursor
 
 Cursor estimates the current local billing cycle from OpenCode history. With complete model coverage and a positive configured/preset allowance, it shows an **API budget** percentage with used, limit, and remaining USD facts. If any Cursor model is unknown, it shows only **Known API spend** plus a partial-data issue; it never presents that partial spend as total account spend or a percentage. Without an allowance it shows **API spend**. **Auto+Composer spend** is supplementary and appears in detailed output when space allows.
 
+Runs-out projection is available only when `cursorBillingCycleStartDay` explicitly anchors that fixed cycle. The ordinary local calendar-month fallback is not projection evidence.
+
 <a id="qwen-code"></a>
 
 ### Qwen Code
 
 Use companion plugin [`opencode-qwencode-auth`](https://github.com/gustavodiasdev/opencode-qwencode-auth#readme). Add it before `@slkiser/opencode-quota` in `opencode.json`.
+
+Qwen's maintained UTC-day request window can show the optional runs-out projection. Its RPM window is rolling and never qualifies.
 
 OpenCode Quota's Google integrations use independent community companion plugins. They are not endorsed by Google.
 

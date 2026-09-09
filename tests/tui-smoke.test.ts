@@ -1834,7 +1834,7 @@ describe("tui plugin smoke", () => {
     expect(JSON.stringify(hint)).not.toMatch(/[█░▓▒]/u);
   });
 
-  it("renders exact-minute reset text in the prompt bar", async () => {
+  it("renders exact reset and runway text with the 12-cell prompt bar", async () => {
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
     const plugin = await loadTuiModule();
     const { api, registered } = createApi();
@@ -1862,6 +1862,10 @@ describe("tui plugin smoke", () => {
           name: "OpenAI Weekly",
           percentRemaining: 50,
           resetTimeIso: "2026-01-17T15:14:00.000Z",
+          runway: {
+            kind: "before_reset",
+            projectedAtIso: "2026-01-15T11:50:00.000Z",
+          },
         },
         percentDisplayMode: "remaining",
       },
@@ -1874,7 +1878,8 @@ describe("tui plugin smoke", () => {
     const rendered = registration.slots.session_prompt({}, { session_id: "session-reset" }) as any;
     const hint = rendered.props.children[1];
 
-    expect(hint.props.children[2].props.children).toBe("50% | 2d5h14m");
+    expect(hint.props.children[1].props.children).toHaveLength(12);
+    expect(hint.props.children[2].props.children).toBe("50% | 2d5h14m | r/o ≈ 1h 50m");
   });
 
   it("keeps the prompt percentage bare while spacing reset units", async () => {

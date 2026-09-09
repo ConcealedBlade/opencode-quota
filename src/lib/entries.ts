@@ -113,6 +113,18 @@ export interface AccountingMetadata {
   observedAtIso?: string;
 }
 
+export interface FixedWindowProjectionEvidence {
+  kind: "fixed_window";
+  startedAtIso: string;
+  observedAtIso: string;
+  endsAtIso: string;
+  fullReset: true;
+}
+
+export type QuotaRunwayProjection =
+  | { kind: "before_reset"; projectedAtIso: string }
+  | { kind: "lasts_past_reset" };
+
 export interface GroupedQuotaEntryMeta {
   /** Required provider-neutral accounting semantics for this row. */
   accounting: AccountingMetadata;
@@ -143,6 +155,10 @@ export type QuotaPercentEntry = GroupedQuotaEntryMeta & {
   /** Optional typed operands. Renderers never derive a percentage from these facts. */
   basis?: AccountingPercentageBasis;
   resetTimeIso?: string;
+  /** Internal provider evidence for fixed-window exhaustion projection. */
+  fixedWindow?: FixedWindowProjectionEvidence;
+  /** Presentation-only projection. Provider caches must never persist this field. */
+  runway?: QuotaRunwayProjection;
 };
 
 export type QuotaValueEntry = GroupedQuotaEntryMeta & {
@@ -223,6 +239,10 @@ export function cloneQuotaToastEntry(entry: QuotaToastEntry): QuotaToastEntry {
     ...(isPercentEntry(entry) && entry.basis
       ? { basis: cloneAccountingPercentageBasis(entry.basis) }
       : {}),
+    ...(isPercentEntry(entry) && entry.fixedWindow
+      ? { fixedWindow: { ...entry.fixedWindow } }
+      : {}),
+    ...(isPercentEntry(entry) && entry.runway ? { runway: { ...entry.runway } } : {}),
     ...(isQuantityEntry(entry) ? { quantity: cloneAccountingQuantity(entry.quantity) } : {}),
   };
 }

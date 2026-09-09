@@ -347,6 +347,13 @@ describe("openai auth resolution", () => {
       hourly: {
         percentRemaining: 80,
         resetTimeIso: "2026-01-01T01:00:00.000Z",
+        fixedWindow: {
+          kind: "fixed_window",
+          startedAtIso: "2025-12-31T20:00:00.000Z",
+          observedAtIso: "2026-01-01T00:00:00.000Z",
+          endsAtIso: "2026-01-01T01:00:00.000Z",
+          fullReset: true,
+        },
       },
       codeReview: {
         percentRemaining: 95,
@@ -659,6 +666,13 @@ describe("openai auth resolution", () => {
       hourly: {
         percentRemaining: 80,
         resetTimeIso: "2026-01-01T01:00:00.000Z",
+        fixedWindow: {
+          kind: "fixed_window",
+          startedAtIso: "2025-12-31T20:00:00.000Z",
+          observedAtIso: "2026-01-01T00:00:00.000Z",
+          endsAtIso: "2026-01-01T01:00:00.000Z",
+          fullReset: true,
+        },
       },
       weekly: {
         percentRemaining: 30,

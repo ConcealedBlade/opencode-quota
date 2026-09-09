@@ -22,6 +22,7 @@ import {
   type QuotaDialogCommandSpec,
 } from "./lib/quota-dialog-commands.js";
 import { extractSingleWindowWindowLabel } from "./lib/quota-entry-display.js";
+import { formatQuotaRunway } from "./lib/quota-exhaustion-projection.js";
 import type { SessionTokenError } from "./lib/quota-status.js";
 import { disposeQuotaTelemetryOwner } from "./lib/quota-telemetry.js";
 import { getSidebarBodyLineColor } from "./lib/tui-line-style.js";
@@ -535,6 +536,7 @@ function buildPromptBarParts(params: {
           : { spaced: bar.resetTimeSpaced },
       )
     : "";
+  const runway = formatQuotaRunway(entry.runway);
 
   const hasPercent = Number.isFinite(entry.percentRemaining);
   if (entry.semanticSegment && !hasPercent) {
@@ -571,7 +573,9 @@ function buildPromptBarParts(params: {
   return {
     label: windowLabel,
     barText,
-    meta: entry.semanticSegment ? reset : [percent, reset].filter(Boolean).join(" | "),
+    meta: entry.semanticSegment
+      ? [reset, runway ? `r/o ${runway}` : ""].filter(Boolean).join(" | ")
+      : [percent, reset, runway ? `r/o ${runway}` : ""].filter(Boolean).join(" | "),
   };
 }
 

@@ -122,6 +122,18 @@ export const cursorProvider: QuotaProvider = {
       : [];
     const entries: QuotaToastEntry[] = [];
     const resetTimeIso = usage.window.resetTimeIso;
+    const fixedWindow =
+      usage.window.source === "configured_day" &&
+      usage.window.sinceMs < usage.observedAtMs &&
+      usage.observedAtMs < usage.window.untilMs
+        ? ({
+            kind: "fixed_window",
+            startedAtIso: new Date(usage.window.sinceMs).toISOString(),
+            observedAtIso: new Date(usage.observedAtMs).toISOString(),
+            endsAtIso: new Date(usage.window.untilMs).toISOString(),
+            fullReset: true,
+          } as const)
+        : undefined;
 
     if (hasPositiveAllowance && !hasPartialApiCoverage) {
       const remainingUsd = Math.max(0, includedApiUsd - usage.api.costUsd);
@@ -131,6 +143,7 @@ export const cursorProvider: QuotaProvider = {
         group,
         percentRemaining: 100 - (usage.api.costUsd / includedApiUsd) * 100,
         resetTimeIso,
+        ...(fixedWindow ? { fixedWindow } : {}),
         semantic: {
           metric: { kind: "named", name: "API" },
           prominence: "primary",

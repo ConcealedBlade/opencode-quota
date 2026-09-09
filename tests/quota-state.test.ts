@@ -1098,7 +1098,7 @@ describe("quota-state shared cache", () => {
     const key = quotaState.buildQuotaProviderStateCacheKey(provider.id, ctx);
     const path = quotaState.getQuotaProviderStateCacheFilePath(provider.id, key);
     const persisted = JSON.parse(await (await import("fs/promises")).readFile(path, "utf8"));
-    expect(persisted.version).toBe(2);
+    expect(persisted.version).toBe(3);
     expect(persisted.timestamp).toBe(1_000);
     expect(JSON.stringify(persisted)).not.toContain("telemetry");
 
@@ -1243,7 +1243,7 @@ describe("quota-state shared cache", () => {
     telemetry.__resetQuotaTelemetryForTests();
   });
 
-  it("reuses cache v2 with accounting metadata across module resets", async () => {
+  it("reuses cache v3 with accounting metadata across module resets", async () => {
     const quotaStateA = await import("../src/lib/quota-state.js");
     quotaStateA.__resetQuotaStateForTests();
 
@@ -1445,7 +1445,7 @@ describe("quota-state shared cache", () => {
     const path = quotaStateA.getQuotaProviderStateCacheFilePath(provider.id, key);
 
     await quotaStateA.fetchQuotaProviderResult({ provider, ctx, ttlMs: 60_000 });
-    await writeFile(path, JSON.stringify({ version: 2, key }), "utf-8");
+    await writeFile(path, JSON.stringify({ version: 3, key }), "utf-8");
 
     vi.resetModules();
     const quotaStateB = await import("../src/lib/quota-state.js");
@@ -1550,7 +1550,7 @@ describe("quota-state shared cache", () => {
     await writeFile(
       path,
       JSON.stringify({
-        version: 2,
+        version: 3,
         packageVersion: "0.0.0-stale-cache",
         key,
         providerId: provider.id,
@@ -1782,7 +1782,7 @@ describe("quota-state shared cache", () => {
     await writeFile(
       path,
       JSON.stringify({
-        version: 2,
+        version: 3,
         packageVersion,
         key,
         providerId: provider.id,
@@ -1851,7 +1851,7 @@ describe("quota-state shared cache", () => {
     expect(provider.fetch).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects the whole cache v2 result when one entry is malformed", async () => {
+  it("rejects the whole cache v3 result when one entry is malformed", async () => {
     const quotaStateA = await import("../src/lib/quota-state.js");
     quotaStateA.__resetQuotaStateForTests();
 
@@ -1875,7 +1875,7 @@ describe("quota-state shared cache", () => {
     await writeFile(
       path,
       JSON.stringify({
-        version: 2,
+        version: 3,
         packageVersion,
         key,
         providerId: provider.id,
@@ -1899,7 +1899,7 @@ describe("quota-state shared cache", () => {
     expect(provider.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects and replaces a cache v2 row containing barValue", async () => {
+  it("rejects and replaces a cache v3 row containing barValue", async () => {
     const quotaState = await import("../src/lib/quota-state.js");
     quotaState.__resetQuotaStateForTests();
     const provider = {
@@ -1922,7 +1922,7 @@ describe("quota-state shared cache", () => {
     await writeFile(
       path,
       JSON.stringify({
-        version: 2,
+        version: 3,
         packageVersion,
         key,
         providerId: provider.id,
@@ -1947,7 +1947,7 @@ describe("quota-state shared cache", () => {
     expect(result.entries[0]?.name).toBe("Fresh");
     expect(provider.fetch).toHaveBeenCalledTimes(1);
     const replacement = JSON.parse(await (await import("fs/promises")).readFile(path, "utf8"));
-    expect(replacement.version).toBe(2);
+    expect(replacement.version).toBe(3);
     expect(JSON.stringify(replacement)).not.toContain("barValue");
   });
 
@@ -2158,7 +2158,7 @@ describe("quota-state shared cache", () => {
     });
   });
 
-  it("rejects cache v2 timestamps that are parseable but not ISO", async () => {
+  it("rejects cache v3 timestamps that are parseable but not ISO", async () => {
     const quotaState = await import("../src/lib/quota-state.js");
     quotaState.__resetQuotaStateForTests();
     const provider = {
@@ -2181,7 +2181,7 @@ describe("quota-state shared cache", () => {
     await writeFile(
       path,
       JSON.stringify({
-        version: 2,
+        version: 3,
         packageVersion,
         key,
         providerId: provider.id,
@@ -2305,7 +2305,7 @@ describe("readCachedProviderResult", () => {
     await writeFile(
       path,
       JSON.stringify({
-        version: 2,
+        version: 3,
         packageVersion,
         key: createHash("sha256").update(key).digest("hex"),
         providerId: provider.id,
