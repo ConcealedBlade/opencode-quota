@@ -860,6 +860,25 @@ describe("loadConfig", () => {
     expect(invalid.config.percentDisplayMode).toBe("remaining");
   });
 
+  it("defaults percentLabelStyle to unset and accepts full or bare overrides", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.percentLabelStyle).toBeUndefined();
+
+    for (const percentLabelStyle of ["full", "bare"] as const) {
+      const configured = await loadSdkConfig({ percentLabelStyle });
+      expect(configured.config.percentLabelStyle).toBe(percentLabelStyle);
+      expect(configured.meta.settingSources).toEqual({
+        percentLabelStyle: "client.config.get",
+      });
+    }
+
+    for (const invalid of ["minimal", 1, null, true]) {
+      const rejected = await loadSdkConfig({ percentLabelStyle: invalid });
+      expect(rejected.config.percentLabelStyle).toBeUndefined();
+      expect(rejected.meta.settingSources).not.toHaveProperty("percentLabelStyle");
+    }
+  });
+
   it("defaults resetTimeDecimals to unset and accepts integer 0..4 overrides", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.resetTimeDecimals).toBeUndefined();
@@ -880,6 +899,39 @@ describe("loadConfig", () => {
       expect(rejected.config.resetTimeDecimals).toBeUndefined();
       expect(rejected.meta.settingSources).not.toHaveProperty("resetTimeDecimals");
     }
+  });
+
+  it("defaults resetTimeSpaced to unset and accepts boolean overrides", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.resetTimeSpaced).toBeUndefined();
+
+    for (const resetTimeSpaced of [true, false]) {
+      const configured = await loadSdkConfig({ resetTimeSpaced });
+      expect(configured.config.resetTimeSpaced).toBe(resetTimeSpaced);
+      expect(configured.meta.settingSources).toEqual({
+        resetTimeSpaced: "client.config.get",
+      });
+    }
+
+    for (const invalid of ["true", 1, null]) {
+      const rejected = await loadSdkConfig({ resetTimeSpaced: invalid });
+      expect(rejected.config.resetTimeSpaced).toBeUndefined();
+      expect(rejected.meta.settingSources).not.toHaveProperty("resetTimeSpaced");
+    }
+  });
+
+  it("loads both display options together without changing reset decimals", async () => {
+    const configured = await loadSdkConfig({
+      percentLabelStyle: "bare",
+      resetTimeDecimals: 2,
+      resetTimeSpaced: true,
+    });
+
+    expect(configured.config).toMatchObject({
+      percentLabelStyle: "bare",
+      resetTimeDecimals: 2,
+      resetTimeSpaced: true,
+    });
   });
 
   it("defaults anthropicBinaryPath and trims explicit overrides", async () => {

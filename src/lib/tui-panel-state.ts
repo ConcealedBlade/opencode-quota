@@ -12,6 +12,7 @@ export type SidebarPanelState = {
   lines: string[];
   linesExpanded?: string[];
   providerCount?: number;
+  headerPercentMode?: PercentDisplayMode;
 };
 
 export type CompactStatusState =
@@ -40,6 +41,7 @@ export type PromptBarState =
       entry?: PromptBarEntry;
       percentDisplayMode?: PercentDisplayMode;
       resetTimeDecimals?: number;
+      resetTimeSpaced?: boolean;
     };
 
 export function shouldRenderSidebarPanel(panel: SidebarPanelState): boolean {

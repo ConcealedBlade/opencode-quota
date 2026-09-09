@@ -1161,6 +1161,50 @@ describe("tui plugin smoke", () => {
     ).toEqual(["[OpenCode Go]", "Five-hour window 98%", "Weekly window 53%", "Monthly window 33%"]);
   });
 
+  it("keeps sidebar collapse icons while naming the bare percent mode", async () => {
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+
+    loadTuiSessionQuotaSurfaces.mockResolvedValueOnce({
+      sidebar: {
+        status: "ready",
+        lines: ["OpenCode Go 98%"],
+        linesExpanded: ["[OpenCode Go]", "Five-hour 98%"],
+        headerPercentMode: "used",
+      },
+      compact: { status: "disabled" },
+    });
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      commandDisplay: "inline",
+      sidebar: { enabled: true },
+      compact: {
+        enabled: false,
+        homeBottom: false,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+      promptBar: { enabled: true },
+      announcements: { homeBottom: false },
+      homeBottom: false,
+    });
+
+    await startTui(plugin, api);
+    const registration = registered.find((item) => item.order === 150)!;
+    registration.slots.sidebar_content({}, { session_id: "session-mode" });
+    await Promise.resolve();
+
+    const collapsed = registration.slots.sidebar_content({}, { session_id: "session-mode" }) as any;
+    const header = collapsed.props.children[0].props.children[0];
+    expect(header.props.children.props.children).toBe("▶ Quota [Used]");
+
+    header.props.onMouseDown();
+    const expanded = registration.slots.sidebar_content({}, { session_id: "session-mode" }) as any;
+    expect(expanded.props.children[0].props.children[0].props.children.props.children).toBe(
+      "▼ Quota [Used]",
+    );
+  });
+
   it("keeps non-expandable empty sidebar panels visible while collapsed", async () => {
     const plugin = await loadTuiModule();
     const { api, registered } = createApi();
@@ -1831,5 +1875,53 @@ describe("tui plugin smoke", () => {
     const hint = rendered.props.children[1];
 
     expect(hint.props.children[2].props.children).toBe("50% | 2d5h14m");
+  });
+
+  it("keeps the prompt percentage bare while spacing reset units", async () => {
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      commandDisplay: "inline",
+      sidebar: { enabled: true },
+      compact: {
+        enabled: false,
+        homeBottom: false,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+      promptBar: { enabled: true },
+      announcements: { homeBottom: false },
+      homeBottom: false,
+    });
+    loadTuiSessionQuotaSurfaces.mockResolvedValueOnce({
+      sidebar: { status: "disabled", lines: [] },
+      compact: { status: "disabled" },
+      promptBar: {
+        status: "ready",
+        entry: {
+          name: "OpenAI Weekly",
+          percentRemaining: 81,
+          resetTimeIso: "2026-01-17T15:14:00.000Z",
+        },
+        percentDisplayMode: "used",
+        resetTimeSpaced: true,
+      },
+    });
+
+    await startTui(plugin, api);
+    const registration = registered.find((item) => item.order === 90)!;
+    registration.slots.session_prompt({}, { session_id: "session-spaced-reset" });
+    await flushPromises();
+    const rendered = registration.slots.session_prompt(
+      {},
+      { session_id: "session-spaced-reset" },
+    ) as any;
+    const hint = rendered.props.children[1];
+
+    expect(hint.props.children[1].props.children).toBe(`██${"░".repeat(10)}`);
+    expect(hint.props.children[2].props.children).toBe("19% | 2d 5h 14m");
   });
 });

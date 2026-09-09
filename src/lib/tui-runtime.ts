@@ -314,6 +314,9 @@ function buildCompactStatusFromData(params: {
         data,
         percentDisplayMode: params.runtime.config.percentDisplayMode,
         accountingDetail: params.runtime.config.accountingDetail,
+        ...(params.runtime.config.resetTimeSpaced !== undefined
+          ? { resetTimeSpaced: params.runtime.config.resetTimeSpaced }
+          : {}),
         maxWidth: params.maxWidth ?? params.runtime.config.tuiCompactStatus.maxWidth,
       })
     : "";
@@ -379,6 +382,9 @@ function buildSidebarPanelFromData(params: {
             data: primaryData,
             percentDisplayMode: params.runtime.config.percentDisplayMode,
             accountingDetail: params.runtime.config.accountingDetail,
+            ...(params.runtime.config.resetTimeSpaced !== undefined
+              ? { resetTimeSpaced: params.runtime.config.resetTimeSpaced }
+              : {}),
             maxWidth: TUI_SIDEBAR_MAX_WIDTH,
           }),
         ].filter((line): line is string => Boolean(line))
@@ -406,6 +412,9 @@ function buildSidebarPanelFromData(params: {
     lines,
     ...(providerCount > 0 ? { providerCount } : {}),
     ...(linesExpanded ? { linesExpanded } : {}),
+    ...(params.runtime.config.percentLabelStyle === "bare"
+      ? { headerPercentMode: params.runtime.config.percentDisplayMode }
+      : {}),
   };
 }
 
@@ -516,6 +525,9 @@ function buildPromptBarFromData(params: {
     ...(entry ? { entry } : {}),
     percentDisplayMode: params.runtime.config.percentDisplayMode,
     resetTimeDecimals: params.runtime.config.resetTimeDecimals,
+    ...(params.runtime.config.resetTimeSpaced !== undefined
+      ? { resetTimeSpaced: params.runtime.config.resetTimeSpaced }
+      : {}),
   };
 }
 

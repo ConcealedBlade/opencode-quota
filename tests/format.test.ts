@@ -1072,4 +1072,84 @@ describe("formatQuotaRows", () => {
     expect(used).not.toContain("% left");
     expect(used).not.toContain("% used");
   });
+
+  it("preserves default formatting when the new options are explicit but disabled", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+    const params = {
+      version: "1.0.0",
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      entries: [
+        {
+          name: "[OpenAI Account With A Long Label] Weekly",
+          percentRemaining: 56,
+          resetTimeIso: "2026-01-17T15:14:00.000Z",
+        },
+      ],
+    };
+
+    expect(formatQuotaRows({ ...params, percentLabelStyle: "full", resetTimeSpaced: false })).toBe(
+      formatQuotaRows(params),
+    );
+  });
+
+  it("uses freed percent columns for a wider bar in a 36-column long-label layout", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+    const params = {
+      version: "1.0.0",
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      entries: [
+        {
+          name: "[OpenAI Account With A Long Label] Weekly",
+          percentRemaining: 56,
+          resetTimeIso: "2026-01-17T15:14:00.000Z",
+        },
+      ],
+    };
+    const full = formatQuotaRows(params);
+    const bare = formatQuotaRows({
+      ...params,
+      percentLabelStyle: "bare",
+      resetTimeSpaced: true,
+    });
+    const barCells = (output: string) =>
+      output
+        .split("\n")
+        .find((line) => line.includes("█"))
+        ?.match(/[█░]/gu)?.length ?? 0;
+
+    expect(bare).toContain("56%");
+    expect(bare).not.toContain("56% left");
+    expect(bare).toContain("2d 5h 14m");
+    expect(barCells(bare)).toBe(barCells(full) + " left".length);
+    expect(bare.split("\n").every((line) => line.length <= 36)).toBe(true);
+  });
+
+  it("combines bare used labels and spaced reset times in grouped output", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+    const output = formatQuotaRows({
+      version: "1.0.0",
+      style: "allWindows",
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      percentDisplayMode: "used",
+      percentLabelStyle: "bare",
+      resetTimeSpaced: true,
+      entries: [
+        {
+          name: "OpenAI 5h",
+          group: "OpenAI Account With A Long Label",
+          label: "5h:",
+          percentRemaining: 81,
+          resetTimeIso: "2026-01-15T13:45:00.000Z",
+        },
+      ],
+    });
+
+    expect(output).toContain("19%");
+    expect(output).not.toContain("19% used");
+    expect(output).toContain("3h 45m");
+    expect(output.split("\n").every((line) => line.length <= 36)).toBe(true);
+  });
 });

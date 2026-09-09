@@ -10,6 +10,7 @@ import type { RuntimeContextRootHints } from "./config-file-utils.js";
 import { isCursorModelId, isCursorProviderId } from "./cursor-pricing.js";
 import { sanitizeDisplayText } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
+import { formatQuotaModeHeading } from "./format-utils.js";
 import {
   BUNDLED_MAINTAINER_ANNOUNCEMENTS,
   formatMaintainerAnnouncementHomeCountLine,
@@ -249,7 +250,9 @@ export function createQuotaToastRuntime(
       config.onlyCurrentModel && params.sessionID ? (params.sessionMeta?.providerID ?? "") : "";
     const renderIdentity = JSON.stringify({
       accountingDetail: config.accountingDetail,
+      percentLabelStyle: config.percentLabelStyle,
       resetTimeDecimals: config.resetTimeDecimals,
+      resetTimeSpaced: config.resetTimeSpaced,
       sessionTokenScope: config.sessionTokenScope,
       opencodeGoWindows: config.opencodeGoWindows,
       opencodeMonthlyLimit: config.opencodeMonthlyLimit,
@@ -625,6 +628,9 @@ export function createQuotaToastRuntime(
 
     try {
       await dependencies.showToast({
+        ...(runtimeConfig.percentLabelStyle === "bare"
+          ? { title: formatQuotaModeHeading(runtimeConfig.percentDisplayMode) }
+          : {}),
         message: sanitizeDisplayText(message),
         variant: "info",
         duration: runtimeConfig.toastDurationMs,
@@ -917,8 +923,10 @@ export async function collectQuotaToastMessage(params: {
       errors: data?.errors ?? [],
       style: resolveQuotaFormatStyle(runtimeConfig.formatStyle),
       percentDisplayMode: runtimeConfig.percentDisplayMode,
+      percentLabelStyle: runtimeConfig.percentLabelStyle,
       accountingDetail: runtimeConfig.accountingDetail,
       resetTimeDecimals: runtimeConfig.resetTimeDecimals,
+      resetTimeSpaced: runtimeConfig.resetTimeSpaced,
       sessionTokens: data?.sessionTokens,
     });
 

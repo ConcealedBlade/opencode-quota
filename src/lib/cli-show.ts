@@ -3,6 +3,7 @@ import { hasAnthropicCredentialsConfigured } from "./anthropic.js";
 import { findGitWorktreeRoot, getEffectiveConfigRoot } from "./config-file-utils.js";
 import { sanitizeQuotaRenderData } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
+import { formatQuotaModeHeading } from "./format-utils.js";
 import { DEFAULT_KIMI_AUTH_CACHE_MAX_AGE_MS, resolveKimiAuthCached } from "./kimi-auth.js";
 import {
   loadConfiguredOpenCodeConfig,
@@ -359,8 +360,10 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
       errors: data.errors,
       style: resolveQuotaFormatStyle(config.formatStyle),
       percentDisplayMode: config.percentDisplayMode,
+      percentLabelStyle: config.percentLabelStyle,
       accountingDetail: config.accountingDetail,
       resetTimeDecimals: config.resetTimeDecimals,
+      resetTimeSpaced: config.resetTimeSpaced,
     });
 
     if (!output.trim()) {
@@ -368,7 +371,12 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
       return 1;
     }
 
-    writeLine(stdout, output);
+    writeLine(
+      stdout,
+      config.percentLabelStyle === "bare"
+        ? `${formatQuotaModeHeading(config.percentDisplayMode)}\n\n${output}`
+        : output,
+    );
     return data.entries.length > 0 ? 0 : 1;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

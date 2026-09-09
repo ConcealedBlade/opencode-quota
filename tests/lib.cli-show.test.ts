@@ -94,6 +94,7 @@ describe("runCliShowCommand", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     if (savedConfigDir !== undefined) process.env.OPENCODE_CONFIG_DIR = savedConfigDir;
     else delete process.env.OPENCODE_CONFIG_DIR;
     mockProviders.length = 0;
@@ -157,6 +158,59 @@ describe("runCliShowCommand", () => {
     expect(stdout.output).toContain("75%");
     expect(stderr.output).toBe("");
     expect(provider.fetch).toHaveBeenCalledOnce();
+  });
+
+  it("adds a Quota mode heading for bare CLI labels and spaces reset units", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
+    const provider = {
+      id: "synthetic",
+      cachePolicy: { kind: "account-neutral" as const },
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [
+          {
+            accounting: TEST_ACCOUNTING,
+            name: "Synthetic Weekly",
+            percentRemaining: 81,
+            resetTimeIso: "2026-01-17T15:14:00.000Z",
+          },
+        ],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: {
+          quotaToast: {
+            enabledProviders: ["synthetic"],
+            percentDisplayMode: "used",
+            percentLabelStyle: "bare",
+            resetTimeSpaced: true,
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const stdout = createCaptureStream();
+    const stderr = createCaptureStream();
+    const code = await runCliShowCommand({
+      argv: [],
+      cwd: workspaceDir,
+      stdout: stdout.stream as any,
+      stderr: stderr.stream as any,
+    });
+
+    expect(code).toBe(0);
+    expect(stdout.output.startsWith("Quota [Used]\n\n")).toBe(true);
+    expect(stdout.output).toContain("19%");
+    expect(stdout.output).not.toContain("19% used");
+    expect(stdout.output).toContain("2d 5h 14m");
+    expect(stderr.output).toBe("");
   });
 
   it("renders two Antigravity account labels in human-readable CLI output", async () => {
