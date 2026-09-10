@@ -389,7 +389,7 @@ function SidebarContentView(props: {
 
   return (
     <Show when={shouldRenderSidebarPanel(panel())}>
-      <box gap={hasDetailLines() ? 1 : 0}>
+      <box gap={0}>
         <box flexDirection="row">
           <text fg={props.api.theme.current.text} onMouseDown={toggleCollapsed}>
             <b>{headerText()}</b>
