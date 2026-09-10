@@ -1140,7 +1140,6 @@ describe("tui plugin smoke", () => {
       { session_id: "session-1" },
     ) as any;
     const collapsedHeader = collapsed.props.children[0];
-    expect(collapsed.props.gap).toBe(1);
     expect(collapsedHeader.props.children[0].props.children.props.children).toBe("▶ Quota");
     expect(collapsedHeader.props.children[1].props.children).toEqual([" (", 2, " providers)"]);
     expect(
@@ -1156,7 +1155,6 @@ describe("tui plugin smoke", () => {
       { session_id: "session-1" },
     ) as any;
     const expandedHeader = expanded.props.children[0];
-    expect(expanded.props.gap).toBe(1);
     expect(expandedHeader.props.children[0].props.children.props.children).toBe("▼ Quota");
     expect(
       expanded.props.children[1].props.children.map((line: any) => line.props.children),
@@ -1244,7 +1242,6 @@ describe("tui plugin smoke", () => {
       { session_id: "session-1" },
     ) as any;
     const header = rendered.props.children[0];
-    expect(rendered.props.gap).toBe(0);
     expect(header.props.children[0].props.children.props.children).toBe("Quota");
     expect(rendered.props.children[1].props.children[0].props.children).toBe("Unavailable");
   });

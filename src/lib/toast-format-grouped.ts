@@ -131,18 +131,7 @@ export function formatQuotaRowsGrouped(params: {
         : [groupHeader.slice(0, maxWidth)]),
     );
 
-    let renderedEntryBlocks = 0;
     for (const entry of list) {
-      let entryBlockStarted = false;
-      const pushEntryLine = (line: string) => {
-        if (!entryBlockStarted) {
-          if (renderedEntryBlocks > 0) lines.push("");
-          renderedEntryBlocks++;
-          entryBlockStarted = true;
-        }
-        lines.push(line);
-      };
-
       const interpretation = interpretAccountingRow(entry, {
         booleanWording: "semantic",
         ...(!isTiny
@@ -181,24 +170,24 @@ export function formatQuotaRowsGrouped(params: {
           labelAndValue.length <= maxWidth &&
           labelAndValue.length + separator.length + timeStr.length > maxWidth
         ) {
-          pushEntryLine(labelAndValue);
-          pushEntryLine(padLeft(timeStr, maxWidth));
+          lines.push(labelAndValue);
+          lines.push(padLeft(timeStr, maxWidth));
           continue;
         }
 
         if (isAtomicValue) {
           const suffix = [value, timeStr].filter(Boolean).join(separator);
           if (suffix.length > maxWidth) {
-            if (value.length <= maxWidth) pushEntryLine(padLeft(value, maxWidth));
+            if (value.length <= maxWidth) lines.push(padLeft(value, maxWidth));
             continue;
           }
           const availableLabelWidth = maxWidth - (suffix ? separator.length + suffix.length : 0);
           if (availableLabelWidth <= 0) {
-            pushEntryLine(padLeft(suffix, maxWidth));
+            lines.push(padLeft(suffix, maxWidth));
             continue;
           }
           const leftText = label.slice(0, availableLabelWidth).trimEnd();
-          pushEntryLine(
+          lines.push(
             `${padRight(leftText, availableLabelWidth)}${suffix ? `${separator}${suffix}` : ""}`,
           );
           continue;
@@ -218,7 +207,7 @@ export function formatQuotaRowsGrouped(params: {
             padLeft(timeStr, timeWidth),
             padLeft(value, valueCol),
           ].join(separator);
-          pushEntryLine(line.slice(0, maxWidth));
+          lines.push(line.slice(0, maxWidth));
           continue;
         }
 
@@ -229,7 +218,7 @@ export function formatQuotaRowsGrouped(params: {
           1,
           barWidth - separator.length - valueWidth - separator.length - timeWidth,
         );
-        pushEntryLine(
+        lines.push(
           (
             padRight(leftText, leftMax) +
             separator +
@@ -271,7 +260,7 @@ export function formatQuotaRowsGrouped(params: {
           : "";
       const runway = isPercentEntry(entry) ? formatQuotaRunway(entry.runway) : "";
       const addRunwayLine = () => {
-        if (runway) pushEntryLine(`Runs out  ${runway}`.slice(0, maxWidth));
+        if (runway) lines.push(`Runs out  ${runway}`.slice(0, maxWidth));
       };
 
       if (isTiny) {
@@ -288,7 +277,7 @@ export function formatQuotaRowsGrouped(params: {
             padLeft(timeStr, timeWidth),
             padLeft(visibleBarSuffix, percentValueCol),
           ].join(separator);
-          pushEntryLine(line.slice(0, maxWidth));
+          lines.push(line.slice(0, maxWidth));
           addRunwayLine();
           continue;
         }
@@ -301,7 +290,7 @@ export function formatQuotaRowsGrouped(params: {
           padLeft(timeStr, timeWidth),
           padLeft(visibleBarSuffix, percentValueCol),
         ].join(separator);
-        pushEntryLine(line.slice(0, maxWidth));
+        lines.push(line.slice(0, maxWidth));
         addRunwayLine();
         continue;
       }
@@ -316,15 +305,15 @@ export function formatQuotaRowsGrouped(params: {
           const rightText = parts.slice(1).join("  ");
           const sep = "  ";
           const leftWidth = Math.max(1, maxWidth - sep.length - rightText.length);
-          pushEntryLine((padRight(left, leftWidth) + sep + rightText).slice(0, maxWidth));
+          lines.push((padRight(left, leftWidth) + sep + rightText).slice(0, maxWidth));
         } else {
-          pushEntryLine(padLeft(text, maxWidth));
+          lines.push(padLeft(text, maxWidth));
         }
       } else {
         // Line 1: label + time at end
         const timeWidth = Math.max(timeStr.length, timeCol);
         const leftMax = Math.max(1, maxWidth - separator.length - timeWidth);
-        pushEntryLine(
+        lines.push(
           (padRight(label, leftMax) + separator + padLeft(timeStr, timeWidth)).slice(0, maxWidth),
         );
       }
@@ -332,7 +321,7 @@ export function formatQuotaRowsGrouped(params: {
       // Line 2: bar + percent
       const barCell = bar(displayedPercent, barWidth);
       const suffixCell = padLeft(percentLabel.slice(0, percentValueCol), percentValueCol);
-      pushEntryLine([barCell, suffixCell].join(separator));
+      lines.push([barCell, suffixCell].join(separator));
       addRunwayLine();
 
       if (interpretation.basis) {
@@ -348,7 +337,7 @@ export function formatQuotaRowsGrouped(params: {
           if (next.length > maxWidth) break;
           detailLine = next;
         }
-        if (detailLine) pushEntryLine(detailLine);
+        if (detailLine) lines.push(detailLine);
       }
     }
   }

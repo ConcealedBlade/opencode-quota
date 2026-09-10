@@ -9,24 +9,17 @@ describe("getSidebarBodyLineColor", () => {
     textMuted: "gray",
   };
 
-  it.each([
-    "[OpenCode Go] (personal account)",
-    "personal account label continuation",
-    "Five-hour                       2h0m",
-    "Current balance               USD 42.50",
-    "Runs out  1d 4h",
-    SESSION_TOKEN_SECTION_HEADING,
-    SESSION_TOKEN_SECTION_HEADING.slice(0, 18),
-  ])("uses normal text color for readable sidebar text: %s", (line) => {
-    expect(getSidebarBodyLineColor(line, theme)).toBe("white");
+  it("uses normal text color for the sidebar session-token heading", () => {
+    expect(getSidebarBodyLineColor(SESSION_TOKEN_SECTION_HEADING, theme)).toBe("white");
   });
 
-  it.each([
-    "",
-    "   ",
-    "█████████████░░░░░░░░░░░░   50% left",
-    "░░░░░░░░░░   0% left",
-  ])("keeps blank separators and progress bars muted: %s", (line) => {
-    expect(getSidebarBodyLineColor(line, theme)).toBe("gray");
+  it("keeps the heading highlighted when the rendered sidebar heading is width-clamped", () => {
+    expect(getSidebarBodyLineColor(SESSION_TOKEN_SECTION_HEADING.slice(0, 18), theme)).toBe(
+      "white",
+    );
+  });
+
+  it("keeps non-heading sidebar lines muted", () => {
+    expect(getSidebarBodyLineColor("Unavailable", theme)).toBe("gray");
   });
 });

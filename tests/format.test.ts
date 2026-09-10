@@ -409,32 +409,6 @@ describe("formatQuotaRows", () => {
     expect(out).not.toContain("→ ");
   });
 
-  it("separates grouped percent, value, and provider blocks with single blank lines", () => {
-    const out = formatQuotaRows({
-      version: "1.0.0",
-      style: "allWindows",
-      layout: { maxWidth: 50, narrowAt: 42, tinyAt: 32 },
-      entries: [
-        { name: "Alpha", group: "Alpha", label: "Five-hour:", percentRemaining: 100 },
-        { name: "Alpha", group: "Alpha", label: "Weekly:", percentRemaining: 60 },
-        { name: "Alpha", group: "Alpha", label: "Balance:", kind: "value", value: "USD 12.00" },
-        { name: "Beta", group: "Beta", label: "Daily:", percentRemaining: 75 },
-      ],
-    });
-
-    const lines = out.split("\n");
-    const blankIndexes = lines.flatMap((line, index) => (line === "" ? [index] : []));
-
-    expect(blankIndexes).toEqual([3, 6, 8]);
-    expect(lines[0]).toBe("[Alpha]");
-    expect(lines[4]).toMatch(/^Weekly/u);
-    expect(lines[7]).toMatch(/^Balance/u);
-    expect(lines[9]).toBe("[Beta]");
-    expect(lines[10]).toMatch(/^Daily/u);
-    expect(lines.at(-1)).toMatch(/[█░]/u);
-    expect(out).not.toContain("\n\n\n");
-  });
-
   it("renders a structured quantity as an atomic value row without a bar", () => {
     const out = formatQuotaRows({
       version: "1.0.0",
