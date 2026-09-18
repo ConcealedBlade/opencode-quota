@@ -60,6 +60,18 @@ function stubJson(body: unknown, status = 200) {
   return fetchMock;
 }
 
+function stubParsedJson(body: unknown) {
+  const fetchMock = vi.fn(
+    async () =>
+      ({
+        ok: true,
+        json: async () => body,
+      }) as Response,
+  );
+  vi.stubGlobal("fetch", fetchMock as any);
+  return fetchMock;
+}
+
 beforeEach(() => {
   mocks.resolveZaiAuthCached.mockReset();
   mocks.resolveZhipuAuthCached.mockReset();
@@ -234,9 +246,9 @@ describe("provider-specific GLM envelopes", () => {
         type: "CREDIT_LIMIT",
         unit: 3,
         number: 1,
-        usage: 400,
-        currentValue: 9_600,
-        remaining: 9_600,
+        usage: 12_000,
+        currentValue: 569,
+        remaining: 11_430,
         percentage: 4,
         nextResetTime: resetMs,
       },
@@ -244,10 +256,10 @@ describe("provider-specific GLM envelopes", () => {
         type: "CREDIT_LIMIT",
         unit: 6,
         number: 1,
-        usage: 1_100,
-        currentValue: 8_900,
-        remaining: 8_900,
-        percentage: 11,
+        usage: 60_000,
+        currentValue: 569,
+        remaining: 59_430,
+        percentage: 1,
         nextResetTime: resetMs + 1_000,
       },
     ];
@@ -260,11 +272,11 @@ describe("provider-specific GLM envelopes", () => {
       label: "Z.ai",
       windows: {
         fiveHour: {
-          percentRemaining: 96,
+          percentRemaining: 95,
           resetTimeIso: new Date(resetMs).toISOString(),
         },
         weekly: {
-          percentRemaining: 89,
+          percentRemaining: 99,
           resetTimeIso: new Date(resetMs + 1_000).toISOString(),
         },
       },
@@ -281,11 +293,11 @@ describe("provider-specific GLM envelopes", () => {
       label: "Zhipu",
       windows: {
         fiveHour: {
-          percentRemaining: 96,
+          percentRemaining: 95,
           resetTimeIso: new Date(resetMs).toISOString(),
         },
         weekly: {
-          percentRemaining: 89,
+          percentRemaining: 99,
           resetTimeIso: new Date(resetMs + 1_000).toISOString(),
         },
       },
@@ -293,6 +305,152 @@ describe("provider-specific GLM envelopes", () => {
     expect(zhipuResult).not.toHaveProperty("windows.fiveHour.usage");
     expect(zhipuResult).not.toHaveProperty("windows.fiveHour.currentValue");
     expect(zhipuResult).not.toHaveProperty("windows.fiveHour.remaining");
+  });
+
+  it("falls back to reported credit percentages when exact values are absent or invalid", async () => {
+    const cases = [
+      {
+        name: "missing current value",
+        limit: { type: "CREDIT_LIMIT", unit: 3, usage: 12_000, percentage: 4 },
+        expected: 96,
+      },
+      {
+        name: "zero usage",
+        limit: {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          usage: 0,
+          currentValue: 569,
+          percentage: 11,
+        },
+        expected: 89,
+      },
+      {
+        name: "negative usage",
+        limit: {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          usage: -12_000,
+          currentValue: 569,
+          percentage: 12,
+        },
+        expected: 88,
+      },
+      {
+        name: "negative current value",
+        limit: {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          usage: 12_000,
+          currentValue: -1,
+          percentage: 13,
+        },
+        expected: 87,
+      },
+      {
+        name: "non-finite usage",
+        limit: {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          usage: Number.POSITIVE_INFINITY,
+          currentValue: 569,
+          percentage: 14,
+        },
+        expected: 86,
+      },
+      {
+        name: "non-finite current value",
+        limit: {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          usage: 12_000,
+          currentValue: Number.NaN,
+          percentage: 15,
+        },
+        expected: 85,
+      },
+      {
+        name: "non-finite fallback percentage",
+        limit: {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          usage: 12_000,
+          percentage: Number.POSITIVE_INFINITY,
+        },
+        expected: 0,
+      },
+    ];
+
+    for (const provider of providers) {
+      for (const testCase of cases) {
+        configure(provider);
+        stubParsedJson(quotaResponse([testCase.limit]));
+
+        await expect(provider.query(), `${provider.label}: ${testCase.name}`).resolves.toEqual({
+          success: true,
+          label: provider.label,
+          windows: {
+            fiveHour: { percentRemaining: testCase.expected, resetTimeIso: undefined },
+          },
+        });
+      }
+    }
+  });
+
+  it("clamps exact credit percentages for both providers", async () => {
+    const creditLimits = [
+      {
+        type: "CREDIT_LIMIT",
+        unit: 3,
+        usage: 100,
+        currentValue: 150,
+        percentage: 25,
+      },
+      {
+        type: "CREDIT_LIMIT",
+        unit: 6,
+        usage: 100,
+        currentValue: 0,
+        percentage: 25,
+      },
+    ];
+
+    for (const provider of providers) {
+      configure(provider);
+      stubJson(quotaResponse(creditLimits));
+
+      await expect(provider.query(), provider.label).resolves.toEqual({
+        success: true,
+        label: provider.label,
+        windows: {
+          fiveHour: { percentRemaining: 0, resetTimeIso: undefined },
+          weekly: { percentRemaining: 100, resetTimeIso: undefined },
+        },
+      });
+    }
+  });
+
+  it("keeps token limits on the provider percentage path", async () => {
+    const tokenLimit = {
+      type: "TOKENS_LIMIT",
+      unit: 3,
+      usage: 12_000,
+      currentValue: 569,
+      percentage: 4,
+    };
+
+    for (const provider of providers) {
+      configure(provider);
+      stubJson(quotaResponse([tokenLimit]));
+
+      await expect(provider.query(), provider.label).resolves.toEqual({
+        success: true,
+        label: provider.label,
+        windows: {
+          fiveHour: { percentRemaining: 96, resetTimeIso: undefined },
+        },
+      });
+    }
   });
 
   it("allows Z.ai root limits but keeps Zhipu strict to data.limits", async () => {
