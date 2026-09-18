@@ -880,17 +880,17 @@ describe("quota toast runtime state machine", () => {
       trigger: "session.idle",
     });
     expect(getToastMessage(defaultClient)).toContain("81% left");
-    expect(getToastMessage(defaultClient)).toContain("2d5h14m");
+    expect(getToastMessage(defaultClient)).toContain("2d 5h 14m");
 
-    mocks.loadConfig.mockResolvedValueOnce(makeToastConfig({ resetTimeSpaced: true }));
-    const spacedClient = createClient();
-    const { runtime: spacedRuntime } = await createRuntime(spacedClient);
-    await spacedRuntime.handleTrigger({
+    mocks.loadConfig.mockResolvedValueOnce(makeToastConfig({ resetTimeSpaced: false }));
+    const denseClient = createClient();
+    const { runtime: denseRuntime } = await createRuntime(denseClient);
+    await denseRuntime.handleTrigger({
       sessionID: "session-display-cache",
       trigger: "session.idle",
     });
-    expect(getToastMessage(spacedClient)).toContain("81% left");
-    expect(getToastMessage(spacedClient)).toContain("2d 5h 14m");
+    expect(getToastMessage(denseClient)).toContain("81% left");
+    expect(getToastMessage(denseClient)).toContain("2d5h14m");
 
     mocks.loadConfig.mockResolvedValueOnce(
       makeToastConfig({ percentDisplayMode: "used", percentLabelStyle: "bare" }),

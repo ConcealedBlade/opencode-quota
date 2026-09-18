@@ -921,9 +921,9 @@ describe("loadConfig", () => {
     }
   });
 
-  it("defaults resetTimeSpaced to unset and accepts boolean overrides", async () => {
+  it("defaults resetTimeSpaced on and accepts boolean overrides", async () => {
     const defaults = await loadSdkConfig({});
-    expect(defaults.config.resetTimeSpaced).toBeUndefined();
+    expect(defaults.config.resetTimeSpaced).toBe(true);
 
     for (const resetTimeSpaced of [true, false]) {
       const configured = await loadSdkConfig({ resetTimeSpaced });
@@ -935,7 +935,7 @@ describe("loadConfig", () => {
 
     for (const invalid of ["true", 1, null]) {
       const rejected = await loadSdkConfig({ resetTimeSpaced: invalid });
-      expect(rejected.config.resetTimeSpaced).toBeUndefined();
+      expect(rejected.config.resetTimeSpaced).toBe(true);
       expect(rejected.meta.settingSources).not.toHaveProperty("resetTimeSpaced");
     }
   });

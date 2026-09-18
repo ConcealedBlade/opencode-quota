@@ -416,7 +416,13 @@ describe("/quota command behavior", () => {
     expect(injected).not.toContain("81% left");
   });
 
-  it("applies bare percent labels and spaced resets to /quota output", async () => {
+  it.each([
+    { label: "default spaced resets", resetTimeSpaced: undefined, expectedReset: "2d 5h 14m" },
+    { label: "the explicit dense-reset opt-out", resetTimeSpaced: false, expectedReset: "2d5h14m" },
+  ])("applies bare percent labels and $label to /quota output", async ({
+    resetTimeSpaced,
+    expectedReset,
+  }) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
     try {
@@ -428,7 +434,7 @@ describe("/quota command behavior", () => {
         showSessionTokens: false,
         percentDisplayMode: "used",
         percentLabelStyle: "bare",
-        resetTimeSpaced: true,
+        ...(resetTimeSpaced === undefined ? {} : { resetTimeSpaced }),
         minIntervalMs: 60_000,
       });
 
@@ -461,7 +467,7 @@ describe("/quota command behavior", () => {
       expect(injected).toContain("Quota [Used] (/quota)");
       expect(injected).toContain("19%");
       expect(injected).not.toContain("19% used");
-      expect(injected).toContain("2d 5h 14m");
+      expect(injected).toContain(expectedReset);
     } finally {
       vi.useRealTimers();
     }
