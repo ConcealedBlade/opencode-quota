@@ -160,7 +160,7 @@ describe("runCliShowCommand", () => {
     expect(provider.fetch).toHaveBeenCalledOnce();
   });
 
-  it("adds a Quota mode heading for bare CLI labels and spaces reset units", async () => {
+  it("adds a Quota mode heading for bare CLI labels and spaces reset units by default", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
     const provider = {
@@ -189,7 +189,6 @@ describe("runCliShowCommand", () => {
             enabledProviders: ["synthetic"],
             percentDisplayMode: "used",
             percentLabelStyle: "bare",
-            resetTimeSpaced: true,
           },
         },
       }),

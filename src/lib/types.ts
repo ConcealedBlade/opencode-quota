@@ -121,10 +121,10 @@ export interface QuotaToastConfig {
   accountingDetail: AccountingDetail;
   /**
    * Decimal places for a largest-unit reset countdown override.
-   * Unset uses the default exact-to-minute DdHhMm display.
+   * Unset uses the default exact-to-minute days, hours, and minutes display.
    */
   resetTimeDecimals?: number;
-  /** Whether exact multi-unit reset countdowns include spaces between units. */
+  /** Whether exact multi-unit reset countdowns include spaces between units. Defaults to true. */
   resetTimeSpaced?: boolean;
   minIntervalMs: number;
 
@@ -235,6 +235,7 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   formatStyle: DEFAULT_QUOTA_FORMAT_STYLE,
   percentDisplayMode: "remaining",
   accountingDetail: "summary",
+  resetTimeSpaced: true,
   minIntervalMs: 300000, // 5 minutes
   requestTimeoutMs: REQUEST_TIMEOUT_MS,
 

@@ -1299,6 +1299,7 @@ describe("tui runtime helpers", () => {
         entry: { name: "Copilot 5h", percentRemaining: 18 },
         percentDisplayMode: "used",
         resetTimeDecimals: undefined,
+        resetTimeSpaced: true,
       },
     });
     expect(collectQuotaRenderData).toHaveBeenCalledOnce();
@@ -1307,6 +1308,7 @@ describe("tui runtime helpers", () => {
       data,
       percentDisplayMode: "used",
       accountingDetail: "summary",
+      resetTimeSpaced: true,
       maxWidth: 42,
     });
   });
@@ -1420,6 +1422,7 @@ describe("tui runtime helpers", () => {
         },
         percentDisplayMode: "used",
         resetTimeDecimals: 2,
+        resetTimeSpaced: true,
       },
     });
     expect(collectQuotaRenderData).toHaveBeenCalledOnce();
@@ -1471,6 +1474,7 @@ describe("tui runtime helpers", () => {
       entry: { name: "Copilot monthly", percentRemaining: 18 },
       percentDisplayMode: "remaining",
       resetTimeDecimals: undefined,
+      resetTimeSpaced: true,
     });
   });
 
@@ -1553,6 +1557,7 @@ describe("tui runtime helpers", () => {
       entry: { semanticSegment: fixture.expected },
       percentDisplayMode: "remaining",
       resetTimeDecimals: undefined,
+      resetTimeSpaced: true,
     });
   });
 
@@ -1624,6 +1629,7 @@ describe("tui runtime helpers", () => {
         entry: { name: "Copilot 5h", percentRemaining: 18 },
         percentDisplayMode: "used",
         resetTimeDecimals: undefined,
+        resetTimeSpaced: true,
       },
     });
     expect(collectQuotaRenderData).toHaveBeenCalledOnce();
@@ -1653,11 +1659,22 @@ describe("tui runtime helpers", () => {
       data,
       percentDisplayMode: "used",
       accountingDetail: "summary",
+      resetTimeSpaced: true,
       maxWidth: 42,
     });
   });
 
-  it("forwards spaced resets and bare labels to TUI quota displays", async () => {
+  it.each([
+    { label: "default spaced resets", resetTimeSpaced: undefined, expectedResetTimeSpaced: true },
+    {
+      label: "the explicit dense-reset opt-out",
+      resetTimeSpaced: false,
+      expectedResetTimeSpaced: false,
+    },
+  ])("forwards $label and bare labels to TUI quota displays", async ({
+    resetTimeSpaced,
+    expectedResetTimeSpaced,
+  }) => {
     writeFileSync(
       join(worktreeDir, "opencode.json"),
       JSON.stringify({
@@ -1666,7 +1683,7 @@ describe("tui runtime helpers", () => {
             enabled: true,
             percentDisplayMode: "used",
             percentLabelStyle: "bare",
-            resetTimeSpaced: true,
+            ...(resetTimeSpaced === undefined ? {} : { resetTimeSpaced }),
             tuiCompactStatus: {
               enabled: true,
               sessionPrompt: true,
@@ -1703,7 +1720,7 @@ describe("tui runtime helpers", () => {
         },
         client: {},
       } as any,
-      sessionID: "spaced-bare-session",
+      sessionID: `spacing-${expectedResetTimeSpaced}`,
     });
 
     expect(surfaces.sidebar).toEqual({
@@ -1714,20 +1731,20 @@ describe("tui runtime helpers", () => {
     expect(surfaces.promptBar).toMatchObject({
       status: "ready",
       percentDisplayMode: "used",
-      resetTimeSpaced: true,
+      resetTimeSpaced: expectedResetTimeSpaced,
     });
     expect(buildSidebarQuotaPanelLines).toHaveBeenCalledWith({
       data,
       config: expect.objectContaining({
         percentLabelStyle: "bare",
-        resetTimeSpaced: true,
+        resetTimeSpaced: expectedResetTimeSpaced,
       }),
     });
     expect(buildCompactQuotaStatusLine).toHaveBeenCalledWith({
       data,
       percentDisplayMode: "used",
       accountingDetail: "summary",
-      resetTimeSpaced: true,
+      resetTimeSpaced: expectedResetTimeSpaced,
       maxWidth: 42,
     });
   });
@@ -1776,6 +1793,7 @@ describe("tui runtime helpers", () => {
         status: "ready",
         percentDisplayMode: "remaining",
         resetTimeDecimals: undefined,
+        resetTimeSpaced: true,
       },
     });
     expect(buildCompactQuotaStatusLine).not.toHaveBeenCalled();
@@ -1884,6 +1902,7 @@ describe("tui runtime helpers", () => {
       data,
       percentDisplayMode: "remaining",
       accountingDetail: "summary",
+      resetTimeSpaced: true,
       maxWidth: 96,
     });
   });
@@ -2262,6 +2281,7 @@ describe("tui runtime helpers", () => {
       data,
       percentDisplayMode: "used",
       accountingDetail: "summary",
+      resetTimeSpaced: true,
       maxWidth: 40,
     });
     expect(buildSidebarQuotaPanelLines).not.toHaveBeenCalled();

@@ -26,7 +26,7 @@ Strict `.json` files also work. Run `/quota_status` if you are unsure which file
 | Show quota used instead of left            | `percentDisplayMode: "used"`  |
 | Estimate when eligible fixed quota runs out | `quotaProjection: "runway"`   |
 | Show percentages without `left` or `used`   | `percentLabelStyle: "bare"`   |
-| Add spaces between reset countdown units    | `resetTimeSpaced: true`         |
+| Use dense reset countdown units            | `resetTimeSpaced: false`        |
 | Show supplementary accounting facts        | `accountingDetail: "detailed"` |
 | Show slash results with messages           | `tuiCommandDisplay: "inline"` |
 | Show slash results in a TUI popup          | `tuiCommandDisplay: "dialog"` |
@@ -54,7 +54,8 @@ The installer chooses `allWindows` by default. If the setting is absent, the bui
   // Optional linear estimate for supported fixed windows. Off when omitted.
   "quotaProjection": "runway",
   "percentLabelStyle": "bare",
-  "resetTimeSpaced": true,
+  // Use dense compound reset countdowns instead of the spaced default.
+  "resetTimeSpaced": false,
   "accountingDetail": "summary",
 
   // Keep TUI slash-command results with normal messages.
@@ -287,7 +288,7 @@ See [Providers](providers.md#custom-providers) for response formats and setup de
 <details>
 <summary><strong>Choose decimal reset countdowns</strong></summary>
 
-By default, popup toasts, the Sidebar, terminal `show`, and the prompt bar show exact remaining days, hours, and minutes in compact form, such as `6d1h17m`, `2h14m`, or `37m`. Partial minutes round up. Set `resetTimeDecimals` to an integer from `0` to `4` to instead show the largest unit as a decimal value, such as `5.7d` or `1.4h`.
+By default, popup toasts, the Sidebar, terminal `show`, and the prompt bar show exact remaining days, hours, and minutes with spaces between compound units, such as `6d 1h 17m`, `2h 14m`, or `37m`. Partial minutes round up. Set `resetTimeDecimals` to an integer from `0` to `4` to instead show the largest unit as a decimal value, such as `5.7d` or `1.4h`.
 
 ```jsonc
 {
@@ -300,9 +301,9 @@ Leave it unset to use the default exact-to-minute display.
 </details>
 
 <details>
-<summary><strong>Space reset units and shorten percent labels</strong></summary>
+<summary><strong>Choose reset spacing and shorten percent labels</strong></summary>
 
-Set `resetTimeSpaced` to `true` to add spaces between exact compound countdown units. For example, `2d5h14m` becomes `2d 5h 14m`, and `3h45m` becomes `3h 45m`. Minute-only values such as `14m`, expired values shown as `reset`, and partial-minute rounding stay unchanged. This setting applies to `/quota` in Web, Desktop, and the TUI, popup toasts, terminal `show`, the expanded and collapsed Sidebar, Compact status, and the prompt bar.
+Exact compound countdowns use spaces by default. Set `resetTimeSpaced` to `false` when a dense layout is more important. For example, `2d 5h 14m` becomes `2d5h14m`, and `3h 45m` becomes `3h45m`. Minute-only values such as `14m`, expired values shown as `reset`, and partial-minute rounding stay unchanged. This setting applies to `/quota` in Web, Desktop, and the TUI, popup toasts, terminal `show`, the expanded and collapsed Sidebar, Compact status, and the prompt bar.
 
 `resetTimeDecimals` keeps its existing largest-unit decimal format and takes precedence over spacing on the displays where decimal countdowns apply.
 
@@ -310,12 +311,12 @@ Set `percentLabelStyle` to `"bare"` to show `81%` instead of `81% left`, or `19%
 
 ```jsonc
 {
-  "resetTimeSpaced": true,
+  "resetTimeSpaced": false,
   "percentLabelStyle": "bare",
 }
 ```
 
-Both settings are optional. Leave them unset to keep the existing compact countdowns and full percent labels.
+Both settings are optional. Leave `resetTimeSpaced` unset to keep spaced countdowns, and leave `percentLabelStyle` unset to keep full percent labels.
 
 </details>
 
@@ -397,8 +398,8 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `quotaProjection`             | unset          | Set to `"runway"` for a linear **Runs out** estimate on explicitly supported fixed, full-reset percentage windows. Off when unset; unsupported rows remain unchanged; JSON export v2 is unchanged.                                                                                                                |
 | `percentLabelStyle`           | unset          | Set to `bare` to remove `left` or `used` from full-report percentage labels. Full reports and the Sidebar name the direction in a `Quota [Remaining]` or `Quota [Used]` heading. `full` is also accepted. Unset keeps full labels.                                                                                  |
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
-| `resetTimeDecimals`           | unset          | Decimal places for a largest-unit reset countdown override in popup toasts, the Sidebar panel, terminal `show`, and the prompt bar. Accepts integers `0`–`4`; when unset, the default shows exact remaining days, hours, and minutes as `DdHhMm`. |
-| `resetTimeSpaced`             | unset          | Set to `true` to space exact compound countdowns such as `2d 5h 14m` on `/quota`, popup toasts, terminal `show`, the Sidebar, Compact status, and the prompt bar. `resetTimeDecimals` keeps its legacy decimal format where it applies. Unset or `false` keeps compact spelling.                                       |
+| `resetTimeDecimals`           | unset          | Decimal places for a largest-unit reset countdown override in popup toasts, the Sidebar panel, terminal `show`, and the prompt bar. Accepts integers `0`–`4`; when unset, the default shows exact remaining days, hours, and minutes. |
+| `resetTimeSpaced`             | `true`         | Exact compound countdowns use spaces, such as `2d 5h 14m`, on `/quota`, popup toasts, terminal `show`, the Sidebar, Compact status, and the prompt bar. Set to `false` for dense spelling such as `2d5h14m`. `resetTimeDecimals` keeps its legacy decimal format where it applies. |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `showSessionTokens`           | `true`         | Show the `Session input/output tokens` section when session token data is available. When cached input is present, the section keeps the legacy `in/out` layout and appends cached input in parentheses next to the input amount.                                                                                   |
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |

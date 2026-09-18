@@ -7,6 +7,7 @@ import {
   TUI_SIDEBAR_LAYOUT,
   TUI_SIDEBAR_MAX_WIDTH,
 } from "../src/lib/tui-sidebar-format.js";
+import { DEFAULT_CONFIG } from "../src/lib/types.js";
 
 describe("buildSidebarQuotaPanelLines", () => {
   afterEach(() => {
@@ -632,7 +633,7 @@ describe("buildSidebarQuotaPanelLines", () => {
     expect(used.join("\n")).toContain("$2.40 / $20.00");
   });
 
-  it("applies spaced resets and bare labels within the 36-column sidebar", () => {
+  it("applies default spaced resets and bare labels within the 36-column sidebar", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
     const data = {
@@ -660,7 +661,7 @@ describe("buildSidebarQuotaPanelLines", () => {
           formatStyle,
           percentDisplayMode: "remaining",
           percentLabelStyle: "bare",
-          resetTimeSpaced: true,
+          resetTimeSpaced: DEFAULT_CONFIG.resetTimeSpaced,
         },
       });
       const barCells = (lines: string[]) =>

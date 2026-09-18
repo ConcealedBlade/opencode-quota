@@ -1,17 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildCompactQuotaStatusLine } from "../src/lib/tui-compact-format.js";
+import { DEFAULT_CONFIG } from "../src/lib/types.js";
 
 describe("buildCompactQuotaStatusLine", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("formats provider reset timestamps to the exact minute", () => {
+  it("formats dense provider reset timestamps when explicitly requested", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
 
     const line = buildCompactQuotaStatusLine({
+      resetTimeSpaced: false,
       maxWidth: 96,
       data: {
         entries: [
@@ -28,13 +30,13 @@ describe("buildCompactQuotaStatusLine", () => {
     expect(line).toBe("OpenAI Weekly 50% 2d5h14m");
   });
 
-  it("spaces exact compound resets while keeping compact percentages bare", () => {
+  it("uses the resolved spacing default while keeping compact percentages bare", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));
 
     const line = buildCompactQuotaStatusLine({
       percentDisplayMode: "used",
-      resetTimeSpaced: true,
+      resetTimeSpaced: DEFAULT_CONFIG.resetTimeSpaced,
       maxWidth: 96,
       data: {
         entries: [
