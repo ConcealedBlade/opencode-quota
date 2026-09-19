@@ -133,6 +133,14 @@ export const PROVIDER_ACCOUNTING_LEDGER: Record<string, Array<QuotaToastEntry["a
       authority: "locally_derived",
     },
   ],
+  "alibaba-token-plan": [
+    {
+      resultType: "quota",
+      acquisitionMethod: "local_cli",
+      ownership: "maintained",
+      authority: "provider_reported",
+    },
+  ],
   synthetic: [
     {
       resultType: "quota",

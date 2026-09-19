@@ -8,7 +8,7 @@
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Provider support                     | [Pre-configured providers](#pre-configured-providers) · [Custom providers](#custom-providers)                                                                                                                         |
 | Billing, API key, or dashboard setup | [GitHub Copilot](#github-copilot) · [DeepSeek](#deepseek) · [Kilo Gateway](#kilo-gateway) · [Xiaomi MiMo](#xiaomi-mimo) · [Ollama Cloud](#ollama-cloud) · [OpenCode Go](#opencode-go) · [OpenCode Zen](#opencode-zen) |
-| CLI or companion-plugin setup        | [Anthropic](#anthropic-claude) · [Cursor](#cursor) · [Qwen Code](#qwen-code) · [Google Antigravity](#google-antigravity) · [Google AGY](#google-agy-quick-setup) · [Gemini CLI (deprecated)](#gemini-cli)             |
+| CLI or companion-plugin setup        | [Anthropic](#anthropic-claude) · [Cursor](#cursor) · [Qwen Code](#qwen-code) · [Alibaba Personal Token Plan](#alibaba-personal-token-plan) · [Google Antigravity](#google-antigravity) · [Google AGY](#google-agy-quick-setup) · [Gemini CLI (deprecated)](#gemini-cli) |
 
 ## Pre-configured providers
 
@@ -67,17 +67,18 @@ Business placement describes vendor plan availability. Except for configured Cop
 <details open>
 <summary><strong>Personal</strong></summary>
 
-| Provider                 | Auth/setup                  | Data from      | Reports            |
-| ------------------------ | --------------------------- | -------------- | ------------------ |
-| Alibaba Coding Plan      | Automatic                   | Local estimate | Quota              |
-| DeepSeek                 | Automatic                   | Remote API     | Balance and status |
-| Kimi Code                | Automatic                   | Remote API     | Quota              |
-| MiniMax Token Plan       | Automatic                   | Remote API     | Quota              |
-| MiniMax Token Plan (CN)  | Automatic                   | Remote API     | Quota              |
-| Qwen Code                | [Needs setup](#qwen-code)   | Local estimate | Quota              |
-| Xiaomi MiMo              | [Needs setup](#xiaomi-mimo) | Dashboard API  | Quota and balance  |
-| Z.ai Coding Plan         | Automatic                   | Remote API     | Quota              |
-| Zhipu Coding Plan        | Automatic                   | Remote API     | Quota              |
+| Provider                      | Auth/setup                                                          | Data from      | Reports            |
+| ----------------------------- | ------------------------------------------------------------------- | -------------- | ------------------ |
+| Alibaba Coding Plan           | Automatic                                                           | Local estimate | Quota              |
+| Alibaba Personal Token Plan   | [Needs setup](#alibaba-personal-token-plan)                         | Official CLI   | Quota              |
+| DeepSeek                      | Automatic                                                           | Remote API     | Balance and status |
+| Kimi Code                     | Automatic                                                           | Remote API     | Quota              |
+| MiniMax Token Plan            | Automatic                                                           | Remote API     | Quota              |
+| MiniMax Token Plan (CN)       | Automatic                                                           | Remote API     | Quota              |
+| Qwen Code                     | [Needs setup](#qwen-code)                                           | Local estimate | Quota              |
+| Xiaomi MiMo                   | [Needs setup](#xiaomi-mimo)                                         | Dashboard API  | Quota and balance  |
+| Z.ai Coding Plan              | Automatic                                                           | Remote API     | Quota              |
+| Zhipu Coding Plan             | Automatic                                                           | Remote API     | Quota              |
 
 </details>
 
@@ -278,7 +279,7 @@ Project secrets are never read. Custom definitions cannot add scripts, methods, 
 
 `modelIds` only filters `onlyCurrentModel`. Use exact, case-sensitive model IDs without the outer provider prefix, or omit it to cover every model for the provider.
 
-To tune Qwen Code or Alibaba Coding Plan, use its reserved `qwen-code` or `alibaba-coding-plan` ID and maintained window shape. Do not add a duplicate normal provider block.
+To tune Qwen Code or Alibaba Coding Plan, use its reserved `qwen-code` or `alibaba-coding-plan` ID and maintained window shape. Do not add a duplicate normal provider block. Alibaba Personal Token Plan uses the reserved `alibaba-token-plan` ID and stays a separate official-CLI provider. Do not fold it into `alibaba-coding-plan`.
 
 A custom model provider still needs its normal OpenCode provider/model config. `/connect` → **Other** stores its credential, not its model setup.
 
@@ -418,6 +419,23 @@ opencode auth login --provider cursor
 Cursor estimates the current local billing cycle from OpenCode history. With complete model coverage and a positive configured/preset allowance, it shows an **API budget** percentage with used, limit, and remaining USD facts. If any Cursor model is unknown, it shows only **Known API spend** plus a partial-data issue; it never presents that partial spend as total account spend or a percentage. Without an allowance it shows **API spend**. **Auto+Composer spend** is supplementary and appears in detailed output when space allows.
 
 Runs-out projection is available only when `cursorBillingCycleStartDay` explicitly anchors that fixed cycle. The ordinary local calendar-month fallback is not projection evidence.
+
+<a id="alibaba-personal-token-plan"></a>
+
+### Alibaba Personal Token Plan
+
+This is a separate provider from Alibaba Coding Plan. It reads Personal Token Plan quota from the official Alibaba Cloud Model Studio CLI after you install and authenticate that CLI yourself:
+
+```bash
+npm install -g bailian-cli
+bl auth login --console
+```
+
+OpenCode Quota runs only `bl usage token-plan --output json`. It does not install `bl`, open a login flow, read console cookies, or accept a custom command. macOS and Linux resolve `bl` from absolute PATH directories outside the workspace. On Windows, use WSL. Native Windows `bl.exe` and `.cmd` shims are not supported in this release.
+
+Team plans, China-only `alibaba-token-plan-cn` runtimes, and cookie-based console scraping are out of scope. After you change the CLI's active console account, restart OpenCode or wait for the next live probe. `/quota_status` has an `alibaba_token_plan` live probe that stays separate from Alibaba Coding Plan diagnostics.
+
+If you use manual provider selection, include `alibaba-token-plan` in `enabledProviders`.
 
 <a id="qwen-code"></a>
 

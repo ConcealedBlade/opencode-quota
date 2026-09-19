@@ -166,6 +166,20 @@ Run `/quota_status` and check the Alibaba auth, resolved tier, state-file path, 
 </details>
 
 <details>
+<summary><strong>Alibaba Personal Token Plan</strong></summary>
+
+Run `/quota_status` and check the `alibaba_token_plan` live probe. This source is separate from Alibaba Coding Plan API-key diagnostics.
+
+| Symptom                 | Fix                                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI not detected        | Install official `bailian-cli` so `bl` is on an absolute PATH directory outside the workspace. On Windows, run this from WSL. Native `bl.exe` and `.cmd` shims are not supported. |
+| Console session expired | Run `bl auth login --console`. A Coding Plan API key cannot authenticate this provider.                                                                             |
+| Weekly row only         | The official CLI may omit the five-hour window. OpenCode Quota does not invent a missing window.                                                                    |
+| JSON export empty       | `show --json` is cache-only. This provider is uncached, so a separate CLI process reports it unavailable instead of running `bl`.                                   |
+
+</details>
+
+<details>
 <summary><strong>MiniMax, Kimi, Chutes AI, Synthetic, Z.ai, Zhipu, NanoGPT, DeepSeek, and OpenRouter</strong></summary>
 
 These providers use trusted env vars, trusted user/global OpenCode config, or native OpenCode auth. Run `/quota_status` and check the provider-specific API-key diagnostics.

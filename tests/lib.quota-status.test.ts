@@ -768,6 +768,7 @@ describe("buildQuotaStatusReport", () => {
         "openai",
         "qwen-code",
         "alibaba-coding-plan",
+        "alibaba-token-plan",
         "minimax-coding-plan",
         "copilot",
         "google-antigravity",
@@ -800,6 +801,19 @@ describe("buildQuotaStatusReport", () => {
           ],
         }),
         makeProviderProbe("alibaba-coding-plan"),
+        makeProviderProbe("alibaba-token-plan", {
+          attempted: true,
+          entries: [
+            {
+              label: "5h",
+              name: "Alibaba Personal Token Plan 5h",
+              percentUsed: 20,
+              percentRemaining: 80,
+              right: "20%",
+              resetTimeIso: "2026-04-22T05:00:00.000Z",
+            },
+          ],
+        }),
         makeProviderSuccessProbe(
           "minimax-coding-plan",
           { auth_state: "none" },
@@ -854,6 +868,11 @@ describe("buildQuotaStatusReport", () => {
 
     const alibabaSection = getReportSection(report, "alibaba_coding_plan:");
     expect(alibabaSection).toContain("- live_probe: no_data");
+    expect(alibabaSection).not.toContain("alibaba-token-plan");
+
+    const alibabaTokenPlanSection = getReportSection(report, "alibaba_token_plan:");
+    expect(alibabaTokenPlanSection).toContain("- live_probe: success");
+    expect(alibabaTokenPlanSection).not.toContain("alibaba-coding-plan");
 
     const minimaxSection = getReportSection(report, "minimax:");
     expect(minimaxSection).toContain("- auth_state: none");

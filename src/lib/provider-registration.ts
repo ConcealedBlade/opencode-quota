@@ -141,6 +141,18 @@ export const QUOTA_PROVIDER_REGISTRATION_SOURCE = [
     },
   },
   {
+    id: "alibaba-token-plan",
+    label: "Alibaba Personal Token Plan",
+    runtimeIds: ["alibaba-token-plan"],
+    synonyms: [],
+    shape: {
+      autoSetup: "needs_quick_setup",
+      authentication: "local_cli_auth",
+      quota: "local_cli_report",
+      quickSetupAnchor: "alibaba-personal-token-plan",
+    },
+  },
+  {
     id: "synthetic",
     label: "Synthetic",
     runtimeIds: ["synthetic"],

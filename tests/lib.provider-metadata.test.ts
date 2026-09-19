@@ -75,6 +75,13 @@ describe("provider-metadata", () => {
         quota: "local_estimation",
       },
       {
+        id: "alibaba-token-plan",
+        autoSetup: "needs_quick_setup",
+        authentication: "local_cli_auth",
+        quota: "local_cli_report",
+        quickSetupAnchor: "alibaba-personal-token-plan",
+      },
+      {
         id: "synthetic",
         autoSetup: "yes",
         authentication: "opencode_auth_api_key",
@@ -400,6 +407,23 @@ describe("provider-metadata", () => {
       quota: "local_estimation",
       quickSetupAnchor: "qwen-code",
     });
+    expect(getQuotaProviderShape("alibaba")).toEqual({
+      id: "alibaba-coding-plan",
+      autoSetup: "yes",
+      authentication: "opencode_auth_api_key",
+      authFallbacks: ["env_api_key", "global_opencode_config"],
+      quota: "local_estimation",
+    });
+    expect(getQuotaProviderShape("alibaba-token-plan")).toEqual({
+      id: "alibaba-token-plan",
+      autoSetup: "needs_quick_setup",
+      authentication: "local_cli_auth",
+      quota: "local_cli_report",
+      quickSetupAnchor: "alibaba-personal-token-plan",
+    });
+    expect(getQuotaProviderShape("alibaba-coding-plan")).not.toEqual(
+      getQuotaProviderShape("alibaba-token-plan"),
+    );
     expect(getQuotaProviderShape("gemini-cli")).toEqual({
       id: "google-gemini-cli",
       lifecycle: "deprecated",
@@ -465,6 +489,7 @@ describe("provider-metadata", () => {
     expect(getQuotaProviderDisplayLabel("google-agy")).toBe("Google AGY");
     expect(getQuotaProviderDisplayLabel("cursor")).toBe("Cursor");
     expect(getQuotaProviderDisplayLabel("alibaba-coding-plan")).toBe("Alibaba Coding Plan");
+    expect(getQuotaProviderDisplayLabel("alibaba-token-plan")).toBe("Alibaba Personal Token Plan");
     expect(getQuotaProviderDisplayLabel("synthetic")).toBe("Synthetic");
     expect(getQuotaProviderDisplayLabel("zai")).toBe("Z.ai");
     expect(getQuotaProviderDisplayLabel("zhipu")).toBe("Zhipu");

@@ -70,6 +70,34 @@ describe("provider availability", () => {
     ).resolves.toBe(true);
     await expect(
       isCanonicalProviderAvailable({
+        ctx: makeCtx({ ids: ["alibaba-coding-plan"] }),
+        providerId: "alibaba-coding-plan",
+        fallbackOnError: false,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      isCanonicalProviderAvailable({
+        ctx: makeCtx({ ids: ["alibaba"] }),
+        providerId: "alibaba-token-plan",
+        fallbackOnError: false,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      isCanonicalProviderAvailable({
+        ctx: makeCtx({ ids: ["alibaba-coding-plan"] }),
+        providerId: "alibaba-token-plan",
+        fallbackOnError: false,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      isCanonicalProviderAvailable({
+        ctx: makeCtx({ ids: ["alibaba-token-plan"] }),
+        providerId: "alibaba-token-plan",
+        fallbackOnError: false,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      isCanonicalProviderAvailable({
         ctx: makeCtx({ ids: ["synthetic"] }),
         providerId: "synthetic",
         fallbackOnError: false,

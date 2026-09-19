@@ -181,6 +181,13 @@ try {
   assert.ok(!privateArtifacts.includes("resolvedAuthIdentity"));
   assert.ok(!privateArtifacts.includes("rai1_"));
 
+  const alibabaTokenPlanFixture = path.join(workdir, "smoke-packed-alibaba-token-plan.mjs");
+  await copyFile(
+    new URL("./fixtures/smoke-packed-alibaba-token-plan.mjs", import.meta.url),
+    alibabaTokenPlanFixture,
+  );
+  run(process.execPath, [alibabaTokenPlanFixture], workdir, { env: isolatedRuntimeEnv });
+
   console.log(
     `Packed package smoke passed for ${artifact.filename} on Node ${process.versions.node} with packaged @opentelemetry/api and host-owned @opentelemetry/sdk-metrics ${sdkMetricsVersion} (sha256 ${artifact.sha256}).`,
   );

@@ -16,7 +16,7 @@ describe("provider cache policies", () => {
       .filter(([, policy]) => policy.kind === "uncached")
       .map(([id]) => id)
       .sort();
-    expect(uncached).toEqual(["cursor", "qwen-code"]);
+    expect(uncached).toEqual(["alibaba-token-plan", "cursor", "qwen-code"]);
 
     for (const id of [
       "anthropic",
