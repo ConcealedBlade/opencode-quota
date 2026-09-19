@@ -715,6 +715,37 @@ describe("buildQuotaStatusReport", () => {
     expect(report).toContain("- live_probe: no_data");
   });
 
+  it("renders Synthetic empty-object success as a live error without quota rows or auth inference", async () => {
+    const report = await buildSyntheticStatusReport({
+      providerLiveProbes: [
+        makeProviderSuccessProbe(
+          "synthetic",
+          { "synthetic api key": "configured=true source=env:SYNTHETIC_API_KEY" },
+          {
+            errors: [
+              {
+                label: "Synthetic",
+                message: "Synthetic returned no quota data for this account.",
+              },
+            ],
+          },
+        ),
+      ],
+    });
+
+    const section = getReportSection(report, "synthetic:");
+    expect(section).toContain("- synthetic api key: configured=true source=env:SYNTHETIC_API_KEY");
+    expect(section).toContain("- live_probe: error");
+    expect(section).toContain("- live_error_1: Synthetic returned no quota data for this account.");
+    expect(section).not.toContain("live_entry_");
+    expect(section).not.toContain("5h:");
+    expect(section).not.toContain("Weekly:");
+    expect(section).not.toContain("Clerk");
+    expect(section).not.toContain("invalid");
+    expect(section).not.toContain("subscription");
+    expect(syntheticMocks.querySyntheticQuota).not.toHaveBeenCalled();
+  });
+
   it("renders compact live probes in mapped and probe-only provider sections", async () => {
     const report = await buildQuotaStatusReportForTest({
       enabledProviders: [
