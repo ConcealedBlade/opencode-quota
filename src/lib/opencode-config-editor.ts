@@ -11,8 +11,15 @@ import {
   parseTree,
 } from "jsonc-parser";
 
-import { writeTextAtomic } from "./atomic-json.js";
 import type { ConfigFileFormat, EditableConfigPath } from "./config-file-utils.js";
+import {
+  assertNotSymlinkSource,
+  assertSameConfigWriteTarget,
+  ConfigWriteTargetError,
+  type ConfigWriteTargetSnapshot,
+  resolveConfigWriteTarget,
+  writeResolvedConfigText,
+} from "./config-write-target.js";
 
 export interface ManagedConfigComment {
   path: (string | number)[];
@@ -31,6 +38,8 @@ export interface ConfigDocumentEdit {
   format: ConfigFileFormat;
   originalBytes: Buffer | null;
   targetOriginalBytes: Buffer | null;
+  writeTarget: ConfigWriteTargetSnapshot;
+  sourceWriteTarget?: ConfigWriteTargetSnapshot;
   updated: string;
   changed: boolean;
 }
@@ -43,6 +52,18 @@ export class ConfigDocumentError extends Error {
     super(message);
     this.name = "ConfigDocumentError";
   }
+}
+
+function asConfigDocumentError(error: unknown, fallbackPath: string): never {
+  if (error instanceof ConfigDocumentError) {
+    throw error;
+  }
+  if (error instanceof ConfigWriteTargetError) {
+    throw new ConfigDocumentError(error.message, error.path);
+  }
+  throw error instanceof Error
+    ? error
+    : new ConfigDocumentError(`Failed inspecting config: ${fallbackPath}`, fallbackPath);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -322,7 +343,25 @@ export async function planConfigDocumentEdit(params: {
   managedComments?: ManagedConfigComment[];
   managedCommentReplacements?: ManagedConfigCommentReplacement[];
 }): Promise<ConfigDocumentEdit> {
-  const originalBytes = params.target.existed ? await readFile(params.target.sourcePath) : null;
+  let writeTarget: ConfigWriteTargetSnapshot;
+  let sourceWriteTarget: ConfigWriteTargetSnapshot | undefined;
+  try {
+    writeTarget = await resolveConfigWriteTarget(params.target.path);
+    if (params.target.sourcePath !== params.target.path) {
+      sourceWriteTarget = await resolveConfigWriteTarget(params.target.sourcePath);
+      if (params.target.removeSourcePath) {
+        assertNotSymlinkSource(sourceWriteTarget, params.target.sourcePath);
+      }
+    } else if (params.target.removeSourcePath) {
+      assertNotSymlinkSource(writeTarget, params.target.sourcePath);
+    }
+  } catch (error) {
+    asConfigDocumentError(error, params.target.path);
+  }
+
+  const originalBytes = params.target.existed
+    ? await readFile((sourceWriteTarget ?? writeTarget).writePath)
+    : null;
   const originalRaw = originalBytes?.toString("utf8") ?? "{}\n";
   const sourceFormat: ConfigFileFormat = params.target.sourcePath.endsWith(".jsonc")
     ? "jsonc"
@@ -341,8 +380,8 @@ export async function planConfigDocumentEdit(params: {
   const targetOriginalBytes =
     params.target.path === params.target.sourcePath
       ? originalBytes
-      : existsSync(params.target.path)
-        ? await readFile(params.target.path)
+      : writeTarget.terminalExisted
+        ? await readFile(writeTarget.writePath)
         : null;
 
   return {
@@ -352,6 +391,8 @@ export async function planConfigDocumentEdit(params: {
     format: params.target.format,
     originalBytes,
     targetOriginalBytes,
+    writeTarget,
+    ...(sourceWriteTarget ? { sourceWriteTarget } : {}),
     updated,
     changed:
       updated !== raw || params.target.path !== params.target.sourcePath || !params.target.existed,
@@ -372,8 +413,9 @@ export async function validateConfigDocumentEdit(
   const readBytes = options.readBytes ?? ((path: string) => readFile(path));
   const pathExists = options.pathExists ?? existsSync;
 
+  const sourceWritePath = (edit.sourceWriteTarget ?? edit.writeTarget).writePath;
   if (edit.originalBytes === null) {
-    if (pathExists(edit.sourcePath)) {
+    if (pathExists(sourceWritePath)) {
       throw new ConfigDocumentError(
         `Config changed since preview: ${edit.sourcePath}`,
         edit.sourcePath,
@@ -382,7 +424,7 @@ export async function validateConfigDocumentEdit(
   } else {
     let current: Buffer;
     try {
-      current = await readBytes(edit.sourcePath);
+      current = await readBytes(sourceWritePath);
     } catch {
       throw new ConfigDocumentError(`Failed reading config: ${edit.sourcePath}`, edit.sourcePath);
     }
@@ -396,7 +438,7 @@ export async function validateConfigDocumentEdit(
 
   if (edit.path !== edit.sourcePath) {
     if (edit.targetOriginalBytes === null) {
-      if (pathExists(edit.path)) {
+      if (pathExists(edit.writeTarget.writePath)) {
         throw new ConfigDocumentError(
           `Config target appeared since preview: ${edit.path}`,
           edit.path,
@@ -405,7 +447,7 @@ export async function validateConfigDocumentEdit(
     } else {
       let currentTarget: Buffer;
       try {
-        currentTarget = await readBytes(edit.path);
+        currentTarget = await readBytes(edit.writeTarget.writePath);
       } catch {
         throw new ConfigDocumentError(`Failed reading config target: ${edit.path}`, edit.path);
       }
@@ -416,6 +458,22 @@ export async function validateConfigDocumentEdit(
         );
       }
     }
+  }
+
+  try {
+    const currentTarget = await resolveConfigWriteTarget(edit.path);
+    assertSameConfigWriteTarget(edit.writeTarget, currentTarget);
+    if (edit.sourceWriteTarget) {
+      const currentSource = await resolveConfigWriteTarget(edit.sourcePath);
+      assertSameConfigWriteTarget(edit.sourceWriteTarget, currentSource);
+      if (edit.removeSourcePath) {
+        assertNotSymlinkSource(currentSource, edit.sourcePath);
+      }
+    } else if (edit.removeSourcePath) {
+      assertNotSymlinkSource(currentTarget, edit.sourcePath);
+    }
+  } catch (error) {
+    asConfigDocumentError(error, edit.path);
   }
 }
 
@@ -434,9 +492,18 @@ export async function applyConfigDocumentEdit(
 
   await validateConfigDocumentEdit(edit, options);
 
-  const writeText = options.writeText ?? writeTextAtomic;
   const removePath = options.removePath ?? ((path: string) => rm(path));
-  await writeText(edit.path, edit.updated);
+  try {
+    const currentTarget = await resolveConfigWriteTarget(edit.path);
+    assertSameConfigWriteTarget(edit.writeTarget, currentTarget);
+    if (options.writeText) {
+      await options.writeText(currentTarget.writePath, edit.updated);
+    } else {
+      await writeResolvedConfigText(currentTarget, edit.updated);
+    }
+  } catch (error) {
+    asConfigDocumentError(error, edit.path);
+  }
 
   if (!edit.removeSourcePath) {
     return;

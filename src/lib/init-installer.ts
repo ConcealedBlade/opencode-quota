@@ -2,7 +2,6 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { basename, join } from "path";
 
-import { writeJsonAtomic } from "./atomic-json.js";
 import {
   getQuotaToastConfigPath,
   QUOTA_TOAST_CONFIG_RELATIVE_PATH,
@@ -18,6 +17,7 @@ import {
   isQuotaPluginSpec,
   resolveEditableConfigPath,
 } from "./config-file-utils.js";
+import { writeConfiguredJsonAtomic } from "./config-write-target.js";
 import { parseJsonOrJsonc } from "./jsonc.js";
 import {
   applyConfigDocumentEdit,
@@ -1277,7 +1277,7 @@ export async function applyInitInstallerPlan(
       if (edit.documentEdit) {
         await applyConfigDocumentEdit(edit.documentEdit);
       } else {
-        await writeJsonAtomic(edit.path, edit.nextData, { trailingNewline: true });
+        await writeConfiguredJsonAtomic(edit.path, edit.nextData, { trailingNewline: true });
       }
       writtenPaths.push(edit.path);
     } catch (error) {

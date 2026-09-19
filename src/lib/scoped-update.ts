@@ -1,12 +1,18 @@
 import { lstat, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative } from "node:path";
 
-import { writeTextAtomic } from "./atomic-json.js";
 import {
   type ConfigFileFormat,
   findGitWorktreeRoot,
   resolveExistingConfigPath,
 } from "./config-file-utils.js";
+import {
+  assertSameConfigWriteTarget,
+  ConfigWriteTargetError,
+  type ConfigWriteTargetSnapshot,
+  resolveConfigWriteTarget,
+  writeResolvedConfigText,
+} from "./config-write-target.js";
 import { sanitizeSingleLineDisplayText } from "./display-sanitize.js";
 import { editConfigDocumentPaths, parseConfigDocument } from "./opencode-config-editor.js";
 import {
@@ -50,6 +56,7 @@ export interface ScopedUpdateConfigSnapshot {
   updated: string;
   changed: boolean;
   roles: ScopedUpdateConfigRole[];
+  writeTarget: ConfigWriteTargetSnapshot;
   migrationBoundary?: ScopedUpdateMigrationBoundary;
 }
 
@@ -311,6 +318,15 @@ export async function planScopedUpdate(
   const configSnapshots: ScopedUpdateConfigSnapshot[] = [];
   for (const document of workingDocuments.values()) {
     const changed = document.updated !== document.original;
+    let writeTarget: ConfigWriteTargetSnapshot;
+    try {
+      writeTarget = await resolveConfigWriteTarget(document.path);
+    } catch (error) {
+      if (error instanceof ConfigWriteTargetError) {
+        throw new ScopedUpdateError(error.message, { path: document.path });
+      }
+      throw error;
+    }
     configSnapshots.push({
       path: document.path,
       originalBytes: document.originalBytes,
@@ -318,6 +334,7 @@ export async function planScopedUpdate(
       updated: document.updated,
       changed,
       roles: CONFIG_ROLE_ORDER.filter((role) => document.roles.has(role)),
+      writeTarget,
       ...(document.migrationBoundary ? { migrationBoundary: document.migrationBoundary } : {}),
     });
     if (changed) {
@@ -489,7 +506,7 @@ export async function applyScopedUpdatePlan(
   }
 
   const readBytes = options.readBytes ?? ((path: string) => readFile(path));
-  const writeText = options.writeText ?? writeTextAtomic;
+  const writeText = options.writeText;
   const writtenPaths: string[] = [];
   const failure = (action: string, path: string): ScopedUpdateError => {
     const changed =
@@ -506,9 +523,20 @@ export async function applyScopedUpdatePlan(
   };
 
   for (const snapshot of plan.configSnapshots) {
+    try {
+      assertSameConfigWriteTarget(
+        snapshot.writeTarget,
+        await resolveConfigWriteTarget(snapshot.path),
+      );
+    } catch (error) {
+      if (error instanceof ConfigWriteTargetError) {
+        throw failure("Config write target changed since preview:", snapshot.path);
+      }
+      throw error;
+    }
     let current: Buffer;
     try {
-      current = await readBytes(snapshot.path);
+      current = await readBytes(snapshot.writeTarget.writePath);
     } catch {
       throw failure("Failed reading", snapshot.path);
     }
@@ -519,9 +547,19 @@ export async function applyScopedUpdatePlan(
 
   for (const snapshot of plan.configSnapshots) {
     if (!snapshot.changed) continue;
+    let currentTarget: ConfigWriteTargetSnapshot;
+    try {
+      currentTarget = await resolveConfigWriteTarget(snapshot.path);
+      assertSameConfigWriteTarget(snapshot.writeTarget, currentTarget);
+    } catch (error) {
+      if (error instanceof ConfigWriteTargetError) {
+        throw failure("Config write target changed since preview:", snapshot.path);
+      }
+      throw error;
+    }
     let current: Buffer;
     try {
-      current = await readBytes(snapshot.path);
+      current = await readBytes(currentTarget.writePath);
     } catch {
       throw failure("Failed re-reading before write", snapshot.path);
     }
@@ -536,7 +574,7 @@ export async function applyScopedUpdatePlan(
           rootDir: snapshot.migrationBoundary.rootDir,
           expectedRealPath: snapshot.migrationBoundary.realPath,
           expectedRealRoot: snapshot.migrationBoundary.realRoot,
-          writePath: snapshot.path,
+          writePath: currentTarget.writePath,
         });
       } catch {
         throw failure("Failed revalidating migration boundary for", snapshot.path);
@@ -546,7 +584,11 @@ export async function applyScopedUpdatePlan(
       }
     }
     try {
-      await writeText(snapshot.path, snapshot.updated);
+      if (writeText) {
+        await writeText(currentTarget.writePath, snapshot.updated);
+      } else {
+        await writeResolvedConfigText(currentTarget, snapshot.updated);
+      }
       writtenPaths.push(snapshot.path);
     } catch {
       throw failure("Failed writing", snapshot.path);
@@ -569,7 +611,7 @@ export async function applyScopedUpdatePlan(
   for (const snapshot of plan.configSnapshots) {
     let current: Buffer;
     try {
-      current = await readBytes(snapshot.path);
+      current = await readBytes(snapshot.writeTarget.writePath);
     } catch {
       throw failure("Failed re-reading", snapshot.path);
     }

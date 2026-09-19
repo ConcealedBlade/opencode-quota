@@ -14,6 +14,7 @@ import {
   LEGACY_DISPLAY_MAPPINGS,
   OBSOLETE_GO_ENV_NAMES,
   OBSOLETE_GO_FILE,
+  resolveScopedUpdateMigrationBoundary,
   type ScopedUpdateManualFinding,
   type ScopedUpdateSafeAction,
   SUPPORTED_ZEN_FILE,
@@ -450,6 +451,39 @@ describe("migration candidate discovery", () => {
         reason: "symlink",
       },
     ]);
+  });
+});
+
+describe("resolveScopedUpdateMigrationBoundary writePath", () => {
+  it("allows a matching contained writePath", async () => {
+    const root = tempDir();
+    const path = join(root, "opencode-quota", "quota-toast.jsonc");
+    write(path, "{}");
+    const [realPath, realRoot] = await Promise.all([realpath(path), realpath(root)]);
+
+    await expect(
+      resolveScopedUpdateMigrationBoundary({
+        path,
+        rootDir: root,
+        writePath: path,
+      }),
+    ).resolves.toEqual({ path, rootDir: root, realPath, realRoot });
+  });
+
+  it("rejects a divergent writePath even when it stays inside the root", async () => {
+    const root = tempDir();
+    const path = join(root, "opencode-quota", "quota-toast.jsonc");
+    const other = join(root, "opencode.json");
+    write(path, "{}");
+    write(other, "{}");
+
+    await expect(
+      resolveScopedUpdateMigrationBoundary({
+        path,
+        rootDir: root,
+        writePath: other,
+      }),
+    ).resolves.toBeNull();
   });
 });
 

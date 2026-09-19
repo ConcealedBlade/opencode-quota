@@ -5,6 +5,7 @@ vi.mock("fs/promises", () => ({
   rename: vi.fn(),
   rm: vi.fn(),
   writeFile: vi.fn(),
+  chmod: vi.fn(),
 }));
 
 describe("atomic-json", () => {
@@ -121,5 +122,49 @@ describe("atomic-json", () => {
     const [tmpPath] = (fs.writeFile as any).mock.calls[0];
     expect(fs.rm).toHaveBeenCalledWith(tmpPath, { force: true });
     expect(fs.rename).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "EPERM",
+    "EEXIST",
+    "EACCES",
+    "ENOTEMPTY",
+  ])("does not delete the destination when configuration rename fails with %s", async (code) => {
+    const fs = await import("fs/promises");
+    const { writeJsonAtomic } = await import("../src/lib/atomic-json.js");
+    const renameError = Object.assign(new Error("rename denied"), { code });
+    (fs.rename as any).mockRejectedValueOnce(renameError);
+
+    await expect(
+      writeJsonAtomic("/tmp/opencode/opencode.json", { ok: true }, { policy: "configuration" }),
+    ).rejects.toThrow("rename denied");
+
+    const [tmpPath] = (fs.writeFile as any).mock.calls[0];
+    expect(fs.rm).toHaveBeenCalledWith(tmpPath, { force: true });
+    expect(fs.rm).not.toHaveBeenCalledWith("/tmp/opencode/opencode.json", { force: true });
+    expect(fs.rename).toHaveBeenCalledTimes(1);
+    expect(fs.chmod).not.toHaveBeenCalled();
+  });
+
+  it("applies configuration fileMode with chmod", async () => {
+    const fs = await import("fs/promises");
+    const { writeTextAtomic } = await import("../src/lib/atomic-json.js");
+
+    await writeTextAtomic("/tmp/opencode/opencode.json", "{}\n", {
+      policy: "configuration",
+      directoryMode: 0o700,
+      fileMode: 0o600,
+    });
+
+    expect(fs.mkdir).toHaveBeenCalledWith("/tmp/opencode", {
+      recursive: true,
+      mode: 0o700,
+    });
+    if (process.platform !== "win32") {
+      expect(fs.chmod).toHaveBeenCalledWith(expect.stringContaining("opencode.json.tmp-"), 0o600);
+    } else {
+      expect(fs.chmod).not.toHaveBeenCalled();
+    }
+    expect(fs.rm).not.toHaveBeenCalled();
   });
 });
