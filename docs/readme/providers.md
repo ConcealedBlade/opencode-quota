@@ -119,7 +119,7 @@ The optional `quotaProjection: "runway"` estimate is intentionally limited to fi
 
 Other providers and window shapes remain unchanged. The estimate uses the average use since the fixed window began, not a recent-rate trend. Exact reset remains separate; **lasts past reset** means the linear exhaustion instant is at or beyond that reset.
 
-OpenRouter reads the existing OpenCode API key and calls OpenRouter's current-key endpoint. Limited keys show used budget and the remaining percentage; unlimited keys show spend. It does not invent a reset time.
+OpenRouter reads the existing OpenCode API key and calls OpenRouter's current-key endpoint. Limited keys show used budget and the remaining percentage; unlimited keys show spend. It does not invent a reset time. `/quota_status` includes an `openrouter:` section with the trusted key source and the live probe result.
 
 ## Custom providers
 

@@ -166,7 +166,7 @@ Run `/quota_status` and check the Alibaba auth, resolved tier, state-file path, 
 </details>
 
 <details>
-<summary><strong>MiniMax, Kimi, Chutes AI, Synthetic, Z.ai, Zhipu, NanoGPT, and DeepSeek</strong></summary>
+<summary><strong>MiniMax, Kimi, Chutes AI, Synthetic, Z.ai, Zhipu, NanoGPT, DeepSeek, and OpenRouter</strong></summary>
 
 These providers use trusted env vars, trusted user/global OpenCode config, or native OpenCode auth. Run `/quota_status` and check the provider-specific API-key diagnostics.
 
@@ -181,6 +181,7 @@ These providers use trusted env vars, trusted user/global OpenCode config, or na
 | Zhipu Coding Plan        | Use `ZHIPU_API_KEY` or `ZHIPU_CODING_PLAN_API_KEY`; malformed fallback auth is surfaced as an auth error.                                                                                                                             |
 | NanoGPT                  | Use `NANOGPT_API_KEY`, `NANO_GPT_API_KEY`, trusted user/global config, or OpenCode auth.                                                                                                                                              |
 | DeepSeek                 | Use `DEEPSEEK_API_KEY`, trusted user/global config under `provider.deepseek.options.apiKey`, or OpenCode auth. This provider shows balance only because DeepSeek does not expose a quota reset window.                                |
+| OpenRouter               | Use `OPENROUTER_API_KEY`, trusted user/global config, or OpenCode auth. `/quota_status` has an `openrouter:` section with the trusted key source and the live probe, including errors such as HTTP 401.                               |
 
 If Synthetic is authenticated and the quota endpoint returns HTTP 200 `{}`, `/quota` and `/quota_status` report `Synthetic returned no quota data for this account.` That is not an invalid API key or a Clerk/browser requirement. The plugin does not invent 5h or Weekly rows. `/quota_status` shows it on `live_error_*`.
 

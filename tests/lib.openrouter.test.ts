@@ -8,6 +8,8 @@ import {
 } from "../src/lib/openrouter.js";
 import {
   fetchRemoteQuotaProvider,
+  type QuotaProviderAuthResolution,
+  type QuotaProviderAuthSource,
   resolveQuotaProviderApiKey,
 } from "../src/lib/quota-providers-remote.js";
 import { deriveResolvedAuthIdentity } from "../src/lib/resolved-auth-identity.js";
@@ -21,6 +23,35 @@ vi.mock("../src/lib/resolved-auth-identity.js", () => ({
   deriveResolvedAuthIdentity: vi.fn(async () => `rai1_${"a".repeat(43)}`),
 }));
 
+const OPENROUTER_KEY_SOURCE = {
+  id: "openrouter",
+  providerId: "openrouter",
+  label: "OpenRouter",
+  mode: "remote-api",
+  url: "https://openrouter.ai/api/v1/key",
+  apiKeyEnv: "OPENROUTER_API_KEY",
+  format: "openrouter-key-v1",
+} as const;
+
+const SECRET_CANARY = "openrouter-secret-canary";
+const CREDENTIAL_SOURCES: QuotaProviderAuthSource[] = [
+  "env",
+  "opencode.json",
+  "opencode.jsonc",
+  "auth.json",
+];
+
+function resolvedAuth(
+  overrides: Partial<QuotaProviderAuthResolution> = {},
+): QuotaProviderAuthResolution {
+  return {
+    source: null,
+    checkedPaths: [],
+    authPaths: [],
+    ...overrides,
+  };
+}
+
 afterEach(() => {
   vi.clearAllMocks();
 });
@@ -28,7 +59,7 @@ afterEach(() => {
 describe("OpenRouter quota", () => {
   it("derives cache identity from the winning trusted key without exposing it", async () => {
     vi.mocked(resolveQuotaProviderApiKey).mockResolvedValueOnce({
-      key: "openrouter-secret",
+      key: SECRET_CANARY,
       source: "env",
       checkedPaths: [],
       authPaths: [],
@@ -38,43 +69,52 @@ describe("OpenRouter quota", () => {
 
     expect(deriveResolvedAuthIdentity).toHaveBeenCalledWith({
       providerId: "openrouter",
-      principal: { kind: "credential", value: "openrouter-secret" },
+      principal: { kind: "credential", value: SECRET_CANARY },
     });
-    expect(identity).not.toContain("openrouter-secret");
+    expect(identity).not.toContain(SECRET_CANARY);
   });
 
   it("uses the standard OpenRouter credential sources and key endpoint", async () => {
-    vi.mocked(resolveQuotaProviderApiKey).mockResolvedValueOnce({
-      key: "secret",
-      source: "auth.json",
-      checkedPaths: [],
-      authPaths: [],
+    await resolveOpenRouterApiKey();
+
+    expect(resolveQuotaProviderApiKey).toHaveBeenCalledWith(OPENROUTER_KEY_SOURCE);
+  });
+
+  it.each(
+    CREDENTIAL_SOURCES,
+  )("queries with the exact %s resolution and does not look up credentials again", async (source) => {
+    const resolved = resolvedAuth({
+      key: SECRET_CANARY,
+      source,
+      checkedPaths: [`source:${source}`],
+      authPaths: ["/tmp/auth.json"],
     });
     vi.mocked(fetchRemoteQuotaProvider).mockResolvedValueOnce({
       success: true,
       entries: [],
     });
 
-    await queryOpenRouterQuota({ requestTimeoutMs: 1234 });
+    await queryOpenRouterQuota({ requestTimeoutMs: 1234, resolved });
 
-    expect(resolveQuotaProviderApiKey).toHaveBeenCalledWith({
-      id: "openrouter",
-      providerId: "openrouter",
-      label: "OpenRouter",
-      mode: "remote-api",
-      url: "https://openrouter.ai/api/v1/key",
-      apiKeyEnv: "OPENROUTER_API_KEY",
-      format: "openrouter-key-v1",
-    });
+    expect(resolveQuotaProviderApiKey).not.toHaveBeenCalled();
+    expect(fetchRemoteQuotaProvider).toHaveBeenCalledTimes(1);
     expect(fetchRemoteQuotaProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providerId: "openrouter",
-        url: "https://openrouter.ai/api/v1/key",
-        format: "openrouter-key-v1",
-      }),
-      "secret",
+      OPENROUTER_KEY_SOURCE,
+      SECRET_CANARY,
       1234,
     );
+  });
+
+  it("does not make a request when the passed resolution has no key", async () => {
+    const resolved = resolvedAuth({
+      source: null,
+      checkedPaths: ["env:OPENROUTER_API_KEY", "/tmp/opencode.json"],
+      authPaths: ["/tmp/auth.json"],
+    });
+
+    await expect(queryOpenRouterQuota({ resolved })).resolves.toBeNull();
+    expect(resolveQuotaProviderApiKey).not.toHaveBeenCalled();
+    expect(fetchRemoteQuotaProvider).not.toHaveBeenCalled();
   });
 
   it("does not make a request when no trusted key exists", async () => {
@@ -84,7 +124,6 @@ describe("OpenRouter quota", () => {
       authPaths: [],
     });
 
-    await expect(queryOpenRouterQuota()).resolves.toBeNull();
     await expect(hasOpenRouterApiKeyConfigured()).resolves.toBe(false);
     await expect(resolveOpenRouterApiKey()).resolves.toEqual({
       source: null,
@@ -95,12 +134,6 @@ describe("OpenRouter quota", () => {
   });
 
   it("marks reused OpenRouter mapping entries as maintained", async () => {
-    vi.mocked(resolveQuotaProviderApiKey).mockResolvedValue({
-      key: "secret",
-      source: "env",
-      checkedPaths: [],
-      authPaths: [],
-    });
     vi.mocked(fetchRemoteQuotaProvider).mockResolvedValue({
       success: true,
       entries: [
@@ -117,7 +150,11 @@ describe("OpenRouter quota", () => {
       ],
     });
 
-    await expect(queryOpenRouterQuota()).resolves.toEqual({
+    await expect(
+      queryOpenRouterQuota({
+        resolved: resolvedAuth({ key: "secret", source: "env" }),
+      }),
+    ).resolves.toEqual({
       success: true,
       entries: [
         expect.objectContaining({
@@ -127,20 +164,24 @@ describe("OpenRouter quota", () => {
     });
   });
 
-  it("returns safe remote errors unchanged", async () => {
-    vi.mocked(resolveQuotaProviderApiKey).mockResolvedValue({
-      key: "SUPER_SECRET",
-      source: "env",
-      checkedPaths: [],
-      authPaths: [],
-    });
+  it.each([
+    ["HTTP", "HTTP 401"],
+    ["malformed", "Invalid openrouter-key-v1 response"],
+    ["timeout", "Request timeout after 0s"],
+    ["redirect", "Redirect rejected"],
+    ["body-limit", "Response exceeded 262144 bytes"],
+  ] as const)("returns the safe %s remote error unchanged", async (_name, error) => {
     vi.mocked(fetchRemoteQuotaProvider).mockResolvedValue({
       success: false,
-      error: "HTTP 401",
+      error,
     });
 
-    const result = await queryOpenRouterQuota();
-    expect(result).toEqual({ success: false, error: "HTTP 401" });
-    expect(JSON.stringify(result)).not.toContain("SUPER_SECRET");
+    const result = await queryOpenRouterQuota({
+      resolved: resolvedAuth({ key: SECRET_CANARY, source: "env" }),
+    });
+    expect(result).toEqual({ success: false, error });
+    expect(JSON.stringify(result)).not.toContain(SECRET_CANARY);
+    expect(fetchRemoteQuotaProvider).toHaveBeenCalledTimes(1);
+    expect(resolveQuotaProviderApiKey).not.toHaveBeenCalled();
   });
 });
