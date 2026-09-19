@@ -28,6 +28,15 @@ function isWithin(file, directory) {
   return file === directory || file.startsWith(`${directory}/`);
 }
 
+const publicImageFiles = new Set([
+  "images/opencode-quota-logo-dark.svg",
+  "images/opencode-quota-logo-light.svg",
+  "images/opencode-quota_opencode-quota-sidebar.webp",
+  "images/opencode-quota_opencode-quota-statusbar.webp",
+  "images/opencode-quota_opencode-quota-toast.webp",
+  "images/opencode-quota_opencode-quota-tokens-command.webp",
+]);
+
 function isForbidden(file) {
   const basename = path.posix.basename(file);
   if (
@@ -46,13 +55,17 @@ function isForbidden(file) {
     isWithin(file, ".codex") ||
     isWithin(file, "prompt-exports") ||
     isWithin(file, "opencode-quota") ||
-    isWithin(file, "images")
+    isWithin(file, "local-live-tests")
   ) {
     return true;
   }
 
   if (isWithin(file, "docs")) {
     return !file.startsWith("docs/readme/") || file === "docs/readme/v4-release-readiness.md";
+  }
+
+  if (isWithin(file, "images")) {
+    return !publicImageFiles.has(file);
   }
 
   if (isWithin(file, "references")) {

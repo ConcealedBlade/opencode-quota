@@ -37,5 +37,4 @@ AGENTS.md
 /.agents
 /prompt-exports
 /opencode-quota
-/images
-/local-live-tests/google-agy/
+/local-live-tests/

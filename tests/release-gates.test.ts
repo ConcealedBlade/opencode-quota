@@ -75,6 +75,12 @@ async function createHistoryRepo(root: string): Promise<string> {
   git(root, ["config", "user.name", "Release Gate Test"]);
   git(root, ["config", "user.email", "release-gate@example.invalid"]);
   await writeFile(path.join(root, "README.md"), "allowed\n", "utf8");
+  await mkdir(path.join(root, "images"), { recursive: true });
+  await writeFile(
+    path.join(root, "images/opencode-quota-logo-dark.svg"),
+    "public image fixture\n",
+    "utf8",
+  );
   await writeFile(
     path.join(root, ".gitignore"),
     [
@@ -88,14 +94,14 @@ async function createHistoryRepo(root: string): Promise<string> {
       "/references/*",
       "/prompt-exports/",
       "/opencode-quota/",
-      "/images/",
+      "/local-live-tests/",
       "opencode.json",
       "tui.json",
       "",
     ].join("\n"),
     "utf8",
   );
-  git(root, ["add", "README.md", ".gitignore"]);
+  git(root, ["add", "README.md", ".gitignore", "images/opencode-quota-logo-dark.svg"]);
   git(root, ["commit", "-qm", "base"]);
   return git(root, ["rev-parse", "HEAD"]);
 }
@@ -154,6 +160,9 @@ describe("v4 release gates", () => {
       "prompt-exports/session.md",
       "opencode-quota/auth.json",
       "images/private-smoke.png",
+      "local-live-tests/google-agy/account.json",
+      "local-live-tests/openai/account.json",
+      "local-live-tests/notes.txt",
       "opencode.json",
       "tui.json",
     ];
@@ -218,8 +227,12 @@ describe("v4 release gates", () => {
       "opencode-quota/auth.json",
       "tests/package-manifest.test.ts",
       "scripts/verify-release-version.mjs",
-      "opencode-quota-logo-dark.svg",
-      "opencode-quota-logo-light.svg",
+      "images/opencode-quota-logo-dark.svg",
+      "images/opencode-quota-logo-light.svg",
+      "images/opencode-quota_opencode-quota-sidebar.webp",
+      "images/opencode-quota_opencode-quota-statusbar.webp",
+      "images/opencode-quota_opencode-quota-toast.webp",
+      "images/opencode-quota_opencode-quota-tokens-command.webp",
     ];
     const manifestPath = path.join(tempDir, "forbidden.json");
     await writeFile(
