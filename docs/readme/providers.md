@@ -610,6 +610,8 @@ OpenCode Go reads subscription quota from the official `https://opencode.ai/zen/
 
 Project-local `opencode.json` and `opencode.jsonc` files are not read for this secret. Use `opencodeGoWindows` to choose which validated API results appear across surfaces and in the expanded sidebar: **Five-hour**, **Weekly**, and/or **Monthly**. To keep those rows expanded but prefer one while the sidebar is collapsed, set `tuiSidebarPanel.opencodeGoPreferredWindow` to `rolling`, `weekly`, or `monthly`; an unset or unavailable preference keeps the lowest-remaining selection. These settings do not change authentication or the API request.
 
+A window whose usage API status is `rate-limited` is exhausted: 100% used / 0% remaining, with the reported reset time kept. A stale percentage on that window is ignored. Other healthy windows in the same response stay visible. `opencodeGoWindows` still chooses which of those validated windows appear on command, toast, sidebar, compact, and prompt-bar surfaces.
+
 The updater reports obsolete `OPENCODE_GO_WORKSPACE_ID`, `OPENCODE_GO_AUTH_COOKIE`, and global `opencode-quota/opencode-go.json` sources without reading their values or contents. Workspace/cookie material cannot be converted into the official API key. Configure and verify a supported key before removing those sources manually; see [Updating safely](updating.md#opencode-go-findings).
 
 <a id="opencode-zen"></a>

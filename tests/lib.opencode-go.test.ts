@@ -145,6 +145,91 @@ describe("queryOpenCodeGoQuota", () => {
     });
   });
 
+  it.each([
+    0, 42, 100,
+  ])("treats a structurally valid rate-limited window as exhausted regardless of percent %j", async (percent) => {
+    const payload = validPayload();
+    windowFrom(payload, "weekly").status = "rate-limited";
+    windowFrom(payload, "weekly").percent = percent;
+    mockSuccess(payload);
+
+    const result = await queryOpenCodeGoQuota("token");
+
+    expect(result).toMatchObject({
+      success: true,
+      weekly: {
+        status: "rate-limited",
+        usagePercent: 100,
+        percentRemaining: 0,
+        resetTimeIso: "2026-08-16T16:00:00.000Z",
+      },
+    });
+  });
+
+  it("keeps healthy sibling windows when one window is rate-limited", async () => {
+    const payload = validPayload();
+    windowFrom(payload, "rolling").percent = 17;
+    windowFrom(payload, "weekly").status = "rate-limited";
+    windowFrom(payload, "weekly").percent = 42;
+    windowFrom(payload, "monthly").percent = 91;
+    mockSuccess(payload);
+
+    const result = await queryOpenCodeGoQuota("token");
+
+    expect(result).toEqual({
+      success: true,
+      rolling: {
+        status: "ok",
+        usagePercent: 17,
+        percentRemaining: 83,
+        resetTimeIso: "2026-08-12T12:30:00.000Z",
+      },
+      weekly: {
+        status: "rate-limited",
+        usagePercent: 100,
+        percentRemaining: 0,
+        resetTimeIso: "2026-08-16T16:00:00.000Z",
+      },
+      monthly: {
+        status: "ok",
+        usagePercent: 91,
+        percentRemaining: 9,
+        resetTimeIso: "2026-09-01T04:00:00.000Z",
+      },
+    });
+  });
+
+  it.each([
+    { percent: -1 },
+    { percent: 101 },
+    { percent: "10" },
+    { percent: Number.NaN },
+  ])("still rejects a rate-limited window with invalid percent $percent", async ({ percent }) => {
+    const payload = validPayload();
+    windowFrom(payload, "weekly").status = "rate-limited";
+    windowFrom(payload, "weekly").percent = percent;
+    mockSuccess(payload);
+
+    await expect(queryOpenCodeGoQuota("token")).resolves.toEqual({
+      success: false,
+      error:
+        "Invalid OpenCode Go API response: weekly percent must be a finite number from 0 to 100",
+    });
+  });
+
+  it("still rejects a rate-limited window with a malformed reset", async () => {
+    const payload = validPayload();
+    windowFrom(payload, "monthly").status = "rate-limited";
+    windowFrom(payload, "monthly").resetsAt = "2026-08-12T12:30:00";
+    mockSuccess(payload);
+
+    await expect(queryOpenCodeGoQuota("token")).resolves.toEqual({
+      success: false,
+      error:
+        "Invalid OpenCode Go API response: monthly resetsAt must be an offset-qualified ISO timestamp",
+    });
+  });
+
   it.each([null, [], "bad", 1])("rejects a non-object root: %j", async (payload) => {
     mockSuccess(payload);
     await expect(queryOpenCodeGoQuota("token")).resolves.toEqual({

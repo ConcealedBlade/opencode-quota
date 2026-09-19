@@ -103,10 +103,11 @@ function normalizeWindow(
     return contractError(`${windowKey} resetsAt must be a valid timestamp`);
   }
 
+  const exhausted = window.status === "rate-limited";
   return {
     status: window.status as "ok" | "rate-limited",
-    usagePercent: percent,
-    percentRemaining: 100 - percent,
+    usagePercent: exhausted ? 100 : percent,
+    percentRemaining: exhausted ? 0 : 100 - percent,
     resetTimeIso: new Date(resetTime).toISOString(),
   };
 }

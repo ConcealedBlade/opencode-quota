@@ -1478,6 +1478,140 @@ describe("tui runtime helpers", () => {
     });
   });
 
+  it("prefers OpenCode Go 5h on the prompt bar when a sibling window is exhausted", async () => {
+    writeFileSync(
+      join(worktreeDir, "opencode.json"),
+      JSON.stringify({
+        experimental: {
+          quotaToast: {
+            enabled: true,
+            tuiSidebarPanel: { enabled: false },
+            tuiCompactStatus: { enabled: false },
+            tuiPromptBar: { enabled: true },
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    collectQuotaRenderData.mockResolvedValue({
+      active: [],
+      data: {
+        entries: [
+          {
+            name: "OpenCode Go 5h",
+            group: "OpenCode Go",
+            label: "5h:",
+            percentRemaining: 83,
+          },
+          {
+            name: "OpenCode Go Weekly",
+            group: "OpenCode Go",
+            label: "Weekly:",
+            percentRemaining: 0,
+          },
+          {
+            name: "OpenCode Go Monthly",
+            group: "OpenCode Go",
+            label: "Monthly:",
+            percentRemaining: 9,
+          },
+        ],
+        errors: [],
+        sessionTokens: undefined,
+      },
+    });
+
+    const surfaces = await loadTuiSessionQuotaSurfaces({
+      api: {
+        state: {
+          provider: [],
+          path: { worktree: worktreeDir, directory: nestedDir },
+          session: { messages: () => [] },
+        },
+        client: {},
+      } as any,
+      sessionID: "prompt-bar-opencode-go-exhausted",
+    });
+
+    expect(surfaces.promptBar).toEqual({
+      status: "ready",
+      entry: {
+        name: "OpenCode Go 5h",
+        group: "OpenCode Go",
+        label: "5h:",
+        percentRemaining: 83,
+      },
+      percentDisplayMode: "remaining",
+      resetTimeDecimals: undefined,
+      resetTimeSpaced: true,
+    });
+  });
+
+  it("selects the exhausted OpenCode Go window on the prompt bar when 5h is filtered out", async () => {
+    writeFileSync(
+      join(worktreeDir, "opencode.json"),
+      JSON.stringify({
+        experimental: {
+          quotaToast: {
+            enabled: true,
+            tuiSidebarPanel: { enabled: false },
+            tuiCompactStatus: { enabled: false },
+            tuiPromptBar: { enabled: true },
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    collectQuotaRenderData.mockResolvedValue({
+      active: [],
+      data: {
+        entries: [
+          {
+            name: "OpenCode Go Weekly",
+            group: "OpenCode Go",
+            label: "Weekly:",
+            percentRemaining: 0,
+          },
+          {
+            name: "OpenCode Go Monthly",
+            group: "OpenCode Go",
+            label: "Monthly:",
+            percentRemaining: 9,
+          },
+        ],
+        errors: [],
+        sessionTokens: undefined,
+      },
+    });
+
+    const surfaces = await loadTuiSessionQuotaSurfaces({
+      api: {
+        state: {
+          provider: [],
+          path: { worktree: worktreeDir, directory: nestedDir },
+          session: { messages: () => [] },
+        },
+        client: {},
+      } as any,
+      sessionID: "prompt-bar-opencode-go-selected",
+    });
+
+    expect(surfaces.promptBar).toEqual({
+      status: "ready",
+      entry: {
+        name: "OpenCode Go Weekly",
+        group: "OpenCode Go",
+        label: "Weekly:",
+        percentRemaining: 0,
+      },
+      percentDisplayMode: "remaining",
+      resetTimeDecimals: undefined,
+      resetTimeSpaced: true,
+    });
+  });
+
   it.each([
     {
       sessionID: "prompt-bar-balance",
