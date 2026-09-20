@@ -141,11 +141,22 @@ A simple percentage-only provider can keep the legacy percent row shape without 
 - Preserve existing invariants and update/add boundary tests when behavior contracts change.
 - We appreciate PRs that verify the fix against the current production released OpenCode version and note the tested version in the PR.
 
+## Before-and-after evidence
+
+Changes to visible UI or human-readable output require matching before-and-after screenshots of the affected surfaces. Capture both versions with the same configuration, model/provider, theme, and window size, and redact credentials, account identifiers, private paths, and other sensitive information.
+
+Quota-related changes must report a result for Web output, the TUI sidebar, toast, and the compact line below the message input. Identify unchanged or untested surfaces explicitly. Include the prompt bar or command dialog when relevant.
+
+Formatter tests do not count as screenshot evidence. Screenshots do not replace tests, and formatter tests do not replace checking the real client.
+
+If there is no visible effect, write `Not applicable` and explain briefly.
+
 ## Pull Request Checklist
 
 - Linked issue (`Fixes #...` or `Refs #...`) when available, or included a short no-issue rationale in the PR.
 - `pnpm verify` passes.
 - Verified behavior against the current production released OpenCode version, and included the tested version in the PR notes.
+- Included matching before-and-after screenshots for visible changes and recorded the required surface checks, or explained why this does not apply.
 - Updated docs when user-facing commands/config/workflow changed (usually `README.md`; update this file when contributor workflow changes).
 - For built-in provider additions, linked the models.dev entry, evidence from at least two independent users, and an explanation of why the custom-provider feature is insufficient.
 - For new API-key/token providers, started from `contributing/provider-template/` or explained why the template does not apply.
