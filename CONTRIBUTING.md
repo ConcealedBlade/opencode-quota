@@ -52,6 +52,22 @@ It checks Biome linting and formatting, the pinned TypeScript toolchain, reposit
 
 Use `pnpm run test:watch` for local iteration. Use `pnpm run build:check` when you need the build plus package dry-run check.
 
+## Maintainer stabilization checks
+
+These commands are for maintainers. They do not replace `pnpm verify`.
+
+### Connected OpenCode
+
+`pnpm run test:stabilization:tui` builds this worktree, copies `$OPENCODE_CONFIG_DIR` or the default OpenCode config directory into a `0700` temp directory, points only the OpenCode Quota plugin entries at this worktree's `dist/index.js` and `dist/tui.js`, enables sidebar/toast/compact with the prompt bar off, and launches real `opencode`. Companion plugin order and other copied settings stay as they were. The real config is never edited. OpenCode is launched only with the temp copy. That copy is deleted on exit, on prepare/copy/transform failure, and after forwarded `SIGINT`/`SIGTERM`/`SIGHUP`. After those signals, the runner waits a bounded grace period, then force-terminates the child (process group where safe) so cleanup cannot wait forever.
+
+This uses real credentials and makes real quota/API calls.
+
+After the first TUI session exits, the script offers a second session with the prompt bar on. Use `pnpm run test:stabilization:tui:prompt-bar` to skip the first stage. Use `pnpm run test:stabilization:web` to launch `opencode web` instead.
+
+### Fake-data fixtures
+
+`pnpm run test:stabilization:fixtures` runs a frozen Vitest set for config symlinks, config write targets, atomic JSON, OpenCode Go, Synthetic empty responses/surfaces, OpenRouter diagnostics/surfaces, Alibaba Token Plan process/provider, quota status, prompt selection, TUI runtime, quota export, API-key query/config, and contribution guidance. It does not use real credentials, network provider calls, or the real `bl` executable. Before Vitest starts, the runner creates a `0700` temp HOME/XDG sandbox, strips known provider credential/session env vars and `OPENCODE_CONFIG`/`OPENCODE_CONFIG_DIR`, then deletes the sandbox on success, error, or signal.
+
 ## CI Checks (Automated)
 
 PR and `main` pushes trigger `.github/workflows/ci.yml` (`CI` workflow):
