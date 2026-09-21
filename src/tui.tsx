@@ -9,7 +9,6 @@ import type {
 import type { JSX } from "@opentui/solid";
 import { createEffect, createSignal, Index, onCleanup, Show } from "solid-js";
 import {
-  formatDisplayedPercentLabel,
   formatQuotaModeHeading,
   formatResetCountdown,
   isResetTimeDecimals,
@@ -21,8 +20,6 @@ import {
   type QuotaDialogCommandId,
   type QuotaDialogCommandSpec,
 } from "./lib/quota-dialog-commands.js";
-import { extractSingleWindowWindowLabel } from "./lib/quota-entry-display.js";
-import { formatQuotaRunway } from "./lib/quota-exhaustion-projection.js";
 import type { SessionTokenError } from "./lib/quota-status.js";
 import { disposeQuotaTelemetryOwner } from "./lib/quota-telemetry.js";
 import { getSidebarBodyLineColor } from "./lib/tui-line-style.js";
@@ -41,6 +38,11 @@ import {
   shouldRenderHomeBottom,
   shouldRenderSidebarPanel,
 } from "./lib/tui-panel-state.js";
+import {
+  formatPromptBarPercentMeta,
+  PROMPT_BAR_WIDTH,
+  resolvePromptBarLabel,
+} from "./lib/tui-prompt-bar-format.js";
 import { createTuiRefreshLifecycle } from "./lib/tui-refresh-lifecycle.js";
 import {
   createTuiQuotaClient,
@@ -482,8 +484,6 @@ function SessionPromptWithCompactStatus(props: {
   );
 }
 
-const PROMPT_BAR_WIDTH = 12;
-
 function shouldRenderPromptBar(
   bar: PromptBarState,
 ): bar is Extract<PromptBarState, { status: "ready" }> {
@@ -542,31 +542,20 @@ function buildPromptBarParts(params: {
   if (!shouldRenderPromptBar(bar)) return undefined;
   const entry = bar.entry;
   if (!entry) return undefined;
-  const reset = entry.resetTimeIso
-    ? formatResetCountdown(
-        entry.resetTimeIso,
-        isResetTimeDecimals(bar.resetTimeDecimals)
-          ? { compactRounded: true, decimals: bar.resetTimeDecimals }
-          : { spaced: bar.resetTimeSpaced },
-      )
-    : "";
-  const runway = formatQuotaRunway(entry.runway);
 
   const hasPercent = Number.isFinite(entry.percentRemaining);
   if (entry.semanticSegment && !hasPercent) {
-    return { label: entry.semanticSegment, barText: "", meta: reset };
+    const reset = entry.resetTimeIso
+      ? formatResetCountdown(
+          entry.resetTimeIso,
+          isResetTimeDecimals(bar.resetTimeDecimals)
+            ? { compactRounded: true, decimals: bar.resetTimeDecimals }
+            : { spaced: bar.resetTimeSpaced },
+        )
+      : "";
+    return { label: resolvePromptBarLabel(entry), barText: "", meta: reset };
   }
 
-  const windowLabel =
-    entry.semanticSegment ??
-    extractSingleWindowWindowLabel(entry.label ?? "") ??
-    extractSingleWindowWindowLabel(entry.name ?? "") ??
-    "Quota";
-  const percent = formatDisplayedPercentLabel(
-    entry.percentRemaining ?? 0,
-    bar.percentDisplayMode ?? "remaining",
-    "bare",
-  );
   const p = Math.min(
     100,
     resolveDisplayedPercent(entry.percentRemaining ?? 0, bar.percentDisplayMode ?? "remaining"),
@@ -585,11 +574,16 @@ function buildPromptBarParts(params: {
     barText = cells.join("") + "░".repeat(empty);
   }
   return {
-    label: windowLabel,
+    label: resolvePromptBarLabel(entry),
     barText,
-    meta: entry.semanticSegment
-      ? [reset, runway ? `r/o ${runway}` : ""].filter(Boolean).join(" | ")
-      : [percent, reset, runway ? `r/o ${runway}` : ""].filter(Boolean).join(" | "),
+    meta: formatPromptBarPercentMeta({
+      percentRemaining: entry.percentRemaining ?? 0,
+      percentDisplayMode: bar.percentDisplayMode,
+      resetTimeIso: entry.resetTimeIso,
+      resetTimeDecimals: bar.resetTimeDecimals,
+      resetTimeSpaced: bar.resetTimeSpaced,
+      runway: entry.runway,
+    }),
   };
 }
 

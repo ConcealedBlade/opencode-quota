@@ -53,6 +53,8 @@ enables sidebar/toast/compact, and launches real opencode. Never edits the real 
 
 TUI launches with the prompt bar off. After the first TUI exits, the script offers a
 second session with the prompt bar on. Use --prompt-bar to skip the first stage.
+The prompt bar is a fixed 12-cell bar. Check provider identity and placement/clipping
+on terminal resize; the bar does not grow with the terminal.
 Web launches opencode web.
 
 This uses real credentials and makes real quota/API calls.`;
@@ -581,6 +583,11 @@ function printPlan(options) {
   const stream = options.stderr ?? process.stderr;
   stream.write(`${CONNECTED_CREDENTIAL_WARNING}\n`);
   stream.write(`Mode: ${options.mode}${options.promptBarEnabled ? " (prompt bar enabled)" : ""}\n`);
+  if (options.promptBarEnabled) {
+    stream.write(
+      "Prompt bar: fixed 12-cell fill. Check provider identity and placement/clipping on resize, not bar growth.\n",
+    );
+  }
   stream.write(`Source config dir: ${options.sourceConfigDir}\n`);
   stream.write(`OpenCode: ${options.opencodeBin}\n`);
   stream.write(`Server plugin: ${options.urls.server}\n`);
@@ -732,7 +739,9 @@ export async function runConnected(argv, io = {}) {
           ensureTuiConfig: true,
         });
         await tightenCopiedPermissions(workspace.tempRoot);
-        stderr.write("Launching second TUI session with the prompt bar enabled.\n");
+        stderr.write(
+          "Launching second TUI session with the prompt bar enabled. The bar is fixed at 12 cells; check provider identity and placement/clipping on resize, not bar growth.\n",
+        );
         const second = await runProcess(opencodeBin, [], {
           cwd: workspace.projectDir,
           env: childEnv,

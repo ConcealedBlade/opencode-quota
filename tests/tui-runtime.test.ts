@@ -1300,7 +1300,7 @@ describe("tui runtime helpers", () => {
       compact: { status: "ready", text: "Compact quota" },
       promptBar: {
         status: "ready",
-        entry: { name: "Copilot 5h", percentRemaining: 18 },
+        entry: { identityLabel: "Copilot 5h", name: "Copilot 5h", percentRemaining: 18 },
         percentDisplayMode: "used",
         resetTimeDecimals: undefined,
         resetTimeSpaced: true,
@@ -1420,6 +1420,7 @@ describe("tui runtime helpers", () => {
       promptBar: {
         status: "ready",
         entry: {
+          identityLabel: "Copilot 5h",
           name: "Copilot 5h",
           percentRemaining: 72,
           resetTimeIso: "2026-08-09T12:00:00Z",
@@ -1475,7 +1476,11 @@ describe("tui runtime helpers", () => {
 
     expect(surfaces.promptBar).toEqual({
       status: "ready",
-      entry: { name: "Copilot monthly", percentRemaining: 18 },
+      entry: {
+        identityLabel: "Copilot Monthly",
+        name: "Copilot monthly",
+        percentRemaining: 18,
+      },
       percentDisplayMode: "remaining",
       resetTimeDecimals: undefined,
       resetTimeSpaced: true,
@@ -1541,6 +1546,7 @@ describe("tui runtime helpers", () => {
     expect(surfaces.promptBar).toEqual({
       status: "ready",
       entry: {
+        identityLabel: "OpenCode Go 5h",
         name: "OpenCode Go 5h",
         group: "OpenCode Go",
         label: "5h:",
@@ -1605,6 +1611,7 @@ describe("tui runtime helpers", () => {
     expect(surfaces.promptBar).toEqual({
       status: "ready",
       entry: {
+        identityLabel: "OpenCode Go Weekly",
         name: "OpenCode Go Weekly",
         group: "OpenCode Go",
         label: "Weekly:",
@@ -1764,7 +1771,7 @@ describe("tui runtime helpers", () => {
       compact: { status: "ready", text: "Compact quota" },
       promptBar: {
         status: "ready",
-        entry: { name: "Copilot 5h", percentRemaining: 18 },
+        entry: { identityLabel: "Copilot 5h", name: "Copilot 5h", percentRemaining: 18 },
         percentDisplayMode: "used",
         resetTimeDecimals: undefined,
         resetTimeSpaced: true,

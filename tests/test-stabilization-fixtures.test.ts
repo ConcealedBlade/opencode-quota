@@ -108,6 +108,7 @@ describe("test-stabilization-fixtures", () => {
       "tests/lib.quota-status.test.ts",
       "tests/quota-render-data.test.ts",
       "tests/tui-runtime.test.ts",
+      "tests/tui-prompt-bar-format.test.ts",
       "tests/lib.quota-export.test.ts",
       "tests/lib.quota-export.production-policy.test.ts",
       "tests/lib.api-key-provider-queries.test.ts",

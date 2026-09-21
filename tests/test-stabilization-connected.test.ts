@@ -155,6 +155,8 @@ describe("test-stabilization-connected", () => {
     expect(() => parseConnectedArgs(["--tui", "--web"])).toThrow(/only one/);
     expect(() => parseConnectedArgs(["--web", "--prompt-bar"])).toThrow(/only valid with --tui/);
     expect(getConnectedUsage()).toContain("--tui");
+    expect(getConnectedUsage()).toMatch(/fixed 12-cell bar/i);
+    expect(getConnectedUsage()).toMatch(/placement\/clipping/i);
   });
 
   it("rewrites only quota plugin entries and preserves companion order", () => {

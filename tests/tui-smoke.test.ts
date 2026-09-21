@@ -1824,6 +1824,7 @@ describe("tui plugin smoke", () => {
       justifyContent: "flex-end",
       gap: 1,
     });
+    expect(hint.props.children[0].props.children).toBe("Copilot 5h");
     expect(hint.props).not.toHaveProperty("position");
     expect(hint.props).not.toHaveProperty("left");
     expect(hint.props).not.toHaveProperty("bottom");
@@ -1924,6 +1925,7 @@ describe("tui plugin smoke", () => {
     const rendered = registration.slots.session_prompt({}, { session_id: "session-reset" }) as any;
     const hint = rendered.props.children[1];
 
+    expect(hint.props.children[0].props.children).toBe("OpenAI Weekly");
     expect(hint.props.children[1].props.children).toHaveLength(12);
     expect(hint.props.children[2].props.children).toBe("50% | 2d5h14m | r/o ≈ 1h 50m");
   });
@@ -1972,7 +1974,202 @@ describe("tui plugin smoke", () => {
     ) as any;
     const hint = rendered.props.children[1];
 
+    expect(hint.props.children[0].props.children).toBe("OpenAI Weekly");
     expect(hint.props.children[1].props.children).toBe(`██${"░".repeat(10)}`);
     expect(hint.props.children[2].props.children).toBe("19% | 2d 5h 14m");
+  });
+
+  it("renders duplicate account identity instead of a window-only label", async () => {
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      commandDisplay: "inline",
+      sidebar: { enabled: false },
+      compact: {
+        enabled: false,
+        homeBottom: false,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+      promptBar: { enabled: true },
+      announcements: { homeBottom: false },
+      homeBottom: false,
+    });
+    loadTuiSessionQuotaSurfaces.mockResolvedValueOnce({
+      sidebar: { status: "disabled", lines: [] },
+      compact: { status: "disabled" },
+      promptBar: {
+        status: "ready",
+        entry: {
+          name: "OpenAI 5h",
+          group: "OpenAI (work)",
+          label: "5h:",
+          percentRemaining: 0,
+        },
+        percentDisplayMode: "used",
+      },
+    });
+
+    await startTui(plugin, api);
+    const registration = registered.find((item) => item.order === 90)!;
+    registration.slots.session_prompt({}, { session_id: "session-duplicate" });
+    await flushPromises();
+    const rendered = registration.slots.session_prompt(
+      {},
+      { session_id: "session-duplicate" },
+    ) as any;
+    const hint = rendered.props.children[1];
+
+    expect(hint.props.children[0].props.children).toBe("OpenAI (work) 5h");
+    expect(hint.props.children[0].props.children).not.toBe("5h");
+    expect(hint.props.children[1].props.children).toHaveLength(12);
+    expect(hint.props.children[2].props.children).toBe("100%");
+  });
+
+  it("clips a long prompt-bar label without growing the 12-cell bar", async () => {
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+    const longGroup = "Alibaba Personal Token Plan With An Extremely Long Account Title";
+
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      commandDisplay: "inline",
+      sidebar: { enabled: false },
+      compact: {
+        enabled: false,
+        homeBottom: false,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+      promptBar: { enabled: true },
+      announcements: { homeBottom: false },
+      homeBottom: false,
+    });
+    loadTuiSessionQuotaSurfaces.mockResolvedValueOnce({
+      sidebar: { status: "disabled", lines: [] },
+      compact: { status: "disabled" },
+      promptBar: {
+        status: "ready",
+        entry: {
+          name: `${longGroup} Weekly`,
+          group: longGroup,
+          label: "Weekly:",
+          percentRemaining: 42,
+        },
+        percentDisplayMode: "remaining",
+      },
+    });
+
+    await startTui(plugin, api);
+    const registration = registered.find((item) => item.order === 90)!;
+    registration.slots.session_prompt({}, { session_id: "session-narrow" });
+    await flushPromises();
+    const rendered = registration.slots.session_prompt({}, { session_id: "session-narrow" }) as any;
+    const hint = rendered.props.children[1];
+    const label = hint.props.children[0].props.children as string;
+
+    expect(label).toContain("…");
+    expect(label.startsWith("Alibaba")).toBe(true);
+    expect(label).not.toBe("Weekly");
+    expect(label.length).toBeLessThanOrEqual(50);
+    expect(hint.props.children[0].props.wrapMode).toBe("none");
+    expect(hint.props.children[1].props.children).toHaveLength(12);
+    expect(hint.props.children[2].props.children).toBe("42%");
+  });
+
+  it("renders Anthropic Fable instead of a generic weekly window", async () => {
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      commandDisplay: "inline",
+      sidebar: { enabled: false },
+      compact: {
+        enabled: false,
+        homeBottom: false,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+      promptBar: { enabled: true },
+      announcements: { homeBottom: false },
+      homeBottom: false,
+    });
+    loadTuiSessionQuotaSurfaces.mockResolvedValueOnce({
+      sidebar: { status: "disabled", lines: [] },
+      compact: { status: "disabled" },
+      promptBar: {
+        status: "ready",
+        entry: {
+          name: "Claude Fable Weekly",
+          group: "Claude",
+          label: "Fable:",
+          percentRemaining: 98,
+        },
+        percentDisplayMode: "remaining",
+      },
+    });
+
+    await startTui(plugin, api);
+    const registration = registered.find((item) => item.order === 90)!;
+    registration.slots.session_prompt({}, { session_id: "session-fable" });
+    await flushPromises();
+    const rendered = registration.slots.session_prompt({}, { session_id: "session-fable" }) as any;
+    const hint = rendered.props.children[1];
+
+    expect(hint.props.children[0].props.children).toBe("Claude Fable");
+    expect(hint.props.children[0].props.children).not.toBe("Claude Weekly");
+    expect(hint.props.children[1].props.children).toHaveLength(12);
+    expect(hint.props.children[2].props.children).toBe("98%");
+  });
+
+  it("renders Cursor API instead of a group-only label", async () => {
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      commandDisplay: "inline",
+      sidebar: { enabled: false },
+      compact: {
+        enabled: false,
+        homeBottom: false,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+      promptBar: { enabled: true },
+      announcements: { homeBottom: false },
+      homeBottom: false,
+    });
+    loadTuiSessionQuotaSurfaces.mockResolvedValueOnce({
+      sidebar: { status: "disabled", lines: [] },
+      compact: { status: "disabled" },
+      promptBar: {
+        status: "ready",
+        entry: {
+          name: "Cursor API",
+          group: "Cursor",
+          percentRemaining: 25,
+        },
+        percentDisplayMode: "remaining",
+      },
+    });
+
+    await startTui(plugin, api);
+    const registration = registered.find((item) => item.order === 90)!;
+    registration.slots.session_prompt({}, { session_id: "session-cursor-api" });
+    await flushPromises();
+    const rendered = registration.slots.session_prompt(
+      {},
+      { session_id: "session-cursor-api" },
+    ) as any;
+    const hint = rendered.props.children[1];
+
+    expect(hint.props.children[0].props.children).toBe("Cursor API");
+    expect(hint.props.children[0].props.children).toContain("API");
+    expect(hint.props.children[1].props.children).toHaveLength(12);
+    expect(hint.props.children[2].props.children).toBe("25%");
   });
 });

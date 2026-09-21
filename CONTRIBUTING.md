@@ -64,9 +64,11 @@ This uses real credentials and makes real quota/API calls.
 
 After the first TUI session exits, the script offers a second session with the prompt bar on. Use `pnpm run test:stabilization:tui:prompt-bar` to skip the first stage. Use `pnpm run test:stabilization:web` to launch `opencode web` instead.
 
+The prompt bar is a fixed 12-cell bar. The label is the provider plus window, for example `OpenAI 5h`. When you resize the terminal, check placement and clipping. The bar does not grow.
+
 ### Fake-data fixtures
 
-`pnpm run test:stabilization:fixtures` runs a frozen Vitest set for config symlinks, config write targets, atomic JSON, OpenCode Go, Synthetic empty responses/surfaces, OpenRouter diagnostics/surfaces, Alibaba Token Plan process/provider, quota status, prompt selection, TUI runtime, quota export, API-key query/config, and contribution guidance. It does not use real credentials, network provider calls, or the real `bl` executable. Before Vitest starts, the runner creates a `0700` temp HOME/XDG sandbox, strips known provider credential/session env vars and `OPENCODE_CONFIG`/`OPENCODE_CONFIG_DIR`, then deletes the sandbox on success, error, or signal.
+`pnpm run test:stabilization:fixtures` runs a frozen Vitest set for config symlinks, config write targets, atomic JSON, OpenCode Go, Synthetic empty responses/surfaces, OpenRouter diagnostics/surfaces, Alibaba Token Plan process/provider, quota status, prompt selection, prompt-bar identity, TUI runtime, quota export, API-key query/config, and contribution guidance. It does not use real credentials, network provider calls, or the real `bl` executable. Before Vitest starts, the runner creates a `0700` temp HOME/XDG sandbox, strips known provider credential/session env vars and `OPENCODE_CONFIG`/`OPENCODE_CONFIG_DIR`, then deletes the sandbox on success, error, or signal.
 
 ## CI Checks (Automated)
 

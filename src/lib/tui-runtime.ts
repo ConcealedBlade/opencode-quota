@@ -1,21 +1,7 @@
 import type { TuiPluginApi } from "@opencode-ai/plugin/tui";
-import {
-  formatAccountingBoolean,
-  formatAccountingQuantity,
-  getAccountingEntryLabel,
-} from "./accounting-format.js";
 import { type RuntimeContextRootHints, resolveRuntimeContextRoots } from "./config-file-utils.js";
-import { sanitizeSingleLineDisplayText } from "./display-sanitize.js";
-import {
-  type AccountingWindow,
-  isBooleanEntry,
-  isPercentEntry,
-  isQuantityEntry,
-  isValueEntry,
-} from "./entries.js";
-import { formatDisplayedPercentLabel } from "./format-utils.js";
+import type { AccountingWindow } from "./entries.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
-import { formatGroupedHeader } from "./grouped-header-format.js";
 import {
   BUNDLED_MAINTAINER_ANNOUNCEMENTS,
   formatMaintainerAnnouncementHomeCountLine,
@@ -25,8 +11,6 @@ import {
 } from "./maintainer-announcements.js";
 import { getQuotaProviderShape, normalizeQuotaProviderId } from "./provider-metadata.js";
 import { projectQuotaProviderResults } from "./quota-accounting-projection.js";
-import { classifyQuotaWindowText } from "./quota-entry-display.js";
-import { compareQuotaRunwayUrgency } from "./quota-exhaustion-projection.js";
 import {
   buildQuotaExport,
   createExportProviderContext,
@@ -34,11 +18,7 @@ import {
   writeQuotaExport,
 } from "./quota-export.js";
 import { resolveQuotaFormatStyle } from "./quota-format-style.js";
-import type {
-  CollectQuotaRenderDataResult,
-  QuotaRenderData,
-  SessionModelMeta,
-} from "./quota-render-data.js";
+import type { CollectQuotaRenderDataResult, SessionModelMeta } from "./quota-render-data.js";
 import { collectConcreteEnabledProviderIds, collectQuotaRenderData } from "./quota-render-data.js";
 import type { QuotaRuntimeContext } from "./quota-runtime-context.js";
 import {
@@ -51,15 +31,14 @@ import { hasNativeProviderQuotaClient } from "./tui-native-provider-quota.js";
 import type {
   CompactStatusState,
   HomeBottomState,
-  PromptBarEntry,
   PromptBarState,
   SidebarPanelState,
 } from "./tui-panel-state.js";
+import { pickPromptBarEntry } from "./tui-prompt-bar-format.js";
 import { buildSidebarQuotaPanelLines, TUI_SIDEBAR_MAX_WIDTH } from "./tui-sidebar-format.js";
 import type { OpenCodeGoWindowKey, TuiCommandDisplay } from "./types.js";
 
 const COMPACT_UNAVAILABLE_TEXT = "Quota unavailable";
-const PROMPT_BAR_MAX_WIDTH = 50;
 const tuiQuotaClients = new WeakMap<TuiPluginApi, ReturnType<typeof makeTuiQuotaClient>>();
 
 export function getTuiRuntimeRootHints(api: TuiPluginApi): RuntimeContextRootHints {
@@ -422,111 +401,6 @@ function buildSidebarPanelFromData(params: {
   };
 }
 
-function fitPromptBarSemanticSegment(prefix: string, value: string): string | null {
-  const segment = sanitizeSingleLineDisplayText(`${prefix} ${value}`);
-  if (segment.length <= PROMPT_BAR_MAX_WIDTH) return segment;
-  if (value.length > PROMPT_BAR_MAX_WIDTH) return null;
-
-  const prefixWidth = PROMPT_BAR_MAX_WIDTH - value.length - 1;
-  if (prefixWidth <= 0) return value;
-  const visiblePrefix =
-    prefix.length <= prefixWidth
-      ? prefix
-      : prefixWidth === 1
-        ? "…"
-        : `${prefix.slice(0, prefixWidth - 1).trimEnd()}…`;
-  return sanitizeSingleLineDisplayText(`${visiblePrefix} ${value}`);
-}
-
-function buildSemanticPromptBarEntry(
-  entry: QuotaRenderData["entries"][number],
-  percentDisplayMode: QuotaRuntimeContext["config"]["percentDisplayMode"],
-): PromptBarEntry | undefined {
-  if (!entry.semantic || entry.semantic.prominence !== "primary") return undefined;
-
-  const value = isPercentEntry(entry)
-    ? Number.isFinite(entry.percentRemaining)
-      ? (formatDisplayedPercentLabel(entry.percentRemaining, percentDisplayMode).split(" ")[0] ??
-        "0%")
-      : null
-    : isQuantityEntry(entry)
-      ? formatAccountingQuantity(entry.quantity)
-      : isBooleanEntry(entry)
-        ? formatAccountingBoolean(entry.value, entry.semantic)
-        : isValueEntry(entry)
-          ? entry.value
-          : null;
-  if (!value) return undefined;
-
-  const provider = entry.group?.trim()
-    ? formatGroupedHeader(entry.group).replace(/^\[([^\]]+)\]/u, "$1")
-    : entry.name.trim();
-  const label = getAccountingEntryLabel(entry);
-  const prefix = sanitizeSingleLineDisplayText(
-    provider && provider !== label ? `${provider}: ${label}` : label,
-  );
-  const semanticSegment = fitPromptBarSemanticSegment(prefix, value);
-  if (!semanticSegment) return undefined;
-
-  return {
-    semanticSegment,
-    ...(isPercentEntry(entry) ? { percentRemaining: entry.percentRemaining } : {}),
-    ...(entry.resetTimeIso ? { resetTimeIso: entry.resetTimeIso } : {}),
-    ...(isPercentEntry(entry) && entry.runway ? { runway: entry.runway } : {}),
-  };
-}
-
-function pickPromptBarEntry(
-  data: QuotaRenderData | null,
-  percentDisplayMode: QuotaRuntimeContext["config"]["percentDisplayMode"],
-): PromptBarEntry | undefined {
-  if (!data || !Array.isArray(data.entries)) {
-    return undefined;
-  }
-
-  const projected = data.entries
-    .map((entry, index) => ({
-      entry,
-      index,
-      promptEntry: buildSemanticPromptBarEntry(entry, percentDisplayMode) ?? entry,
-    }))
-    .filter(
-      ({ entry }) =>
-        isPercentEntry(entry) && Number.isFinite(entry.percentRemaining) && Boolean(entry.runway),
-    )
-    .sort(
-      (left, right) =>
-        compareQuotaRunwayUrgency(
-          isPercentEntry(left.entry) ? left.entry.runway : undefined,
-          isPercentEntry(right.entry) ? right.entry.runway : undefined,
-        ) || left.index - right.index,
-    );
-  if (projected[0]) return projected[0].promptEntry;
-
-  for (const entry of data.entries) {
-    const semantic = buildSemanticPromptBarEntry(entry, percentDisplayMode);
-    if (semantic) return semantic;
-  }
-
-  let fallback: PromptBarEntry | undefined;
-  for (const entry of data.entries) {
-    if (entry.semantic || !isPercentEntry(entry) || !Number.isFinite(entry.percentRemaining)) {
-      continue;
-    }
-    const kind = classifyQuotaWindowText(entry.label ?? "") ?? classifyQuotaWindowText(entry.name);
-    if (kind === "five_hour") {
-      return entry;
-    }
-    if (
-      !fallback ||
-      entry.percentRemaining < (fallback.percentRemaining ?? Number.POSITIVE_INFINITY)
-    ) {
-      fallback = entry;
-    }
-  }
-  return fallback;
-}
-
 function buildPromptBarFromData(params: {
   runtime: QuotaRuntimeContext;
   result: CollectQuotaRenderDataResult;
@@ -540,10 +414,7 @@ function buildPromptBarFromData(params: {
     return { status: "loading" };
   }
 
-  const entry = pickPromptBarEntry(
-    params.result.allWindowsData ?? params.result.data,
-    params.runtime.config.percentDisplayMode,
-  );
+  const entry = pickPromptBarEntry(params.result.allWindowsData ?? params.result.data);
   return {
     status: "ready",
     ...(entry ? { entry } : {}),

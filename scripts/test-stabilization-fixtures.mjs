@@ -73,6 +73,7 @@ export const FIXTURE_TEST_FILES = Object.freeze([
   "tests/lib.quota-status.test.ts",
   "tests/quota-render-data.test.ts",
   "tests/tui-runtime.test.ts",
+  "tests/tui-prompt-bar-format.test.ts",
   "tests/lib.quota-export.test.ts",
   "tests/lib.quota-export.production-policy.test.ts",
   "tests/lib.api-key-provider-queries.test.ts",
@@ -114,7 +115,7 @@ export function getFixturesUsage() {
 Runs the frozen fake-data Vitest set for config symlinks, config write targets,
 atomic JSON, OpenCode Go, Synthetic empty responses/surfaces, OpenRouter
 diagnostics/surfaces, Alibaba Token Plan process/provider, quota status, prompt
-selection, TUI runtime, quota export, API-key query/config, and contribution guidance.
+selection, prompt-bar identity, TUI runtime, quota export, API-key query/config, and contribution guidance.
 
 Does not use real credentials, network provider calls, or the real bl executable.
 Vitest runs in a 0700 temp HOME/XDG sandbox with known credential/session env vars
