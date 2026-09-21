@@ -86,6 +86,13 @@ vi.mock("solid-js", () => ({
       ? (props.children as (value: unknown) => unknown)(props.when)
       : props.children;
   },
+  Index: (props: {
+    each: unknown[] | undefined | null | false;
+    children: (item: () => unknown, index: number) => unknown;
+  }) => {
+    if (!props.each) return null;
+    return props.each.map((item, index) => props.children(() => item, index));
+  },
   createEffect: (fn: () => void) => fn(),
   createSignal: <T>(initial: T) => {
     let value = initial;
@@ -120,6 +127,35 @@ function createElement(
     ...(children.length === 0 ? {} : { children: children.length === 1 ? children[0] : children }),
   };
   return typeof type === "function" ? type(nextProps) : { type, props: nextProps };
+}
+
+function flattenSidebarText(node: unknown): string {
+  if (node == null || node === false) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(flattenSidebarText).join("");
+  if (typeof node === "object" && "props" in node) {
+    return flattenSidebarText((node as { props?: { children?: unknown } }).props?.children);
+  }
+  return "";
+}
+
+function sidebarTextNodes(node: any): any[] {
+  const children = Array.isArray(node?.props?.children)
+    ? node.props.children
+    : [node?.props?.children];
+  return children.filter(Boolean);
+}
+
+function readSidebarDisplayLines(node: any): string[] {
+  return sidebarTextNodes(node).map((child: any) => flattenSidebarText(child).trimEnd());
+}
+
+function readSidebarHeaderTree(node: any): { header: any; children: any[] } {
+  const header = sidebarTextNodes(node)[0];
+  const children = Array.isArray(header?.props?.children)
+    ? header.props.children
+    : [header?.props?.children];
+  return { header, children: children.filter(Boolean) };
 }
 
 function createApi() {
@@ -1139,14 +1175,19 @@ describe("tui plugin smoke", () => {
       {},
       { session_id: "session-1" },
     ) as any;
-    const collapsedHeader = collapsed.props.children[0];
-    expect(collapsedHeader.props.children[0].props.children.props.children).toBe("▶ Quota");
-    expect(collapsedHeader.props.children[1].props.children).toEqual([" (", 2, " providers)"]);
-    expect(
-      collapsed.props.children[1].props.children.map((line: any) => line.props.children),
-    ).toEqual(["OpenCode Go Five-hour 98%"]);
+    const collapsedLines = readSidebarDisplayLines(collapsed);
+    expect(collapsedLines).toEqual(["▶ Quota (2 providers)", "OpenCode Go Five-hour 98%"]);
+    const collapsedHeader = readSidebarHeaderTree(collapsed);
+    expect(collapsedHeader.header.type).toBe("text");
+    expect(collapsedHeader.header.props.width).toBe("100%");
+    expect(collapsedHeader.header.props.wrapMode).toBe("none");
+    expect(collapsedHeader.children).toEqual([
+      { type: "b", props: { children: "▶ Quota" } },
+      { type: "span", props: { fg: "muted", children: " (2 providers)" } },
+    ]);
+    expect(sidebarTextNodes(collapsed).every((child: any) => child.type === "text")).toBe(true);
 
-    collapsedHeader.props.children[0].props.onMouseDown();
+    collapsedHeader.header.props.onMouseDown();
 
     expect(api.kv.set).toHaveBeenCalledWith("quota-sidebar-collapsed", false);
 
@@ -1154,11 +1195,21 @@ describe("tui plugin smoke", () => {
       {},
       { session_id: "session-1" },
     ) as any;
-    const expandedHeader = expanded.props.children[0];
-    expect(expandedHeader.props.children[0].props.children.props.children).toBe("▼ Quota");
+    const expandedLines = readSidebarDisplayLines(expanded);
+    expect(expandedLines).toEqual([
+      "▼ Quota",
+      "[OpenCode Go]",
+      "Five-hour window 98%",
+      "Weekly window 53%",
+      "Monthly window 33%",
+    ]);
+    const expandedHeader = readSidebarHeaderTree(expanded);
+    expect(expandedHeader.header.type).toBe("text");
+    expect(expandedHeader.header.props.width).toBe("100%");
+    expect(expandedHeader.children).toEqual([{ type: "b", props: { children: "▼ Quota" } }]);
     expect(
-      expanded.props.children[1].props.children.map((line: any) => line.props.children),
-    ).toEqual(["[OpenCode Go]", "Five-hour window 98%", "Weekly window 53%", "Monthly window 33%"]);
+      expandedLines.filter((line: string) => line.includes("Quota") || line.startsWith("▶")),
+    ).toEqual(["▼ Quota"]);
   });
 
   it("keeps sidebar collapse icons while naming the bare percent mode", async () => {
@@ -1195,14 +1246,11 @@ describe("tui plugin smoke", () => {
     await Promise.resolve();
 
     const collapsed = registration.slots.sidebar_content({}, { session_id: "session-mode" }) as any;
-    const header = collapsed.props.children[0].props.children[0];
-    expect(header.props.children.props.children).toBe("▶ Quota [Used]");
+    expect(readSidebarDisplayLines(collapsed)[0]).toBe("▶ Quota [Used]");
 
-    header.props.onMouseDown();
+    collapsed.props.children[0].props.onMouseDown();
     const expanded = registration.slots.sidebar_content({}, { session_id: "session-mode" }) as any;
-    expect(expanded.props.children[0].props.children[0].props.children.props.children).toBe(
-      "▼ Quota [Used]",
-    );
+    expect(readSidebarDisplayLines(expanded)[0]).toBe("▼ Quota [Used]");
   });
 
   it("keeps non-expandable empty sidebar panels visible while collapsed", async () => {
@@ -1241,9 +1289,7 @@ describe("tui plugin smoke", () => {
       {},
       { session_id: "session-1" },
     ) as any;
-    const header = rendered.props.children[0];
-    expect(header.props.children[0].props.children.props.children).toBe("Quota");
-    expect(rendered.props.children[1].props.children[0].props.children).toBe("Unavailable");
+    expect(readSidebarDisplayLines(rendered)).toEqual(["Quota", "Unavailable"]);
   });
 
   it("activates only the sidebar host when surface resolution fails", async () => {
@@ -1389,7 +1435,7 @@ describe("tui plugin smoke", () => {
     await flushPromises();
     expect(loadTuiSessionQuotaSurfaces).toHaveBeenCalledTimes(2);
     let rendered = sidebar({}, { session_id: "session-1" }) as any;
-    expect(rendered.props.children[1].props.children[0].props.children).toBe("initial");
+    expect(readSidebarDisplayLines(rendered)).toEqual(["Quota", "initial"]);
 
     second.resolve({
       sidebar: { status: "ready", lines: ["refreshed"] },
@@ -1397,7 +1443,7 @@ describe("tui plugin smoke", () => {
     });
     await flushPromises();
     rendered = sidebar({}, { session_id: "session-1" });
-    expect(rendered.props.children[1].props.children[0].props.children).toBe("refreshed");
+    expect(readSidebarDisplayLines(rendered)).toEqual(["Quota", "refreshed"]);
   });
 
   it("keeps shared session resources alive until the final release and then disposes them", async () => {

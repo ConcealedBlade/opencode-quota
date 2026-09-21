@@ -24,6 +24,7 @@ vi.mock("../src/lib/quota-telemetry.js", () => ({
 
 vi.mock("solid-js", () => ({
   Show: vi.fn(),
+  Index: vi.fn(),
   createEffect: vi.fn(),
   createSignal: <T>(initial: T) => {
     let value = initial;

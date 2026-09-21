@@ -214,6 +214,13 @@ vi.mock("solid-js", () => ({
       ? (props.children as (value: unknown) => unknown)(props.when)
       : props.children;
   },
+  Index: (props: {
+    each: unknown[] | undefined | null | false;
+    children: (item: () => unknown, index: number) => unknown;
+  }) => {
+    if (!props.each) return null;
+    return props.each.map((item, index) => props.children(() => item, index));
+  },
   createEffect: (fn: () => void) => fn(),
   createSignal: <T>(initial: T) => {
     let value = initial;
@@ -344,7 +351,7 @@ function createApi(worktreeDir: string) {
 }
 
 function containsText(value: unknown, expected: string, seen = new Set<unknown>()): boolean {
-  if (value === expected) return true;
+  if (typeof value === "string") return value.includes(expected);
   if (!value || typeof value !== "object" || seen.has(value)) return false;
   seen.add(value);
   return Object.values(value as Record<string, unknown>).some((child) =>
