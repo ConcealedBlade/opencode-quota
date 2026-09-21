@@ -14,6 +14,7 @@ import {
   isValueEntry,
 } from "./entries.js";
 import { formatDisplayedPercentLabel } from "./format-utils.js";
+import { groupQuotaEntries } from "./grouped-entry-normalization.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import {
   BUNDLED_MAINTAINER_ANNOUNCEMENTS,
@@ -407,7 +408,8 @@ function buildSidebarPanelFromData(params: {
       ? expandedLines
       : undefined;
 
-  const providerCount = params.result.active.length;
+  const visibleData = params.result.allWindowsData ?? primaryData;
+  const providerCount = visibleData ? groupQuotaEntries(visibleData.entries, "toast").length : 0;
 
   return {
     status: "ready",

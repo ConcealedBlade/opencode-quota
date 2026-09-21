@@ -527,7 +527,7 @@ describe("tui runtime helpers", () => {
       sessionID: "session-grouped",
     });
 
-    expect(panel).toEqual({ status: "ready", lines: ["[Copilot] (business)"] });
+    expect(panel).toEqual({ status: "ready", lines: ["[Copilot] (business)"], providerCount: 1 });
     expect(collectQuotaRenderData).toHaveBeenCalledWith(
       expect.objectContaining({
         formatStyle: "allWindows",
@@ -591,7 +591,11 @@ describe("tui runtime helpers", () => {
       sessionID: "session-weekly-grouped",
     });
 
-    expect(panel).toEqual({ status: "ready", lines: ["[Synthetic]", "Weekly window"] });
+    expect(panel).toEqual({
+      status: "ready",
+      lines: ["[Synthetic]", "Weekly window"],
+      providerCount: 1,
+    });
     expect(buildSidebarQuotaPanelLines).toHaveBeenCalledWith({
       data: weeklyData,
       config: expect.objectContaining({
@@ -1756,7 +1760,7 @@ describe("tui runtime helpers", () => {
     });
 
     expect(surfaces).toEqual({
-      sidebar: { status: "ready", lines: ["Sidebar quota"] },
+      sidebar: { status: "ready", lines: ["Sidebar quota"], providerCount: 1 },
       compact: { status: "ready", text: "Compact quota" },
       promptBar: {
         status: "ready",
@@ -1861,6 +1865,7 @@ describe("tui runtime helpers", () => {
       status: "ready",
       lines: ["Sidebar quota"],
       headerPercentMode: "used",
+      providerCount: 1,
     });
     expect(surfaces.promptBar).toMatchObject({
       status: "ready",
@@ -2611,6 +2616,7 @@ describe("tui runtime helpers", () => {
       status: "ready",
       lines: ["Copilot 50%"],
       linesExpanded: ["[Copilot]", "5h line", "Weekly line"],
+      providerCount: 2,
     });
     // collect still used root formatStyle=singleWindow
     expect(collectQuotaRenderData).toHaveBeenCalledWith(

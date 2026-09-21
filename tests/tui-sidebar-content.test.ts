@@ -66,4 +66,32 @@ describe("sidebar content rows", () => {
     expect(collapsedFrame).not.toContain("[Copilot]");
     expect(collectSidebarHeadingLines(collapsedFrame)).toEqual(["▶ Quota (3 providers)"]);
   });
+
+  it("keeps expand/collapse aligned when collapsed overflow is explicit", () => {
+    const heading = {
+      collapsed: true,
+      heading: "Quota",
+      hasDetailLines: true,
+      providerCount: 2,
+    };
+    const collapsed = buildSidebarContentRows({
+      ...heading,
+      lines: ["Copilot 5% | +1"],
+    });
+    const expanded = buildSidebarContentRows({
+      ...heading,
+      collapsed: false,
+      lines: ["[Copilot]", "Quota 95%", "[OpenAI ChatGPT Plus Plan]", "5h window 19%"],
+    });
+
+    expect(formatSidebarHeading(heading)).toBe("▶ Quota (2 providers)");
+    expect(collectSidebarHeadingLines(renderSidebarContentFrame(collapsed))).toEqual([
+      "▶ Quota (2 providers)",
+    ]);
+    expect(collectSidebarHeadingLines(renderSidebarContentFrame(expanded))).toEqual(["▼ Quota"]);
+    expect(renderSidebarContentFrame(collapsed)).toContain("Copilot 5% | +1");
+    expect(renderSidebarContentFrame(collapsed)).not.toContain("81%");
+    expect(renderSidebarContentFrame(expanded)).toContain("[OpenAI ChatGPT Plus Plan]");
+    expect(renderSidebarContentFrame(expanded)).not.toContain("+1");
+  });
 });
