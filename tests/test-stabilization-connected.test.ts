@@ -1192,6 +1192,33 @@ setInterval(() => {}, 1000);
     );
   });
 
+  it("resolves injectable Windows OpenCode log paths on any host", () => {
+    expect(resolveOpenCodeLogDirs({}, "C:\\Users\\tester", "win32")).toEqual([
+      "C:\\Users\\tester\\.local\\share\\opencode\\log",
+    ]);
+    expect(
+      resolveOpenCodeLogDirs({ XDG_DATA_HOME: " D:/data/../xdg/ " }, "C:\\Users\\tester", "win32"),
+    ).toEqual(["D:\\xdg\\opencode\\log"]);
+  });
+
+  it.each([
+    ["linux", "/home/tester", "/home/tester/.local/share/opencode/log"],
+    ["darwin", "/Users/tester", "/Users/tester/Library/Application Support/opencode/log"],
+    ["win32", "C:\\Users\\tester", "C:\\Users\\tester\\.local\\share\\opencode\\log"],
+  ])("uses the %s fallback for blank XDG_DATA_HOME on any host", (platform, home, expected) => {
+    expect(resolveOpenCodeLogDirs({ XDG_DATA_HOME: "   " }, home, platform)).toEqual([expected]);
+  });
+
+  it("deduplicates normalized macOS XDG and Application Support log paths", () => {
+    expect(
+      resolveOpenCodeLogDirs(
+        { XDG_DATA_HOME: " /Users/tester/Library/../Library/Application Support/ " },
+        "/Users/tester",
+        "darwin",
+      ),
+    ).toEqual(["/Users/tester/Library/Application Support/opencode/log"]);
+  });
+
   it("deletes the temp workspace while retaining only sanitized diagnostics", async () => {
     const root = await makeTemp("oq-connected-diag-cleanup-");
     const source = path.join(root, "source");

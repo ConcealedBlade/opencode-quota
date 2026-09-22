@@ -637,12 +637,13 @@ export function resolveOpenCodeLogDir(
   home = homedir(),
   platform = process.platform,
 ) {
+  const platformPath = platform === "win32" ? path.win32 : path.posix;
   const fallback =
     platform === "darwin"
-      ? path.join(home, "Library", "Application Support")
-      : path.join(home, ".local", "share");
+      ? platformPath.join(home, "Library", "Application Support")
+      : platformPath.join(home, ".local", "share");
   const dataBase = env.XDG_DATA_HOME?.trim() || fallback;
-  return path.join(dataBase, "opencode", "log");
+  return platformPath.join(dataBase, "opencode", "log");
 }
 
 export function resolveOpenCodeLogDirs(
@@ -650,9 +651,10 @@ export function resolveOpenCodeLogDirs(
   home = homedir(),
   platform = process.platform,
 ) {
+  const platformPath = platform === "win32" ? path.win32 : path.posix;
   const dirs = [resolveOpenCodeLogDir(env, home, platform)];
   if (platform === "darwin") {
-    dirs.push(path.join(home, "Library", "Application Support", "opencode", "log"));
+    dirs.push(platformPath.join(home, "Library", "Application Support", "opencode", "log"));
   }
   return [...new Set(dirs.filter(Boolean))];
 }
