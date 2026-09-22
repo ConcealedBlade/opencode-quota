@@ -178,13 +178,16 @@ export function isAlibabaTokenPlanSupportedPlatform(
   return SUPPORTED_PLATFORMS.has(platform);
 }
 
-function pathDelimiter(platform: NodeJS.Platform): string {
-  return platform === "win32" ? ";" : ":";
+function runtimePath(platform: NodeJS.Platform): typeof path.posix {
+  return platform === "win32" ? path.win32 : path.posix;
 }
 
-function isPathInside(parent: string, candidate: string): boolean {
-  const relative = path.relative(parent, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+function isPathInside(parent: string, candidate: string, paths: typeof path.posix): boolean {
+  const relative = paths.relative(parent, candidate);
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${paths.sep}`) && !paths.isAbsolute(relative))
+  );
 }
 
 function stripPathQuotes(value: string): string {
@@ -204,18 +207,19 @@ export function listTrustedPathDirectories(params: {
   cwd: string;
   platform: NodeJS.Platform;
 }): string[] {
-  const delimiter = pathDelimiter(params.platform);
-  const cwd = path.resolve(params.cwd);
+  const paths = runtimePath(params.platform);
+  const delimiter = paths.delimiter;
+  const cwd = paths.resolve(params.cwd);
   const trusted: string[] = [];
   const seen = new Set<string>();
 
   for (const rawEntry of (params.pathEnv ?? "").split(delimiter)) {
     const entry = stripPathQuotes(rawEntry);
     if (!entry || entry === "." || entry === "..") continue;
-    if (!path.isAbsolute(entry)) continue;
+    if (!paths.isAbsolute(entry)) continue;
 
-    const resolved = path.resolve(entry);
-    if (isPathInside(cwd, resolved)) continue;
+    const resolved = paths.resolve(entry);
+    if (isPathInside(cwd, resolved, paths)) continue;
     if (seen.has(resolved)) continue;
     seen.add(resolved);
     trusted.push(resolved);
@@ -225,13 +229,13 @@ export function listTrustedPathDirectories(params: {
 }
 
 function isShellLauncherPath(file: string): boolean {
-  const extension = path.extname(file).toLowerCase();
+  const extension = path.posix.extname(file).toLowerCase();
   if (SHELL_LAUNCHER_EXTENSIONS.has(extension)) return true;
-  return SHELL_LAUNCHER_NAMES.has(path.basename(file).toLowerCase());
+  return SHELL_LAUNCHER_NAMES.has(path.posix.basename(file).toLowerCase());
 }
 
 function candidateExecutableNames(): readonly string[] {
-  return [ALIBABA_TOKEN_PLAN_COMMAND];
+  return [ALIBABA_TOKEN_PLAN_COMMAND, "bl.cmd", "bl.bat"];
 }
 
 async function fileLooksLikeExecutable(file: string): Promise<boolean> {
@@ -258,7 +262,8 @@ export async function resolveAlibabaTokenPlanExecutable(params: {
     return executableResolutionError("unsupported_platform");
   }
 
-  const cwd = path.resolve(params.cwd ?? process.cwd());
+  const paths = runtimePath(platform);
+  const cwd = paths.resolve(params.cwd ?? process.cwd());
   const trusted = listTrustedPathDirectories({
     pathEnv: params.pathEnv ?? process.env.PATH,
     cwd,
@@ -271,12 +276,12 @@ export async function resolveAlibabaTokenPlanExecutable(params: {
   let sawShellLauncher = false;
   for (const directory of trusted) {
     for (const name of candidateExecutableNames()) {
-      const candidate = path.join(directory, name);
+      const candidate = paths.join(directory, name);
+      if (!(await fileLooksLikeExecutable(candidate))) continue;
       if (isShellLauncherPath(candidate)) {
         sawShellLauncher = true;
         continue;
       }
-      if (!(await fileLooksLikeExecutable(candidate))) continue;
 
       let resolved = candidate;
       try {
@@ -288,7 +293,7 @@ export async function resolveAlibabaTokenPlanExecutable(params: {
         sawShellLauncher = true;
         continue;
       }
-      if (isPathInside(cwd, resolved)) {
+      if (isPathInside(cwd, resolved, paths)) {
         return executableResolutionError("workspace_path_rejected");
       }
       return { ok: true, file: resolved };
@@ -385,14 +390,15 @@ function resolveNonWorkspaceCwd(params: {
   homedir: string;
   platform: NodeJS.Platform;
 }): string {
-  const workspace = path.resolve(params.cwd);
+  const paths = runtimePath(params.platform);
+  const workspace = paths.resolve(params.cwd);
   for (const candidate of [
     params.tmpdir,
     params.homedir,
     params.platform === "win32" ? "C:\\" : "/",
   ]) {
-    const resolved = path.resolve(candidate);
-    if (!isPathInside(workspace, resolved)) return resolved;
+    const resolved = paths.resolve(candidate);
+    if (!isPathInside(workspace, resolved, paths)) return resolved;
   }
   return params.platform === "win32" ? "C:\\" : "/";
 }
@@ -401,7 +407,7 @@ function trustedPathEnv(params: {
   trustedDirectories: readonly string[];
   platform: NodeJS.Platform;
 }): string {
-  return params.trustedDirectories.join(pathDelimiter(params.platform));
+  return params.trustedDirectories.join(runtimePath(params.platform).delimiter);
 }
 
 function takeBoundedChunk(
@@ -593,7 +599,7 @@ export async function queryAlibabaTokenPlanQuota(
     return fail("unsupported_platform");
   }
 
-  const cwd = path.resolve(runtime.cwd ?? process.cwd());
+  const cwd = runtimePath(platform).resolve(runtime.cwd ?? process.cwd());
   const pathEnv = runtime.pathEnv ?? runtime.env?.PATH ?? process.env.PATH;
   const resolved = await resolveAlibabaTokenPlanExecutable({
     pathEnv,

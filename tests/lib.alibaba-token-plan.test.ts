@@ -1,7 +1,7 @@
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ALIBABA_TOKEN_PLAN_ARGS,
@@ -17,9 +17,16 @@ import {
   runAlibabaTokenPlanProcess,
 } from "../src/lib/alibaba-token-plan.js";
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...fs, lstat: vi.fn(fs.lstat), realpath: vi.fn(fs.realpath) };
+});
+
 const created: string[] = [];
 
 afterEach(async () => {
+  vi.mocked(lstat).mockReset();
+  vi.mocked(realpath).mockReset();
   await Promise.all(created.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
@@ -40,6 +47,17 @@ async function writeUnixExecutable(
   await writeFile(file, source, { encoding: "utf8", mode: 0o755 });
   await chmod(file, 0o755);
   return file;
+}
+
+async function mockExecutable(file = "/trusted/bin/bl", target = file): Promise<void> {
+  const stats = await lstat(process.execPath);
+  vi.mocked(lstat).mockImplementation(async (candidate) => {
+    if (candidate === file || candidate === target) return stats;
+    throw new Error("Executable does not exist");
+  });
+  vi.mocked(realpath).mockImplementation(async (candidate) =>
+    candidate === file ? target : String(candidate),
+  );
 }
 
 function capturedSpawn(requests: AlibabaTokenPlanSpawnRequest[]) {
@@ -213,6 +231,88 @@ describe("alibaba token plan parser", () => {
 });
 
 describe("alibaba token plan PATH trust", () => {
+  it.each([
+    {
+      platform: "linux" as const,
+      cwd: "/workspace",
+      bin: "/workspace-sibling/bin",
+      delimiter: ":",
+    },
+    {
+      platform: "win32" as const,
+      cwd: "C:\\workspace",
+      bin: "C:\\workspace-sibling\\bin",
+      delimiter: ";",
+    },
+  ])("uses $platform PATH semantics independently of the host", ({
+    platform,
+    cwd,
+    bin,
+    delimiter,
+  }) => {
+    const paths = platform === "win32" ? path.win32 : path.posix;
+    const parent = paths.dirname(cwd);
+    expect(
+      listTrustedPathDirectories({
+        platform,
+        cwd,
+        pathEnv: [cwd, paths.join(cwd, "..bin"), ".", "relative", bin, bin, parent].join(delimiter),
+      }),
+    ).toEqual([bin, parent]);
+  });
+
+  it.each(["cmd", "bat"])("classifies bl.%s as a rejected shell launcher", async (extension) => {
+    await mockExecutable(`/trusted/bin/bl.${extension}`);
+    const result = await resolveAlibabaTokenPlanExecutable({
+      platform: "linux",
+      cwd: "/workspace",
+      pathEnv: "/trusted/bin",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        kind: "shell_launcher_rejected",
+        message: "Alibaba Personal Token Plan refused a shell launcher for bl.",
+      },
+    });
+  });
+
+  it("reports missing executables when no launcher exists", async () => {
+    await mockExecutable("/elsewhere/bl");
+    expect(
+      await resolveAlibabaTokenPlanExecutable({
+        platform: "linux",
+        cwd: "/workspace",
+        pathEnv: "/trusted/bin",
+      }),
+    ).toMatchObject({ ok: false, error: { kind: "executable_not_found" } });
+  });
+
+  it.each([
+    "bin",
+    "..bin",
+  ])("rejects a trusted PATH executable resolving into workspace %s/bl", async (directory) => {
+    await mockExecutable("/trusted/bin/bl", `/workspace/${directory}/bl`);
+    const result = await resolveAlibabaTokenPlanExecutable({
+      platform: "linux",
+      cwd: "/workspace",
+      pathEnv: "/trusted/bin",
+    });
+    expect(result).toMatchObject({ ok: false, error: { kind: "workspace_path_rejected" } });
+  });
+
+  it("accepts a trusted PATH executable resolving into an external workspace sibling", async () => {
+    const target = "/workspace-sibling/..bin/bl";
+    await mockExecutable("/trusted/bin/bl", target);
+    expect(
+      await resolveAlibabaTokenPlanExecutable({
+        platform: "linux",
+        cwd: "/workspace",
+        pathEnv: "/trusted/bin",
+      }),
+    ).toEqual({ ok: true, file: target });
+  });
+
   it("keeps only absolute PATH directories outside the workspace", async () => {
     const workspace = await makeDir();
     const trusted = await makeDir();
@@ -231,10 +331,13 @@ describe("alibaba token plan PATH trust", () => {
     expect(dirs).toEqual([trusted]);
   });
 
-  it("rejects a workspace bl even when PATH points at it with an absolute path", async () => {
-    const workspace = await makeDir();
-    const workspaceBin = path.join(workspace, "bin");
-    await writeUnixExecutable(workspaceBin, "bl", "#!/bin/sh\necho hijacked\n");
+  it.each([
+    "bin",
+    "..bin",
+  ])("rejects workspace %s/bl even when PATH points at it with an absolute path", async (directory) => {
+    const workspace = "/workspace";
+    const workspaceBin = `/workspace/${directory}`;
+    await mockExecutable(`${workspaceBin}/bl`);
     const resolved = await resolveAlibabaTokenPlanExecutable({
       pathEnv: workspaceBin,
       cwd: workspace,
@@ -313,13 +416,12 @@ describe("alibaba token plan PATH trust", () => {
   );
 
   it("rejects shell launchers instead of bridging through them", async () => {
-    const bin = await makeDir();
-    const { symlink } = await import("node:fs/promises");
-    await symlink("/bin/sh", path.join(bin, "bl"));
+    const bin = "/trusted/bin";
+    await mockExecutable(`${bin}/bl`, "/bin/sh");
     const resolved = await resolveAlibabaTokenPlanExecutable({
       pathEnv: bin,
-      cwd: await makeDir(),
-      platform: process.platform === "win32" ? "darwin" : process.platform,
+      cwd: "/workspace",
+      platform: "darwin",
     });
     expect(resolved.ok).toBe(false);
     if (resolved.ok) throw new Error("expected rejection");
@@ -329,16 +431,18 @@ describe("alibaba token plan PATH trust", () => {
 
 describe("alibaba token plan process boundary", () => {
   it("invokes only the fixed argv, ignores stdin, and uses a non-workspace cwd", async () => {
-    const workspace = await makeDir();
-    const bin = await makeDir();
-    await writeUnixExecutable(bin, "bl", "#!/bin/sh\nexit 0\n");
+    const workspace = "/workspace";
+    const bin = "/trusted/bin";
+    await mockExecutable();
     const requests: AlibabaTokenPlanSpawnRequest[] = [];
     const result = await queryAlibabaTokenPlanQuota({
       runtime: {
+        platform: "linux",
         cwd: workspace,
-        pathEnv: bin,
-        tmpdir: await makeDir(),
-        homedir: await makeDir(),
+        pathEnv: `${workspace}/bin:.:${bin}`,
+        tmpdir: "/safe-tmp",
+        homedir: "/safe-home",
+        env: { PATH: "/wrong/bin", TEST_ENV: "preserved" },
         spawn: capturedSpawn(requests),
       },
     });
@@ -347,20 +451,46 @@ describe("alibaba token plan process boundary", () => {
     expect(requests[0]?.args).toEqual([...ALIBABA_TOKEN_PLAN_ARGS]);
     expect(requests[0]?.shell).toBe(false);
     expect(requests[0]?.stdin).toBe("ignore");
-    expect(requests[0]?.file.endsWith(`${path.sep}${ALIBABA_TOKEN_PLAN_COMMAND}`)).toBe(true);
-    expect(requests[0]?.cwd.startsWith(workspace)).toBe(false);
+    expect(requests[0]?.file).toBe(`${bin}/${ALIBABA_TOKEN_PLAN_COMMAND}`);
+    expect(requests[0]?.cwd).toBe("/safe-tmp");
+    expect(requests[0]?.platform).toBe("linux");
+    expect(requests[0]?.env).toEqual({ PATH: bin, TEST_ENV: "preserved" });
     expect(requests[0]?.stdoutLimitBytes).toBe(ALIBABA_TOKEN_PLAN_STDOUT_LIMIT_BYTES);
     expect(requests[0]?.stderrLimitBytes).toBe(ALIBABA_TOKEN_PLAN_STDERR_LIMIT_BYTES);
     expect(requests[0]?.killGraceMs).toBe(ALIBABA_TOKEN_PLAN_KILL_GRACE_MS);
   });
 
+  it("uses the injected environment PATH when pathEnv is omitted", async () => {
+    await mockExecutable();
+    const requests: AlibabaTokenPlanSpawnRequest[] = [];
+    const runtime = {
+      platform: "darwin" as const,
+      cwd: "/workspace",
+      tmpdir: "/safe-tmp",
+      env: { PATH: "/trusted/bin" },
+      spawn: capturedSpawn(requests),
+    };
+    expect((await queryAlibabaTokenPlanQuota({ runtime })).ok).toBe(true);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.platform).toBe("darwin");
+    expect(requests[0]?.env.PATH).toBe("/trusted/bin");
+
+    expect(
+      await queryAlibabaTokenPlanQuota({ runtime: { ...runtime, pathEnv: "" } }),
+    ).toMatchObject({ ok: false, error: { kind: "executable_not_found" } });
+    expect(requests).toHaveLength(1);
+  });
+
   it("maps timeout and overflow without leaking stdout or stderr", async () => {
-    const bin = await makeDir();
-    await writeUnixExecutable(bin, "bl", "#!/bin/sh\nexit 0\n");
+    const bin = "/trusted/bin";
+    await mockExecutable();
     const timedOut = await queryAlibabaTokenPlanQuota({
       runtime: {
+        platform: "linux",
         pathEnv: bin,
-        cwd: await makeDir(),
+        cwd: "/workspace",
+        tmpdir: "/safe-tmp",
+        homedir: "/safe-home",
         spawn: async () => ({
           code: null,
           stdout: Buffer.from("secret-stdout"),
@@ -382,8 +512,11 @@ describe("alibaba token plan process boundary", () => {
 
     const truncated = await queryAlibabaTokenPlanQuota({
       runtime: {
+        platform: "linux",
         pathEnv: bin,
-        cwd: await makeDir(),
+        cwd: "/workspace",
+        tmpdir: "/safe-tmp",
+        homedir: "/safe-home",
         spawn: async () => ({
           code: 0,
           stdout: Buffer.from("secret-stdout"),
@@ -400,12 +533,15 @@ describe("alibaba token plan process boundary", () => {
   });
 
   it("treats exit 3 as missing console auth without exposing CLI output", async () => {
-    const bin = await makeDir();
-    await writeUnixExecutable(bin, "bl", "#!/bin/sh\nexit 0\n");
+    const bin = "/trusted/bin";
+    await mockExecutable();
     const result = await queryAlibabaTokenPlanQuota({
       runtime: {
+        platform: "linux",
         pathEnv: bin,
-        cwd: await makeDir(),
+        cwd: "/workspace",
+        tmpdir: "/safe-tmp",
+        homedir: "/safe-home",
         spawn: async () => ({
           code: 3,
           stdout: Buffer.from("token=abc"),
@@ -424,15 +560,19 @@ describe("alibaba token plan process boundary", () => {
       },
     });
     expect(JSON.stringify(result)).not.toContain("token=abc");
+    expect(JSON.stringify(result)).not.toContain("no console access token found");
   });
 
   it("categorizes a generic nonzero exit separately from console auth failure", async () => {
-    const bin = await makeDir();
-    await writeUnixExecutable(bin, "bl", "#!/bin/sh\nexit 0\n");
+    const bin = "/trusted/bin";
+    await mockExecutable();
     const result = await queryAlibabaTokenPlanQuota({
       runtime: {
+        platform: "linux",
         pathEnv: bin,
-        cwd: await makeDir(),
+        cwd: "/workspace",
+        tmpdir: "/safe-tmp",
+        homedir: "/safe-home",
         spawn: async () => ({
           code: 1,
           stdout: Buffer.from("token=abc"),
@@ -453,6 +593,7 @@ describe("alibaba token plan process boundary", () => {
     if (result.ok) throw new Error("expected failure");
     expect(result.error.kind).not.toBe("not_authenticated");
     expect(JSON.stringify(result)).not.toContain("token=abc");
+    expect(JSON.stringify(result)).not.toContain("usage failed");
   });
 
   it.runIf(process.platform !== "win32")(
