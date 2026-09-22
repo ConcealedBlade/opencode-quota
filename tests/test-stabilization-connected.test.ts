@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import {
   chmod,
+  copyFile,
   lstat,
   mkdir,
   mkdtemp,
@@ -14,9 +15,9 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   appendBoundedDiagnostic,
@@ -172,11 +173,11 @@ async function writeFakeWebHarness(root: string) {
   const bin = path.join(root, "bin");
   const fakeRepo = path.join(root, "repo");
   const recordFile = path.join(root, "opencode-records.jsonl");
+  const buildRecordFile = path.join(root, "build-record.json");
   const startedFile = path.join(root, "opencode-started.txt");
   await mkdir(source, { recursive: true });
   await mkdir(bin, { recursive: true });
   await mkdir(path.join(fakeRepo, "dist"), { recursive: true });
-  await mkdir(path.join(fakeRepo, "node_modules", ".bin"), { recursive: true });
   await writeFile(
     path.join(source, "opencode.jsonc"),
     `{
@@ -188,14 +189,24 @@ async function writeFakeWebHarness(root: string) {
     "utf8",
   );
   await writeFile(path.join(fakeRepo, "dist", "index.js"), "export {};\n", "utf8");
-  const fakePnpm = path.join(fakeRepo, "node_modules", ".bin", "pnpm");
-  await writeFile(fakePnpm, "#!/usr/bin/env node\nprocess.exit(0);\n", "utf8");
-  const fakeOpenCode = path.join(bin, "opencode");
+  const fakePnpm = path.join(fakeRepo, "fake-pnpm.cjs");
   await writeFile(
-    fakeOpenCode,
-    `#!/usr/bin/env node
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-const args = process.argv.slice(2);
+    fakePnpm,
+    `require("node:fs").writeFileSync(process.env.FAKE_BUILD_RECORD_FILE, JSON.stringify(process.argv.slice(2)));\n`,
+    "utf8",
+  );
+  // Use a native executable rather than a shebang or .cmd shim, which spawn cannot
+  // launch without a shell on Windows. The preload runs only for this copied Node.
+  const fakeOpenCode = path.join(bin, process.platform === "win32" ? "opencode.exe" : "opencode");
+  await copyFile(process.execPath, fakeOpenCode);
+  const fakeOpenCodePreload = path.join(root, "fake-opencode.mjs");
+  await writeFile(
+    fakeOpenCodePreload,
+    `import { appendFileSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import path from "node:path";
+if (realpathSync(process.execPath) === realpathSync(${JSON.stringify(fakeOpenCode)})) {
+// Node resolves its first argument as a script path before running --import.
+const args = [path.relative(process.cwd(), process.argv[1]), ...process.argv.slice(2)];
 appendFileSync(process.env.FAKE_RECORD_FILE, JSON.stringify({
   args,
   configDir: process.env.OPENCODE_CONFIG_DIR ?? null,
@@ -210,6 +221,7 @@ if (args[0] === "models") {
     process.on("SIGINT", () => {});
     process.on("SIGHUP", () => {});
     setInterval(() => {}, 1000);
+    await new Promise(() => {});
   } else {
     process.stdout.write(process.env.FAKE_MODELS_OUTPUT ?? "");
     process.stderr.write(process.env.FAKE_MODELS_STDERR ?? "");
@@ -224,17 +236,18 @@ if (args[0] === "models") {
     process.on("SIGINT", () => {});
     process.on("SIGHUP", () => {});
     setInterval(() => {}, 1000);
+    await new Promise(() => {});
   } else {
     process.exit(Number(process.env.FAKE_WEB_EXIT ?? "0"));
   }
 } else {
   process.exit(64);
 }
+}
 `,
     "utf8",
   );
   if (process.platform !== "win32") {
-    await chmod(fakePnpm, 0o755);
     await chmod(fakeOpenCode, 0o755);
   }
   return {
@@ -243,9 +256,14 @@ if (args[0] === "models") {
     fakeRepo,
     fakeOpenCode,
     recordFile,
+    buildRecordFile,
     startedFile,
     env: {
       ...process.env,
+      // Always run the fake build, even when pnpm test supplies npm_execpath.
+      npm_execpath: fakePnpm,
+      NODE_OPTIONS: `--import ${JSON.stringify(pathToFileURL(fakeOpenCodePreload).href)}`,
+      FAKE_BUILD_RECORD_FILE: buildRecordFile,
       OPENCODE_CONFIG_DIR: source,
       OPENCODE_CONFIG: path.join(source, "must-not-reach-child.json"),
       PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`,
@@ -1405,9 +1423,13 @@ ${JSON.stringify({
     expect(await prefixDirs(root)).toEqual([]);
   });
 
-  it("runs fake Web with the identical isolated env and preserves exit after a diagnostic retry", async () => {
-    if (process.platform === "win32") return;
-    const root = await makeTemp("oq-connected-web-run-e2e-");
+  it.each([
+    undefined,
+    process.execPath,
+  ])("runs fake Web with isolated env and preserves exit after a diagnostic retry (inherited npm_execpath: %s)", async (npmExecPath) => {
+    // An existing non-pnpm path makes accidental inheritance fail even in focused runs.
+    vi.stubEnv("npm_execpath", npmExecPath);
+    const root = await makeTemp("oq-connected-web-run-e2e with spaces-");
     const harness = await writeFakeWebHarness(root);
     const originalConfig = await readFile(path.join(harness.source, "opencode.jsonc"), "utf8");
     const output: string[] = [];
@@ -1431,6 +1453,7 @@ ${JSON.stringify({
       },
     });
     expect(code).toBe(7);
+    expect(JSON.parse(await readFile(harness.buildRecordFile, "utf8"))).toEqual(["run", "build"]);
     expect(writes).toBe(2);
     const records = await readFakeRecords(harness.recordFile);
     expect(records.map((record) => record.args)).toEqual([["models"], ["web"]]);
