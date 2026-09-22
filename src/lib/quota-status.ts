@@ -571,6 +571,14 @@ function supportedProviderPricingRow(params: {
     };
   }
 
+  if (id === "alibaba-token-plan") {
+    return {
+      id,
+      pricing: "no",
+      notes: "official Alibaba Cloud CLI Personal Token Plan quota (not token-priced)",
+    };
+  }
+
   if (id === "cursor") {
     return {
       id,
@@ -913,6 +921,17 @@ export async function buildQuotaStatusReport(params: {
     sections.push(alibabaCodingPlanLiveProbeSection);
   }
 
+  const alibabaTokenPlanLiveProbeSection = createCompactLiveProbeOnlySection({
+    id: "alibaba_token_plan",
+    title: "alibaba_token_plan:",
+    providerId: "alibaba-token-plan",
+    probes: params.providerLiveProbes,
+    availability: params.providerAvailability,
+  });
+  if (alibabaTokenPlanLiveProbeSection) {
+    sections.push(alibabaTokenPlanLiveProbeSection);
+  }
+
   for (const section of [
     { id: "minimax", title: "minimax:", providerId: "minimax-coding-plan" },
     {
@@ -936,6 +955,7 @@ export async function buildQuotaStatusReport(params: {
     { id: "deepseek", title: "deepseek:", providerId: "deepseek" },
     { id: "xai", title: "xai:", providerId: "xai", includeDetails: false },
     { id: "nanogpt", title: "nanogpt:", providerId: "nanogpt" },
+    { id: "openrouter", title: "openrouter:", providerId: "openrouter" },
     {
       id: "copilot_quota_auth",
       title: "copilot_quota_auth:",

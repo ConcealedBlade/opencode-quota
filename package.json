@@ -56,6 +56,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:stabilization:tui": "node scripts/test-stabilization-connected.mjs --tui",
+    "test:stabilization:tui:prompt-bar": "node scripts/test-stabilization-connected.mjs --tui --prompt-bar",
+    "test:stabilization:web": "node scripts/test-stabilization-connected.mjs --web",
+    "test:stabilization:fixtures": "node scripts/test-stabilization-fixtures.mjs",
     "verify": "pnpm run check && pnpm run verify:typescript-version && pnpm run verify:v4-history && pnpm run typecheck && pnpm run build && pnpm test && pnpm run test:four-surfaces && pnpm run verify:package-contents",
     "prepublishOnly": "pnpm run build",
     "prepare": "lefthook install"

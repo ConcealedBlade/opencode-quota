@@ -38,6 +38,13 @@ describe("provider model matching helpers", () => {
     expect(modelProviderMatchesRuntimeId("nanogpt/gpt-oss", "nanogpt")).toBe(true);
     expect(modelProviderMatchesRuntimeId("nano-gpt/gpt-oss", "nanogpt")).toBe(true);
     expect(modelProviderMatchesRuntimeId("openai/gpt-4.1", "nanogpt")).toBe(false);
+    expect(modelProviderMatchesRuntimeId("alibaba-token-plan/qwen3", "alibaba-token-plan")).toBe(
+      true,
+    );
+    expect(modelProviderMatchesRuntimeId("alibaba/qwen3", "alibaba-token-plan")).toBe(false);
+    expect(modelProviderMatchesRuntimeId("alibaba-token-plan/qwen3", "alibaba-coding-plan")).toBe(
+      false,
+    );
   });
 
   it("supports provider prefix fragment checks", () => {

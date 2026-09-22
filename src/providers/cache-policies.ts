@@ -140,6 +140,7 @@ export const PROVIDER_CACHE_POLICIES = {
   }),
   cursor: UNCACHED,
   "qwen-code": UNCACHED,
+  "alibaba-token-plan": UNCACHED,
   "alibaba-coding-plan": resolvedCredentialPolicy("alibaba-coding-plan", async () => {
     const resolved = await resolveAlibabaCodingPlanAuthCached({
       maxAgeMs: DEFAULT_ALIBABA_AUTH_CACHE_MAX_AGE_MS,

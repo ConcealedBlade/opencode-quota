@@ -11,6 +11,7 @@ import {
   QUOTA_PROVIDER_REGISTRATION_SOURCE,
 } from "../lib/provider-registration.js";
 import { alibabaCodingPlanProvider } from "./alibaba-coding-plan.js";
+import { alibabaTokenPlanProvider } from "./alibaba-token-plan.js";
 import { anthropicProvider } from "./anthropic.js";
 import { PROVIDER_CACHE_POLICIES } from "./cache-policies.js";
 import { chutesProvider } from "./chutes.js";
@@ -49,6 +50,7 @@ const PROVIDERS_BY_ID = {
   cursor: cursorProvider,
   "qwen-code": qwenCodeProvider,
   "alibaba-coding-plan": alibabaCodingPlanProvider,
+  "alibaba-token-plan": alibabaTokenPlanProvider,
   synthetic: syntheticProvider,
   chutes: chutesProvider,
   "google-antigravity": googleAntigravityProvider,

@@ -52,6 +52,28 @@ It checks Biome linting and formatting, the pinned TypeScript toolchain, reposit
 
 Use `pnpm run test:watch` for local iteration. Use `pnpm run build:check` when you need the build plus package dry-run check.
 
+## Maintainer stabilization checks
+
+These commands are for maintainers. They do not replace `pnpm verify`.
+
+### Connected OpenCode
+
+`pnpm run test:stabilization:tui` builds this worktree, copies `$OPENCODE_CONFIG_DIR` or the default OpenCode config directory into a `0700` temp directory, points only the OpenCode Quota plugin entries at this worktree's `dist/index.js` and `dist/tui.js`, enables sidebar/toast/compact with the prompt bar off, and launches real `opencode`. Companion plugin order and other copied settings stay as they were. The real config is never edited. OpenCode is launched only with the temp copy. That copy is deleted on exit, on prepare/copy/transform failure, and after forwarded `SIGINT`/`SIGTERM`/`SIGHUP`. After those signals, the runner waits a bounded grace period, then force-terminates the child (process group where safe) so cleanup cannot wait forever.
+
+This uses real credentials and makes real quota/API calls.
+
+After the first TUI session exits, the script offers a second session with the prompt bar on. Use `pnpm run test:stabilization:tui:prompt-bar` to skip the first stage. Use `pnpm run test:stabilization:web` to launch `opencode web` instead.
+
+Web mode runs the fixed `opencode models` command directly, without a shell or model request, in the same isolated environment used for `opencode web`. Plain catalog lines count as usable models. Structured catalog entries must explicitly report a usable state; aliases and disabled, hidden, unavailable, or unknown entries are rejected. If the copied default is stale, the runner prefers the first usable same-provider model using locale-independent ordering and rewrites only the temp JSONC copy. Comments and plugin order stay intact. An empty, failed, or unusable catalog stops the Web launch and prints click/select steps. The real config is not edited. After choosing a model, run `/quota`, then `/quota_status`.
+
+Web diagnostics live outside the temp config in a `0700` directory with a `0600` file. Runner output, server output, each log read, the number of log files, and the final file all have fixed limits and use a truncation marker. Header and cookie values, credentials, request and response bodies, serialized config, and marked private content are replaced with redaction markers. Log capture starts at the pre-launch offsets rather than copying full historical logs. Diagnostic creation, reads, and writes are best-effort; a failure cannot replace the Web child exit result, and the path prints only after a successful write. Classification requires markers in order. A generic send failure, or a busy marker without earlier successful output evidence, is `unknown-unclassified`. #272 requires hook entry, successful output evidence, and an affirmative session-busy marker. A model error is `invalid-model-before-hook` only when no hook-entry marker exists. Signals stop preflight or Web, escalate after the grace period when needed, clean the temp config, and retain the original signal exit code.
+
+The prompt bar is a fixed 12-cell bar. The label is the provider plus window, for example `OpenAI 5h`. When you resize the terminal, check placement and clipping. The bar does not grow.
+
+### Fake-data fixtures
+
+`pnpm run test:stabilization:fixtures` runs a frozen Vitest set for config symlinks, config write targets, atomic JSON, OpenCode Go, Synthetic empty responses/surfaces, OpenRouter diagnostics/surfaces, Alibaba Token Plan process/provider, quota status, prompt selection, prompt-bar identity, TUI runtime, quota export, API-key query/config, and contribution guidance. It does not use real credentials, network provider calls, or the real `bl` executable. Before Vitest starts, the runner creates a `0700` temp HOME/XDG sandbox, strips known provider credential/session env vars and `OPENCODE_CONFIG`/`OPENCODE_CONFIG_DIR`, then deletes the sandbox on success, error, or signal.
+
 ## CI Checks (Automated)
 
 PR and `main` pushes trigger `.github/workflows/ci.yml` (`CI` workflow):
@@ -141,11 +163,22 @@ A simple percentage-only provider can keep the legacy percent row shape without 
 - Preserve existing invariants and update/add boundary tests when behavior contracts change.
 - We appreciate PRs that verify the fix against the current production released OpenCode version and note the tested version in the PR.
 
+## Before-and-after evidence
+
+Changes to visible UI or human-readable output require matching before-and-after screenshots of the affected surfaces. Capture both versions with the same configuration, model/provider, theme, and window size, and redact credentials, account identifiers, private paths, and other sensitive information.
+
+Quota-related changes must report a result for Web output, the TUI sidebar, toast, and the compact line below the message input. Identify unchanged or untested surfaces explicitly. Include the prompt bar or command dialog when relevant.
+
+Formatter tests do not count as screenshot evidence. Screenshots do not replace tests, and formatter tests do not replace checking the real client.
+
+If there is no visible effect, write `Not applicable` and explain briefly.
+
 ## Pull Request Checklist
 
 - Linked issue (`Fixes #...` or `Refs #...`) when available, or included a short no-issue rationale in the PR.
 - `pnpm verify` passes.
 - Verified behavior against the current production released OpenCode version, and included the tested version in the PR notes.
+- Included matching before-and-after screenshots for visible changes and recorded the required surface checks, or explained why this does not apply.
 - Updated docs when user-facing commands/config/workflow changed (usually `README.md`; update this file when contributor workflow changes).
 - For built-in provider additions, linked the models.dev entry, evidence from at least two independent users, and an explanation of why the custom-provider feature is insufficient.
 - For new API-key/token providers, started from `contributing/provider-template/` or explained why the template does not apply.

@@ -29,6 +29,15 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
+function isEmptyPlainObject(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0
+  );
+}
+
 function invalidSyntheticResponse(message: string): QuotaError {
   return {
     success: false,
@@ -183,6 +192,10 @@ export async function querySyntheticQuota(
         }
 
         const data = (await resp.json()) as unknown;
+        if (isEmptyPlainObject(data)) {
+          return invalidSyntheticResponse("Synthetic returned no quota data for this account.");
+        }
+
         const record = asRecord(data);
         if (!record) {
           return invalidSyntheticResponse(

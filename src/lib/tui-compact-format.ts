@@ -115,6 +115,7 @@ type CompactPercentGroup = {
 type CompactCandidate = {
   segment: string;
   prominence: 0 | 1;
+  providerKey?: string;
   detail?: string;
   atomic?: { prefix: string; value: string };
   fallbackSegment?: string;
@@ -122,7 +123,9 @@ type CompactCandidate = {
   runway?: QuotaRunwayProjection;
 };
 
-type PendingLegacySegment = { kind: "percent"; key: string } | { kind: "value"; segment: string };
+type PendingLegacySegment =
+  | { kind: "percent"; key: string }
+  | { kind: "value"; segment: string; provider: string };
 
 function formatCompactPercentGroupSegment(
   group: CompactPercentGroup,
@@ -192,6 +195,7 @@ function buildSemanticCandidate(
   return {
     segment,
     prominence: entry.semantic.prominence === "supplementary" ? 1 : 0,
+    providerKey: provider.toLowerCase(),
     ...(isPercentEntry(entry) && entry.runway ? { runway: entry.runway } : {}),
     ...(detail ? { detail } : {}),
     ...(interpretation.display.kind === "value" && interpretation.display.entryKind !== "value"
@@ -224,7 +228,9 @@ function formatCompactEntryCandidates(params: {
 
     if (isValueEntry(entry)) {
       const segment = formatCompactValueEntrySegment(entry, params.resetTimeSpaced);
-      if (segment) pendingLegacy.push({ kind: "value", segment });
+      if (segment) {
+        pendingLegacy.push({ kind: "value", segment, provider: getProviderName(entry) });
+      }
       continue;
     }
     if (!isPercentEntry(entry)) continue;
@@ -260,7 +266,13 @@ function formatCompactEntryCandidates(params: {
 
   const legacy = pendingLegacy
     .map((pending): CompactCandidate | null => {
-      if (pending.kind === "value") return { segment: pending.segment, prominence: 0 };
+      if (pending.kind === "value") {
+        return {
+          segment: pending.segment,
+          prominence: 0,
+          providerKey: pending.provider.toLowerCase(),
+        };
+      }
       const group = groups.get(pending.key)!;
       const segment = formatCompactPercentGroupSegment(group);
       if (!segment) return null;
@@ -282,6 +294,7 @@ function formatCompactEntryCandidates(params: {
       return {
         segment,
         prominence: 0,
+        providerKey: group.provider.toLowerCase(),
         ...(fallbackSegment && fallbackSegment !== segment && fallbackValue
           ? {
               fallbackSegment,
@@ -431,6 +444,83 @@ function formatCompactSessionTokensSegment(data: QuotaRenderData): string | null
   );
 }
 
+function uniqueProviderKeys(items: CompactCandidate[]): string[] {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = item.providerKey;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+function formatProviderOverflow(count: number): string {
+  return `+${count}`;
+}
+
+function joinCompactSegments(items: CompactCandidate[]): string {
+  return items.map((item) => item.segment).join(COMPACT_SEGMENT_SEPARATOR);
+}
+
+function applyProviderOverflow(
+  admitted: CompactCandidate[],
+  candidates: CompactCandidate[],
+  maxWidth: number,
+): CompactCandidate[] {
+  const totalKeys = uniqueProviderKeys(candidates);
+  if (totalKeys.length === 0) return admitted;
+
+  const omittedCount = (items: CompactCandidate[]): number => {
+    const admittedKeys = new Set(uniqueProviderKeys(items));
+    return totalKeys.reduce((count, key) => count + (admittedKeys.has(key) ? 0 : 1), 0);
+  };
+
+  const current = admitted.map((item) => ({ ...item }));
+  let omitted = omittedCount(current);
+  if (omitted <= 0) return current;
+
+  const withOverflow = (items: CompactCandidate[], count: number): CompactCandidate[] => [
+    ...items,
+    { segment: formatProviderOverflow(count), prominence: 0 },
+  ];
+
+  if (joinCompactSegments(withOverflow(current, omitted)).length <= maxWidth) {
+    return withOverflow(current, omitted);
+  }
+
+  while (current.length > 1) {
+    current.pop();
+    omitted = omittedCount(current);
+    if (omitted <= 0) return current;
+    if (joinCompactSegments(withOverflow(current, omitted)).length <= maxWidth) {
+      return withOverflow(current, omitted);
+    }
+  }
+
+  omitted = omittedCount(current);
+  if (omitted <= 0) return current;
+
+  const overflowText = formatProviderOverflow(omitted);
+  const first = current[0];
+  if (first) {
+    const suffix = `${COMPACT_SEGMENT_SEPARATOR}${overflowText}`;
+    const available = maxWidth - suffix.length;
+    if (available > 0) {
+      const truncated = truncateSingleLine(first.segment, available);
+      if (truncated) {
+        return [
+          { ...first, segment: truncated },
+          { segment: overflowText, prominence: 0 },
+        ];
+      }
+    }
+  }
+
+  return overflowText.length <= maxWidth ? [{ segment: overflowText, prominence: 0 }] : admitted;
+}
+
 function formatIssueCount(count: number): string {
   return `+${count} issue${count === 1 ? "" : "s"}`;
 }
@@ -468,7 +558,11 @@ export function buildCompactQuotaStatusLine(params: {
     candidates.push({ segment: sessionTokensSegment, prominence: 0 });
   }
 
-  const admitted = admitCompactCandidates(candidates, maxWidth);
+  const admitted = applyProviderOverflow(
+    admitCompactCandidates(candidates, maxWidth),
+    candidates,
+    maxWidth,
+  );
 
   const issues = data.errors.filter((error) => error.kind !== "intentional-filter");
   if (issues.length > 0) {

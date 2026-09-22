@@ -300,4 +300,26 @@ describe("simple provider API key configs", () => {
       source: "auth.json",
     });
   });
+
+  it("keeps Synthetic credentials limited to env, trusted config, and auth.json", async () => {
+    const provider = providers.find((candidate) => candidate.name === "Synthetic")!;
+    const module = await provider.load();
+
+    resetFixture();
+    process.env.SYNTHETIC_SESSION = "session-token";
+    process.env.CLERK_JWT = "clerk-jwt";
+    await expect(module.resolve()).resolves.toBeNull();
+
+    resetFixture();
+    process.env.SYNTHETIC_API_KEY = "env-key";
+    mockTrustedConfigFile(fsMocks, trustedPaths.json, configWithApiKey("synthetic", "config-key"));
+    authMocks.readAuthFile.mockResolvedValue(
+      authWithEntry("synthetic", { type: "api", key: "auth-key" }),
+    );
+    await expect(module.resolve()).resolves.toEqual({
+      key: "env-key",
+      source: "env:SYNTHETIC_API_KEY",
+    });
+    expect(authMocks.readAuthFile).not.toHaveBeenCalled();
+  });
 });

@@ -41,6 +41,16 @@ const syntheticMocks = vi.hoisted(() => ({
   querySyntheticQuota: vi.fn(async () => null),
 }));
 
+const openrouterMocks = vi.hoisted(() => ({
+  hasOpenRouterApiKeyConfigured: vi.fn(async () => false),
+  queryOpenRouterQuota: vi.fn(async () => null),
+  resolveOpenRouterApiKey: vi.fn(async () => ({
+    source: null,
+    checkedPaths: [],
+    authPaths: [],
+  })),
+}));
+
 vi.mock("fs/promises", () => ({
   stat: fsPromiseMocks.stat,
 }));
@@ -66,6 +76,12 @@ vi.mock("../src/lib/opencode-runtime-paths.js", () => ({
 vi.mock("../src/lib/synthetic.js", () => ({
   getSyntheticKeyDiagnostics: syntheticMocks.getSyntheticKeyDiagnostics,
   querySyntheticQuota: syntheticMocks.querySyntheticQuota,
+}));
+
+vi.mock("../src/lib/openrouter.js", () => ({
+  hasOpenRouterApiKeyConfigured: openrouterMocks.hasOpenRouterApiKeyConfigured,
+  queryOpenRouterQuota: openrouterMocks.queryOpenRouterQuota,
+  resolveOpenRouterApiKey: openrouterMocks.resolveOpenRouterApiKey,
 }));
 
 vi.mock("../src/lib/qwen-local-quota.js", () => ({
@@ -715,12 +731,44 @@ describe("buildQuotaStatusReport", () => {
     expect(report).toContain("- live_probe: no_data");
   });
 
+  it("renders Synthetic empty-object success as a live error without quota rows or auth inference", async () => {
+    const report = await buildSyntheticStatusReport({
+      providerLiveProbes: [
+        makeProviderSuccessProbe(
+          "synthetic",
+          { "synthetic api key": "configured=true source=env:SYNTHETIC_API_KEY" },
+          {
+            errors: [
+              {
+                label: "Synthetic",
+                message: "Synthetic returned no quota data for this account.",
+              },
+            ],
+          },
+        ),
+      ],
+    });
+
+    const section = getReportSection(report, "synthetic:");
+    expect(section).toContain("- synthetic api key: configured=true source=env:SYNTHETIC_API_KEY");
+    expect(section).toContain("- live_probe: error");
+    expect(section).toContain("- live_error_1: Synthetic returned no quota data for this account.");
+    expect(section).not.toContain("live_entry_");
+    expect(section).not.toContain("5h:");
+    expect(section).not.toContain("Weekly:");
+    expect(section).not.toContain("Clerk");
+    expect(section).not.toContain("invalid");
+    expect(section).not.toContain("subscription");
+    expect(syntheticMocks.querySyntheticQuota).not.toHaveBeenCalled();
+  });
+
   it("renders compact live probes in mapped and probe-only provider sections", async () => {
     const report = await buildQuotaStatusReportForTest({
       enabledProviders: [
         "openai",
         "qwen-code",
         "alibaba-coding-plan",
+        "alibaba-token-plan",
         "minimax-coding-plan",
         "copilot",
         "google-antigravity",
@@ -753,6 +801,19 @@ describe("buildQuotaStatusReport", () => {
           ],
         }),
         makeProviderProbe("alibaba-coding-plan"),
+        makeProviderProbe("alibaba-token-plan", {
+          attempted: true,
+          entries: [
+            {
+              label: "5h",
+              name: "Alibaba Personal Token Plan 5h",
+              percentUsed: 20,
+              percentRemaining: 80,
+              right: "20%",
+              resetTimeIso: "2026-04-22T05:00:00.000Z",
+            },
+          ],
+        }),
         makeProviderSuccessProbe(
           "minimax-coding-plan",
           { auth_state: "none" },
@@ -807,6 +868,11 @@ describe("buildQuotaStatusReport", () => {
 
     const alibabaSection = getReportSection(report, "alibaba_coding_plan:");
     expect(alibabaSection).toContain("- live_probe: no_data");
+    expect(alibabaSection).not.toContain("alibaba-token-plan");
+
+    const alibabaTokenPlanSection = getReportSection(report, "alibaba_token_plan:");
+    expect(alibabaTokenPlanSection).toContain("- live_probe: success");
+    expect(alibabaTokenPlanSection).not.toContain("alibaba-coding-plan");
 
     const minimaxSection = getReportSection(report, "minimax:");
     expect(minimaxSection).toContain("- auth_state: none");
@@ -1053,6 +1119,89 @@ describe("buildQuotaStatusReport", () => {
     expect(report).toContain("- api_key_checked_paths: env:DEEPSEEK_API_KEY");
     expect(report).toContain("- api_key_auth_paths: /tmp/auth.json");
     expect(report).toContain("- deepseek: pricing=no (account balance only (not token-priced))");
+  });
+
+  it("reports OpenRouter API key diagnostics from the live probe", async () => {
+    const report = await buildProviderStatusReport("openrouter", {
+      providerLiveProbes: [
+        makeProviderSuccessProbe("openrouter", {
+          api_key_configured: "true",
+          api_key_source: "env",
+          api_key_checked_paths: "env:OPENROUTER_API_KEY",
+          api_key_auth_paths: "/tmp/auth.json",
+        }),
+      ],
+    });
+
+    const section = getReportSection(report, "openrouter:");
+    expect(section).toContain("- api_key_configured: true");
+    expect(section).toContain("- api_key_source: env");
+    expect(section).toContain("- api_key_checked_paths: env:OPENROUTER_API_KEY");
+    expect(section).toContain("- api_key_auth_paths: /tmp/auth.json");
+    expect(openrouterMocks.resolveOpenRouterApiKey).not.toHaveBeenCalled();
+    expect(openrouterMocks.queryOpenRouterQuota).not.toHaveBeenCalled();
+    expect(openrouterMocks.hasOpenRouterApiKeyConfigured).not.toHaveBeenCalled();
+  });
+
+  it("reports the OpenRouter live probe error", async () => {
+    const report = await buildProviderStatusReport("openrouter", {
+      providerLiveProbes: [
+        makeProviderSuccessProbe(
+          "openrouter",
+          {
+            api_key_configured: "true",
+            api_key_source: "auth.json",
+          },
+          {
+            errors: [{ label: "OpenRouter", message: "HTTP 401" }],
+          },
+        ),
+      ],
+    });
+
+    const section = getReportSection(report, "openrouter:");
+    expect(section).toContain("- api_key_configured: true");
+    expect(section).toContain("- api_key_source: auth.json");
+    expect(section).toContain("- live_probe: error");
+    expect(section).toContain("- live_error_1: HTTP 401");
+    expect(openrouterMocks.resolveOpenRouterApiKey).not.toHaveBeenCalled();
+    expect(openrouterMocks.queryOpenRouterQuota).not.toHaveBeenCalled();
+  });
+
+  it("keeps an empty OpenRouter section when the live probe is absent", async () => {
+    const report = await buildProviderStatusReport("openrouter");
+
+    expect(getReportSection(report, "openrouter:")).toBe("openrouter:\n");
+    expect(report).not.toContain("live_probe");
+    expect(openrouterMocks.resolveOpenRouterApiKey).not.toHaveBeenCalled();
+    expect(openrouterMocks.queryOpenRouterQuota).not.toHaveBeenCalled();
+    expect(openrouterMocks.hasOpenRouterApiKeyConfigured).not.toHaveBeenCalled();
+  });
+
+  it("does not leak OpenRouter secret canaries in quota_status", async () => {
+    const secret = "sk-or-status-secret-canary";
+    const report = await buildProviderStatusReport("openrouter", {
+      providerLiveProbes: [
+        makeProviderSuccessProbe(
+          "openrouter",
+          {
+            api_key_configured: "true",
+            api_key_source: "env",
+            api_key_checked_paths: "env:OPENROUTER_API_KEY",
+            api_key_auth_paths: "/tmp/auth.json",
+          },
+          {
+            errors: [{ label: "OpenRouter", message: "HTTP 401" }],
+          },
+        ),
+      ],
+    });
+
+    const section = getReportSection(report, "openrouter:");
+    expect(section).toContain("- api_key_source: env");
+    expect(section).toContain("- live_error_1: HTTP 401");
+    expect(report).not.toContain(secret);
+    expect(section).not.toContain("sk-or-");
   });
 
   it("reports the xAI live quota probe", async () => {
@@ -1530,6 +1679,7 @@ chutes:
 deepseek:
 xai:
 nanogpt:
+openrouter:
 copilot_quota_auth:
 google_antigravity:
 google_gemini_cli:

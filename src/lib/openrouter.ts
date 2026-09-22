@@ -41,15 +41,15 @@ export async function resolveOpenRouterAuthIdentity(): Promise<ResolvedAuthIdent
   });
 }
 
-export async function queryOpenRouterQuota(
-  options: { requestTimeoutMs?: number } = {},
-): Promise<RemoteQuotaProviderResult | null> {
-  const resolved = await resolveOpenRouterApiKey();
-  if (!resolved.key) return null;
+export async function queryOpenRouterQuota(options: {
+  requestTimeoutMs?: number;
+  resolved: QuotaProviderAuthResolution;
+}): Promise<RemoteQuotaProviderResult | null> {
+  if (!options.resolved.key) return null;
 
   const result = await fetchRemoteQuotaProvider(
     OPENROUTER_KEY_SOURCE,
-    resolved.key,
+    options.resolved.key,
     options.requestTimeoutMs,
   );
   if (!result.success) return result;

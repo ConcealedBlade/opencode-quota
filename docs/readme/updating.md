@@ -66,7 +66,7 @@ The updater can:
   - `"detailed"` becomes root `accountingDetail: "detailed"`;
 - keep an existing valid `accountingDetail` value and remove the obsolete ignored key, even when the two values differ.
 
-Targeted JSON/JSONC edits preserve unrelated settings, plugins, comments, trailing commas, and tuple options where the document can be edited safely.
+Targeted JSON/JSONC edits preserve unrelated settings, plugins, comments, trailing commas, and tuple options where the document can be edited safely. When the configured path is a supported symlink, the updater keeps that link and writes the verified regular-file target.
 
 Unsupported or invalid display values, invalid replacement values, duplicate keys, ambiguous structures, malformed files, unsupported roots, and newly discovered symlinks are left unchanged for manual review. SDK-only config is diagnostic-only because it has no safe file path for the updater to edit.
 
@@ -115,4 +115,4 @@ Before updating, back up the OpenCode config files you use. This is especially i
 
 Cancelling the interactive prompt changes nothing. Dry-run also changes nothing. A successful migration is idempotent: rerunning does not repeat a completed display edit, though manual findings remain until you resolve their sources.
 
-The updater checks every planned file again before writing and writes each changed file atomically. It does not claim that several files form one transaction and it does not overwrite concurrent edits with an automatic rollback. If a later file changes or a write fails after earlier files were written, the error lists the files changed before failure and deletes no package cache. Fix the reported cause, inspect those paths, and rerun the dry-run command to build a fresh plan.
+The updater checks every planned file again before writing and writes each changed file atomically. Supported configuration symlinks stay in place: the updater snapshots the link chain during planning, revalidates it immediately before writing, and updates the verified regular-file target. It fails closed on dangling links, loops, chains longer than 40 hops, non-regular targets, permission errors, retargeted links, destination-byte races, and JSON-to-JSONC conversions that would delete a symlink. It does not claim that several files form one transaction and it does not overwrite concurrent edits with an automatic rollback. If a later file changes or a write fails after earlier files were written, the error lists the files changed before failure and deletes no package cache. Fix the reported cause, inspect those paths, and rerun the dry-run command to build a fresh plan.

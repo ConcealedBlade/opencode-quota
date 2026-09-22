@@ -248,6 +248,92 @@ describe("opencode-go provider", () => {
     ).toBe(0);
   });
 
+  it("keeps healthy sibling rows when one window is exhausted", async () => {
+    const result = successfulResult();
+    result.weekly = {
+      status: "rate-limited" as const,
+      usagePercent: 100,
+      percentRemaining: 0,
+      resetTimeIso: "2026-08-16T16:00:00.000Z",
+    };
+    mocks.queryOpenCodeGoQuota.mockResolvedValueOnce(result);
+
+    const out = await runFetch();
+
+    expectAttemptedWithNoErrors(out);
+    expect(visibleEntries(out.entries, "opencode-go")).toEqual([
+      {
+        name: "OpenCode Go 5h",
+        group: "OpenCode Go",
+        label: "5h:",
+        percentRemaining: 87.5,
+        resetTimeIso: "2026-08-12T12:30:00.000Z",
+      },
+      {
+        name: "OpenCode Go Weekly",
+        group: "OpenCode Go",
+        label: "Weekly:",
+        percentRemaining: 0,
+        resetTimeIso: "2026-08-16T16:00:00.000Z",
+      },
+      {
+        name: "OpenCode Go Monthly",
+        group: "OpenCode Go",
+        label: "Monthly:",
+        percentRemaining: 20,
+        resetTimeIso: "2026-09-01T04:00:00.000Z",
+      },
+    ]);
+    expect(out.statusDetails).toEqual(
+      expect.arrayContaining([
+        {
+          key: "rolling_usage",
+          value:
+            "status=ok percent_used=12.5 percent_remaining=87.5 reset_at=2026-08-12T12:30:00.000Z",
+        },
+        {
+          key: "weekly_usage",
+          value:
+            "status=rate-limited percent_used=100 percent_remaining=0 reset_at=2026-08-16T16:00:00.000Z",
+        },
+        {
+          key: "monthly_usage",
+          value: "status=ok percent_used=80 percent_remaining=20 reset_at=2026-09-01T04:00:00.000Z",
+        },
+      ]),
+    );
+  });
+
+  it("omits an unselected exhausted window from entries while keeping live diagnostics", async () => {
+    const result = successfulResult();
+    result.weekly = {
+      status: "rate-limited" as const,
+      usagePercent: 100,
+      percentRemaining: 0,
+      resetTimeIso: "2026-08-16T16:00:00.000Z",
+    };
+    mocks.queryOpenCodeGoQuota.mockResolvedValueOnce(result);
+
+    const out = await runFetch(["rolling", "monthly"]);
+
+    expectAttemptedWithNoErrors(out);
+    expect(out.entries.map((entry) => entry.name)).toEqual([
+      "OpenCode Go 5h",
+      "OpenCode Go Monthly",
+    ]);
+    expect(out.entries.some((entry) => entry.name === "OpenCode Go Weekly")).toBe(false);
+    expect(out.statusDetails).toEqual(
+      expect.arrayContaining([
+        { key: "selected_windows", value: "rolling,monthly" },
+        {
+          key: "weekly_usage",
+          value:
+            "status=rate-limited percent_used=100 percent_remaining=0 reset_at=2026-08-16T16:00:00.000Z",
+        },
+      ]),
+    );
+  });
+
   it("suppresses repeat requests after a not-subscribed response", async () => {
     mocks.queryOpenCodeGoQuota.mockResolvedValue({
       success: false,

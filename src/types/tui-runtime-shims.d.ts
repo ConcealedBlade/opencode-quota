@@ -42,6 +42,10 @@ declare module "solid-js" {
     children?: any;
     fallback?: any;
   }): any;
+  export function Index<T>(props: {
+    each: readonly T[] | undefined | null | false;
+    children?: (item: () => T, index: number) => any;
+  }): any;
 }
 
 declare module "@opencode-ai/plugin/tui" {

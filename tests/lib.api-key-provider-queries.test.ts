@@ -279,6 +279,34 @@ describe("simple API-key provider queries", () => {
       });
     });
 
+    it("treats an authenticated HTTP 200 empty object as no quota data", async () => {
+      const fetchMock = vi.fn(async () => jsonResponse({}));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(querySyntheticQuota()).resolves.toEqual({
+        success: false,
+        error: "Synthetic returned no quota data for this account.",
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.synthetic.new/v2/quotas",
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: "Bearer test-key" }),
+        }),
+      );
+    });
+
+    it.each([
+      ["an empty array", []],
+      ["null", null],
+      ["a nonempty object without quota windows", { foo: true }],
+    ] as const)("does not treat %s as the empty-object diagnostic", async (_name, payload) => {
+      stubJsonFetch(payload);
+      await expect(querySyntheticQuota()).resolves.toEqual({
+        success: false,
+        error: "Synthetic API response missing rollingFiveHourLimit quota window",
+      });
+    });
+
     it.each([
       [
         "malformed rollingFiveHourLimit payloads",

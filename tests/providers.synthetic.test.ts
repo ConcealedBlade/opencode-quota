@@ -128,6 +128,22 @@ describe("synthetic provider", () => {
     expectAttemptedWithErrorLabel(out, "Synthetic");
   });
 
+  it("maps the empty-object diagnostic without fabricating quota rows", async () => {
+    const { querySyntheticQuota } = await import("../src/lib/synthetic.js");
+    (querySyntheticQuota as any).mockResolvedValueOnce({
+      success: false,
+      error: "Synthetic returned no quota data for this account.",
+    });
+
+    const out = await syntheticProvider.fetch({} as any);
+    expectAttemptedWithErrorLabel(out, "Synthetic");
+    expect(out.errors).toEqual([
+      { label: "Synthetic", message: "Synthetic returned no quota data for this account." },
+    ]);
+    expect(out.entries).toEqual([]);
+    expect(out.presentation).toBeUndefined();
+  });
+
   it("matches synthetic model prefixes", () => {
     expect(syntheticProvider.matchesCurrentModel?.("synthetic/claude")).toBe(true);
     expect(syntheticProvider.matchesCurrentModel?.("openai/gpt-5")).toBe(false);

@@ -237,7 +237,7 @@ The command writes the `experimental.quotaToast.quotaProviders` section. Configu
 - If any request cannot be priced, request counts stay visible and the budget percentage is reported unavailable.
 - Credentials resolve from `apiKeyEnv`, trusted global `provider.<providerId>.options.apiKey`, then API-key entries in OpenCode `auth.json`.
 - Definitions run automatically with `enabledProviders: "auto"`. A manual list must include `quota-providers` and every built-in provider you still want.
-- To tune maintained estimates, use the reserved `qwen-code` or `alibaba-coding-plan` ID and its maintained window shape. Do not add a duplicate normal provider block.
+- To tune maintained estimates, use the reserved `qwen-code` or `alibaba-coding-plan` ID and its maintained window shape. Do not add a duplicate normal provider block. Alibaba Personal Token Plan uses the reserved `alibaba-token-plan` ID and is not a local-estimate tuning target.
 - Project secrets, scripts, custom headers, executable mappings, regular expressions, and JSONPath are not accepted.
 
 Run `/quota_status` to see the exact state path and safe authentication source without exposing secrets.
@@ -435,7 +435,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `tuiCompactStatus.suppressWhenNativeProviderQuota` | `true`               | Hide the Compact status line when OpenCode exposes native provider-quota support.                                                                                                                             |
 | `tuiCompactStatus.maxWidth`                        | `96`                 | Maximum Compact status line text width.                                                                                                                                                                       |
 | `tuiCompactStatus.formatStyle`                     | (root `formatStyle`) | Override `formatStyle` for the Compact status line only. Useful when you want `singleWindow` on the compact line while the sidebar shows `allWindows`.                                                        |
-| `tuiPromptBar.enabled`                             | `false`              | Show one opt-in primary quota/accounting result below the TUI prompt and replace the Compact line there. Rich results use the first projected primary row; legacy-only results keep the existing 5h percentage preference. Basis and supplementary rows are omitted. |
+| `tuiPromptBar.enabled`                             | `false`              | Show one opt-in primary quota/accounting result below the TUI prompt and replace the Compact line there. Percentage rows use a provider plus window label such as `OpenAI 5h`. The fill is a fixed 12-cell bar with no width setting; long labels truncate with an ellipsis instead of dropping the provider name. Rich results use the first projected primary row; legacy-only results keep the existing 5h percentage preference. Basis and supplementary rows are omitted. |
 
 ### Maintainer announcement settings
 

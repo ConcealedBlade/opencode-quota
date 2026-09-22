@@ -1,0 +1,263 @@
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  MAX_CONFIG_SYMLINK_HOPS,
+  NEW_CONFIG_FILE_MODE,
+  resolveConfigWriteTarget,
+  writeConfiguredJsonAtomic,
+  writeResolvedConfigText,
+} from "../src/lib/config-write-target.js";
+
+const tempDirs: string[] = [];
+
+function makeTempDir(): string {
+  const path = mkdtempSync(join(tmpdir(), "opencode-quota-config-write-target-"));
+  tempDirs.push(path);
+  return path;
+}
+
+afterEach(() => {
+  for (const path of tempDirs.splice(0)) {
+    rmSync(path, { recursive: true, force: true });
+  }
+});
+
+describe("resolveConfigWriteTarget", () => {
+  it("treats a missing non-symlink path as a creatable regular file", async () => {
+    const dir = makeTempDir();
+    const path = join(dir, "nested", "opencode.json");
+    await expect(resolveConfigWriteTarget(path)).resolves.toEqual({
+      configuredPath: path,
+      writePath: path,
+      hops: [],
+      terminalExisted: false,
+    });
+  });
+
+  it("resolves a relative hop from a symlinked directory parent using kernel semantics", async () => {
+    const root = makeTempDir();
+    const realParent = join(root, "actual", "place");
+    const aliasParent = join(root, "elsewhere", "alias");
+    const realFile = join(root, "actual", "secrets", "opencode.json");
+    const wrongFile = join(root, "elsewhere", "secrets", "opencode.json");
+    mkdirSync(realParent, { recursive: true });
+    mkdirSync(join(root, "elsewhere"), { recursive: true });
+    mkdirSync(join(root, "actual", "secrets"), { recursive: true });
+    mkdirSync(join(root, "elsewhere", "secrets"), { recursive: true });
+    writeFileSync(realFile, '{"plugin":[]}\n');
+    writeFileSync(wrongFile, '{"plugin":["wrong"]}\n');
+    symlinkSync("../secrets/opencode.json", join(realParent, "opencode.json"));
+    symlinkSync(realParent, aliasParent);
+
+    const configured = join(aliasParent, "opencode.json");
+    const target = await resolveConfigWriteTarget(configured);
+    expect(target.writePath).toBe(realpathSync(realFile));
+    expect(target.hops).toEqual([{ path: configured, linkText: "../secrets/opencode.json" }]);
+    expect(target.terminalExisted).toBe(true);
+
+    await writeResolvedConfigText(target, '{"plugin":["ok"]}\n');
+    expect(readFileSync(realFile, "utf8")).toBe('{"plugin":["ok"]}\n');
+    expect(readFileSync(wrongFile, "utf8")).toBe('{"plugin":["wrong"]}\n');
+    expect(lstatSync(configured).isSymbolicLink()).toBe(true);
+  });
+
+  it("resolves a relative symlink to its regular-file target", async () => {
+    const dir = makeTempDir();
+    const real = join(dir, "dotfiles", "opencode.json");
+    const link = join(dir, "config", "opencode.json");
+    mkdirSync(join(dir, "dotfiles"), { recursive: true });
+    mkdirSync(join(dir, "config"), { recursive: true });
+    writeFileSync(real, '{\n  "plugin": []\n}\n');
+    symlinkSync("../dotfiles/opencode.json", link);
+
+    await expect(resolveConfigWriteTarget(link)).resolves.toEqual({
+      configuredPath: link,
+      writePath: realpathSync(real),
+      hops: [{ path: link, linkText: "../dotfiles/opencode.json" }],
+      terminalExisted: true,
+    });
+  });
+
+  it("resolves an absolute symlink and a valid chain", async () => {
+    const dir = makeTempDir();
+    const real = join(dir, "real.json");
+    const middle = join(dir, "middle.json");
+    const link = join(dir, "link.json");
+    writeFileSync(real, "{}\n");
+    symlinkSync(real, middle);
+    symlinkSync(middle, link);
+
+    await expect(resolveConfigWriteTarget(link)).resolves.toEqual({
+      configuredPath: link,
+      writePath: real,
+      hops: [
+        { path: link, linkText: middle },
+        { path: middle, linkText: real },
+      ],
+      terminalExisted: true,
+    });
+  });
+
+  it("fails closed on a dangling symlink", async () => {
+    const dir = makeTempDir();
+    const missing = join(dir, "missing.json");
+    const link = join(dir, "link.json");
+    symlinkSync(missing, link);
+    await expect(resolveConfigWriteTarget(link)).rejects.toMatchObject({
+      reason: "dangling",
+      name: "ConfigWriteTargetError",
+    });
+  });
+
+  it("fails closed on a symlink loop", async () => {
+    const dir = makeTempDir();
+    const a = join(dir, "a.json");
+    const b = join(dir, "b.json");
+    symlinkSync(b, a);
+    symlinkSync(a, b);
+    await expect(resolveConfigWriteTarget(a)).rejects.toMatchObject({ reason: "loop" });
+  });
+
+  it("accepts a 40-hop chain and rejects a 41st hop", async () => {
+    const dir = makeTempDir();
+    const real = join(dir, "real.json");
+    writeFileSync(real, "{}\n");
+    let current = real;
+    for (let index = 0; index < MAX_CONFIG_SYMLINK_HOPS; index += 1) {
+      const next = join(dir, `link-${index}.json`);
+      symlinkSync(current, next);
+      current = next;
+    }
+    await expect(resolveConfigWriteTarget(current)).resolves.toMatchObject({
+      writePath: real,
+      terminalExisted: true,
+    });
+
+    const extra = join(dir, "link-extra.json");
+    symlinkSync(current, extra);
+    await expect(resolveConfigWriteTarget(extra)).rejects.toMatchObject({ reason: "depth" });
+  });
+
+  it("rejects a non-regular terminal target", async () => {
+    const dir = makeTempDir();
+    const targetDir = join(dir, "target-dir");
+    const link = join(dir, "link.json");
+    mkdirSync(targetDir);
+    symlinkSync(targetDir, link);
+    await expect(resolveConfigWriteTarget(link)).rejects.toMatchObject({ reason: "non-regular" });
+  });
+
+  it("rejects a terminal it cannot inspect", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const dir = makeTempDir();
+    const hidden = join(dir, "hidden");
+    const real = join(hidden, "opencode.json");
+    const link = join(dir, "link.json");
+    mkdirSync(hidden);
+    writeFileSync(real, "{}\n");
+    symlinkSync(real, link);
+    chmodSync(hidden, 0);
+    try {
+      await expect(resolveConfigWriteTarget(link)).rejects.toMatchObject({
+        reason: "permission",
+      });
+    } finally {
+      chmodSync(hidden, 0o700);
+    }
+  });
+});
+
+describe("writeResolvedConfigText", () => {
+  it("preserves an existing file mode and creates new files restrictively", async () => {
+    const dir = makeTempDir();
+    const existing = join(dir, "existing.json");
+    writeFileSync(existing, "{}\n");
+    if (process.platform !== "win32") {
+      chmodSync(existing, 0o640);
+    }
+    await writeResolvedConfigText(
+      {
+        configuredPath: existing,
+        writePath: existing,
+        hops: [],
+        terminalExisted: true,
+      },
+      '{"ok":true}\n',
+    );
+    if (process.platform !== "win32") {
+      expect(lstatSync(existing).mode & 0o777).toBe(0o640);
+    }
+
+    const created = join(dir, "created.json");
+    await writeResolvedConfigText(
+      {
+        configuredPath: created,
+        writePath: created,
+        hops: [],
+        terminalExisted: false,
+      },
+      '{"ok":true}\n',
+    );
+    if (process.platform !== "win32") {
+      expect(lstatSync(created).mode & 0o777).toBe(NEW_CONFIG_FILE_MODE);
+    }
+  });
+
+  it("does not delete the destination when rename fails", async () => {
+    const dir = makeTempDir();
+    const dest = join(dir, "opencode.json");
+    mkdirSync(dest);
+    writeFileSync(join(dest, "keep.txt"), "safe\n");
+
+    await expect(
+      writeResolvedConfigText(
+        {
+          configuredPath: dest,
+          writePath: dest,
+          hops: [],
+          terminalExisted: false,
+        },
+        '{"ok":true}\n',
+      ),
+    ).rejects.toThrow();
+
+    expect(lstatSync(dest).isDirectory()).toBe(true);
+    expect(readFileSync(join(dest, "keep.txt"), "utf8")).toBe("safe\n");
+    expect(readdirSync(dir).filter((name) => name.includes(".tmp-"))).toEqual([]);
+    expect(existsSync(dest)).toBe(true);
+  });
+});
+
+describe("writeConfiguredJsonAtomic", () => {
+  it("writes through a symlink without replacing the link", async () => {
+    const dir = makeTempDir();
+    const real = join(dir, "dotfiles", "opencode.json");
+    const link = join(dir, "opencode.json");
+    mkdirSync(join(dir, "dotfiles"), { recursive: true });
+    writeFileSync(real, '{"plugin":[]}\n');
+    symlinkSync(real, link);
+
+    await writeConfiguredJsonAtomic(link, { plugin: ["a"] }, { trailingNewline: true });
+
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(readFileSync(real, "utf8"))).toEqual({ plugin: ["a"] });
+  });
+});

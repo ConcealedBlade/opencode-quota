@@ -392,6 +392,54 @@ describe("buildQuotaExport", () => {
     }
   });
 
+  it("omits OpenRouter API-key diagnostics from export data", async () => {
+    const secretCanary = "sk-or-export-secret-canary";
+    mockReadCachedProviderResult.mockResolvedValue({
+      hit: true,
+      result: {
+        attempted: true,
+        entries: [
+          {
+            accounting: {
+              resultType: "budget",
+              acquisitionMethod: "remote_api",
+              ownership: "maintained",
+              authority: "provider_reported",
+            },
+            name: "OpenRouter budget",
+            percentRemaining: 80,
+          },
+        ],
+        errors: [],
+        statusDetails: [
+          { key: "api_key_configured", value: "true" },
+          { key: "api_key_source", value: "env" },
+          { key: "api_key_checked_paths", value: "env:OPENROUTER_API_KEY" },
+          { key: "api_key_auth_paths", value: "/tmp/auth.json" },
+          { key: "secret_canary", value: secretCanary },
+        ],
+      },
+      timestamp: Date.now(),
+    });
+
+    const actual = await buildQuotaExport({
+      providers: [createMockProvider("openrouter")],
+      ctx: createMockContext(),
+      ttlMs: 60_000,
+      fromCache: true,
+    });
+
+    expect(actual.providers.openrouter).toMatchObject({
+      status: "ok",
+      entries: [{ name: "OpenRouter budget", percentRemaining: 80 }],
+    });
+    const serialized = JSON.stringify(actual);
+    expect(serialized).not.toContain("api_key_");
+    expect(serialized).not.toContain("statusDetails");
+    expect(serialized).not.toContain(secretCanary);
+    expect(actual.providers.openrouter).not.toHaveProperty("statusDetails");
+  });
+
   it("matches the v2 all-result-types JSON golden", async () => {
     vi.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
     mockReadCachedProviderResult.mockResolvedValue({
