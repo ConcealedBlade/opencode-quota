@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  assertSameConfigWriteTarget,
   MAX_CONFIG_SYMLINK_HOPS,
   NEW_CONFIG_FILE_MODE,
   resolveConfigWriteTarget,
@@ -85,16 +86,18 @@ describe("resolveConfigWriteTarget", () => {
     symlinkSync(realParent, aliasParent);
 
     const configured = join(aliasParent, "opencode.json");
+    // Windows stores backslashes even when symlinkSync receives forward slashes.
+    const linkText = readlinkSync(configured);
     const target = await resolveConfigWriteTarget(configured);
     expect(target.writePath).toBe(realpathSync(realFile));
-    expect(target.hops).toEqual([{ path: configured, linkText: "../secrets/opencode.json" }]);
+    expect(target.hops).toEqual([{ path: configured, linkText }]);
     expect(target.terminalExisted).toBe(true);
 
     await writeResolvedConfigText(target, '{"plugin":["ok"]}\n');
     expect(readFileSync(realFile, "utf8")).toBe('{"plugin":["ok"]}\n');
     expect(readFileSync(wrongFile, "utf8")).toBe('{"plugin":["wrong"]}\n');
     expect(lstatSync(configured).isSymbolicLink()).toBe(true);
-    expect(readlinkSync(configured)).toBe("../secrets/opencode.json");
+    expect(readlinkSync(configured)).toBe(linkText);
   });
 
   it("resolves a relative symlink to its regular-file target", async () => {
@@ -105,11 +108,12 @@ describe("resolveConfigWriteTarget", () => {
     mkdirSync(join(dir, "config"), { recursive: true });
     writeFileSync(real, '{\n  "plugin": []\n}\n');
     symlinkSync("../dotfiles/opencode.json", link);
+    const linkText = readlinkSync(link);
 
     await expect(resolveConfigWriteTarget(link)).resolves.toEqual({
       configuredPath: link,
       writePath: realpathSync(real),
-      hops: [{ path: link, linkText: "../dotfiles/opencode.json" }],
+      hops: [{ path: link, linkText }],
       terminalExisted: true,
     });
   });
@@ -202,6 +206,27 @@ describe("resolveConfigWriteTarget", () => {
     } finally {
       chmodSync(hidden, 0o700);
     }
+  });
+});
+
+describe("assertSameConfigWriteTarget", () => {
+  it.each([
+    ["../dotfiles/opencode.json", "..\\dotfiles\\opencode.json"],
+    ["..\\dotfiles\\opencode.json", "../dotfiles/opencode.json"],
+  ])("compares stored link text exactly: %s", (linkText, changedLinkText) => {
+    const planned = {
+      configuredPath: "config.json",
+      writePath: "opencode.json",
+      hops: [{ path: "config.json", linkText }],
+      terminalExisted: true,
+    };
+    const current = { ...planned, hops: [{ ...planned.hops[0] }] };
+    expect(() => assertSameConfigWriteTarget(planned, current)).not.toThrow();
+
+    current.hops[0].linkText = changedLinkText;
+    expect(() => assertSameConfigWriteTarget(planned, current)).toThrow(
+      expect.objectContaining({ name: "ConfigWriteTargetError", reason: "changed" }),
+    );
   });
 });
 
