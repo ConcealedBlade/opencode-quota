@@ -229,6 +229,7 @@ function toPercentPromptBarEntry(entry: QuotaPercentEntry): PromptBarEntry {
     percentRemaining: entry.percentRemaining,
     ...(entry.resetTimeIso ? { resetTimeIso: entry.resetTimeIso } : {}),
     ...(entry.runway ? { runway: entry.runway } : {}),
+    accounting: entry.accounting,
   };
 }
 

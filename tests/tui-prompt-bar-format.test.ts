@@ -189,6 +189,7 @@ describe("prompt-bar selection identity", () => {
       name: "Copilot 5h",
       percentRemaining: 72,
       resetTimeIso: "2026-08-09T12:00:00Z",
+      accounting: RATE_LIMIT,
     });
     expect(resolvePromptBarLabel(entry ?? {})).toBe("Copilot 5h");
   });
@@ -251,6 +252,7 @@ describe("prompt-bar selection identity", () => {
 
     expect(entry?.identityLabel).toBe("OpenCode Go 5h");
     expect(entry?.percentRemaining).toBe(83);
+    expect(entry?.accounting?.acquisitionMethod).toBe("remote_api");
   });
 
   it("selects exhausted OpenCode Go weekly when 5h is filtered out", () => {
