@@ -709,7 +709,7 @@ describe("scoped update application safety", () => {
     symlinkSync(redirectedParent, dirname(sidecar));
 
     await expect(applyScopedUpdatePlan(plan)).rejects.toThrow(
-      "Migration boundary changed before writing",
+      "Config write target changed since preview",
     );
     expect(readFileSync(redirectedSidecar, "utf8")).toBe(original);
   });

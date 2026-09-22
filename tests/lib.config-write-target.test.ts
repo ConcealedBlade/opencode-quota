@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -50,6 +51,24 @@ describe("resolveConfigWriteTarget", () => {
     });
   });
 
+  it("canonicalizes an existing regular file under a symlinked directory parent", async () => {
+    const root = makeTempDir();
+    const realParent = join(root, "actual");
+    const aliasParent = join(root, "alias");
+    const realFile = join(realParent, "opencode.json");
+    mkdirSync(realParent);
+    writeFileSync(realFile, "{}\n");
+    symlinkSync(realParent, aliasParent, "dir");
+    const configured = join(aliasParent, "opencode.json");
+
+    await expect(resolveConfigWriteTarget(configured)).resolves.toEqual({
+      configuredPath: configured,
+      writePath: realpathSync(realFile),
+      hops: [],
+      terminalExisted: true,
+    });
+  });
+
   it("resolves a relative hop from a symlinked directory parent using kernel semantics", async () => {
     const root = makeTempDir();
     const realParent = join(root, "actual", "place");
@@ -75,6 +94,7 @@ describe("resolveConfigWriteTarget", () => {
     expect(readFileSync(realFile, "utf8")).toBe('{"plugin":["ok"]}\n');
     expect(readFileSync(wrongFile, "utf8")).toBe('{"plugin":["wrong"]}\n');
     expect(lstatSync(configured).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(configured)).toBe("../secrets/opencode.json");
   });
 
   it("resolves a relative symlink to its regular-file target", async () => {
@@ -105,7 +125,7 @@ describe("resolveConfigWriteTarget", () => {
 
     await expect(resolveConfigWriteTarget(link)).resolves.toEqual({
       configuredPath: link,
-      writePath: real,
+      writePath: realpathSync(real),
       hops: [
         { path: link, linkText: middle },
         { path: middle, linkText: real },
@@ -145,7 +165,7 @@ describe("resolveConfigWriteTarget", () => {
       current = next;
     }
     await expect(resolveConfigWriteTarget(current)).resolves.toMatchObject({
-      writePath: real,
+      writePath: realpathSync(real),
       terminalExisted: true,
     });
 

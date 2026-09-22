@@ -1,4 +1,5 @@
-import { lstat, readlink, realpath } from "node:fs/promises";
+import { realpathSync } from "node:fs";
+import { lstat, readlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import { type WriteJsonAtomicOptions, writeJsonAtomic, writeTextAtomic } from "./atomic-json.js";
@@ -144,7 +145,7 @@ export async function resolveConfigWriteTarget(path: string): Promise<ConfigWrit
       hops.push({ path: current, linkText });
       let parentReal: string;
       try {
-        parentReal = await realpath(dirname(current));
+        parentReal = realpathSync(dirname(current));
       } catch (error) {
         throwFsError(error, current);
       }
@@ -160,7 +161,13 @@ export async function resolveConfigWriteTarget(path: string): Promise<ConfigWrit
       );
     }
 
-    return { configuredPath, writePath: current, hops, terminalExisted: true };
+    let writePath: string;
+    try {
+      writePath = realpathSync(current);
+    } catch (error) {
+      throwFsError(error, current);
+    }
+    return { configuredPath, writePath, hops, terminalExisted: true };
   }
 }
 
