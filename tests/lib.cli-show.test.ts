@@ -13,7 +13,8 @@ const TEST_ACCOUNTING = {
 const { authMocks, mockProviders, runtimeDirs } = vi.hoisted(() => ({
   authMocks: {
     anthropicConfigured: false,
-    kimiState: "none" as "none" | "configured",
+    kimiGlobalState: "none" as "none" | "configured",
+    kimiCnState: "none" as "none" | "configured",
   },
   mockProviders: [] as any[],
   runtimeDirs: {
@@ -32,7 +33,8 @@ vi.mock("../src/lib/anthropic.js", () => ({
 
 vi.mock("../src/lib/kimi-auth.js", () => ({
   DEFAULT_KIMI_AUTH_CACHE_MAX_AGE_MS: 30_000,
-  resolveKimiAuthCached: vi.fn(async () => ({ state: authMocks.kimiState })),
+  resolveKimiGlobalAuthCached: vi.fn(async () => ({ state: authMocks.kimiGlobalState })),
+  resolveKimiCnAuthCached: vi.fn(async () => ({ state: authMocks.kimiCnState })),
 }));
 
 vi.mock("../src/providers/registry.js", () => ({
@@ -75,7 +77,8 @@ describe("runCliShowCommand", () => {
 
   beforeEach(() => {
     authMocks.anthropicConfigured = false;
-    authMocks.kimiState = "none";
+    authMocks.kimiGlobalState = "none";
+    authMocks.kimiCnState = "none";
     savedConfigDir = process.env.OPENCODE_CONFIG_DIR;
     delete process.env.OPENCODE_CONFIG_DIR;
     tempDir = mkdtempSync(join(tmpdir(), "opencode-quota-cli-show-"));
@@ -102,7 +105,7 @@ describe("runCliShowCommand", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it("adds offline Anthropic and Kimi runtime ids only when local authentication exists", async () => {
+  it("synthesizes offline Kimi runtime ids independently by region", async () => {
     writeFileSync(join(workspaceDir, "opencode.json"), "{}", "utf8");
 
     const unauthenticated = await createCliQuotaClient({
@@ -111,11 +114,21 @@ describe("runCliShowCommand", () => {
     expect(unauthenticated.data?.providers).toEqual([]);
 
     authMocks.anthropicConfigured = true;
-    authMocks.kimiState = "configured";
-    const authenticated = await createCliQuotaClient({
+    authMocks.kimiCnState = "configured";
+    const cnOnly = await createCliQuotaClient({
       configRootDir: workspaceDir,
     }).config.providers();
-    expect(authenticated.data?.providers).toEqual([{ id: "anthropic" }, { id: "kimi-for-coding" }]);
+    expect(cnOnly.data?.providers).toEqual([{ id: "anthropic" }, { id: "kimi-code-plan-cn" }]);
+
+    authMocks.kimiGlobalState = "configured";
+    const bothRegions = await createCliQuotaClient({
+      configRootDir: workspaceDir,
+    }).config.providers();
+    expect(bothRegions.data?.providers).toEqual([
+      { id: "anthropic" },
+      { id: "kimi-code-plan-global" },
+      { id: "kimi-code-plan-cn" },
+    ]);
   });
 
   it("renders a compact quota glance and returns zero when quota rows are available", async () => {

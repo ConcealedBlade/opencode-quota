@@ -35,22 +35,42 @@ vi.mock("../src/lib/opencode-auth.js", () => ({
 type InvalidAwareDescriptor = ProviderApiKeyContractDescriptor<InvalidAwareApiKeyContractModule> & {
   displayName: string;
   defaultCacheMaxAgeMs: number;
+  endpoint?: "global" | "cn";
 };
 
 const providers = [
   {
-    name: "Kimi",
+    name: "Kimi Global",
     displayName: "Kimi",
-    envVars: ["KIMI_API_KEY", "KIMI_CODE_API_KEY"],
-    providerKeys: ["kimi-for-coding", "kimi-code", "kimi"],
-    authKeys: ["kimi-for-coding", "kimi-code", "kimi"],
+    envVars: ["KIMI_GLOBAL_API_KEY"],
+    providerKeys: ["kimi-code-plan-global"],
+    authKeys: ["kimi-code-plan-global"],
     defaultCacheMaxAgeMs: 5_000,
+    endpoint: "global",
     load: async () => {
       const module = await import("../src/lib/kimi-auth.js");
       return {
-        parseAuth: module.resolveKimiAuth,
-        resolve: module.resolveKimiAuthCached,
-        diagnostics: module.getKimiAuthDiagnostics,
+        parseAuth: module.resolveKimiGlobalAuth,
+        resolve: module.resolveKimiGlobalAuthCached,
+        diagnostics: module.getKimiGlobalAuthDiagnostics,
+        getConfigCandidates: module.getOpencodeConfigCandidatePaths,
+      };
+    },
+  },
+  {
+    name: "Kimi CN",
+    displayName: "Kimi",
+    envVars: ["KIMI_CN_API_KEY", "KIMI_API_KEY", "KIMI_CODE_API_KEY"],
+    providerKeys: ["kimi-code-plan-cn", "kimi-for-coding", "kimi-code", "kimi"],
+    authKeys: ["kimi-code-plan-cn", "kimi-for-coding", "kimi-code", "kimi"],
+    defaultCacheMaxAgeMs: 5_000,
+    endpoint: "cn",
+    load: async () => {
+      const module = await import("../src/lib/kimi-auth.js");
+      return {
+        parseAuth: module.resolveKimiCnAuth,
+        resolve: module.resolveKimiCnAuthCached,
+        diagnostics: module.getKimiCnAuthDiagnostics,
         getConfigCandidates: module.getOpencodeConfigCandidatePaths,
       };
     },
@@ -93,6 +113,11 @@ const providers = [
 
 describe("invalid-aware provider auth", () => {
   const originalEnv = process.env;
+  const configuredResult = (provider: InvalidAwareDescriptor, apiKey: string) => ({
+    state: "configured" as const,
+    apiKey,
+    ...(provider.endpoint ? { endpoint: provider.endpoint } : {}),
+  });
   const trustedPaths = getTrustedOpencodeConfigPaths();
   const workspacePaths = getWorkspaceOpencodeConfigPaths();
   let fsMocks: Awaited<ReturnType<typeof loadFsConfigMocks>>;
@@ -149,7 +174,7 @@ describe("invalid-aware provider auth", () => {
       expect(
         module.parseAuth(withEntry({ type: "api", key: " contract-key " })),
         `${provider.name} configured`,
-      ).toEqual({ state: "configured", apiKey: "contract-key" });
+      ).toEqual(configuredResult(provider, "contract-key"));
     }
   });
 
@@ -189,7 +214,7 @@ describe("invalid-aware provider auth", () => {
         expect(
           module.parseAuth(authWithEntry(authKey, { type: "api", key: `${authKey}-key` })),
           `${provider.name} ${authKey}`,
-        ).toEqual({ state: "configured", apiKey: `${authKey}-key` });
+        ).toEqual(configuredResult(provider, `${authKey}-key`));
       }
 
       if (provider.authKeys.length > 1) {
@@ -212,23 +237,23 @@ describe("invalid-aware provider auth", () => {
       const module = await provider.load();
       resetFixture();
       process.env[provider.envVars[0]] = "first-key";
-      process.env[provider.envVars[1]] = "second-key";
+      if (provider.envVars[1]) process.env[provider.envVars[1]] = "second-key";
       authMocks.readAuthFileCached.mockResolvedValue(
         authWithEntry(provider.authKeys[0], { type: "oauth" }),
       );
 
-      await expect(module.resolve(), provider.name).resolves.toEqual({
-        state: "configured",
-        apiKey: "first-key",
-      });
+      await expect(module.resolve(), provider.name).resolves.toEqual(
+        configuredResult(provider, "first-key"),
+      );
       expect(authMocks.readAuthFileCached, provider.name).not.toHaveBeenCalled();
 
-      resetFixture();
-      process.env[provider.envVars[1]] = "second-key";
-      await expect(module.resolve(), `${provider.name} second env`).resolves.toEqual({
-        state: "configured",
-        apiKey: "second-key",
-      });
+      if (provider.envVars[1]) {
+        resetFixture();
+        process.env[provider.envVars[1]] = "second-key";
+        await expect(module.resolve(), `${provider.name} second env`).resolves.toEqual(
+          configuredResult(provider, "second-key"),
+        );
+      }
     }
   });
 
@@ -244,10 +269,9 @@ describe("invalid-aware provider auth", () => {
           [provider.providerKeys.at(-1)!]: { options: { apiKey: "alias-key" } },
         }),
       );
-      await expect(module.resolve(), provider.name).resolves.toEqual({
-        state: "configured",
-        apiKey: "alias-key",
-      });
+      await expect(module.resolve(), provider.name).resolves.toEqual(
+        configuredResult(provider, "alias-key"),
+      );
       expect(authMocks.readAuthFileCached, provider.name).not.toHaveBeenCalled();
 
       for (const workspacePath of [workspacePaths.json, workspacePaths.jsonc]) {
@@ -267,10 +291,9 @@ describe("invalid-aware provider auth", () => {
       authMocks.readAuthFileCached.mockResolvedValue(
         authWithEntry(provider.authKeys[0], { type: "api", key: "auth-key" }),
       );
-      await expect(module.resolve(), provider.name).resolves.toEqual({
-        state: "configured",
-        apiKey: "auth-key",
-      });
+      await expect(module.resolve(), provider.name).resolves.toEqual(
+        configuredResult(provider, "auth-key"),
+      );
       expect(authMocks.readAuthFileCached, provider.name).toHaveBeenLastCalledWith({
         maxAgeMs: provider.defaultCacheMaxAgeMs,
       });
@@ -294,12 +317,14 @@ describe("invalid-aware provider auth", () => {
     for (const provider of providers) {
       const module = await provider.load();
       resetFixture();
-      process.env[provider.envVars[1]] = "diag-key";
+      const diagnosticsEnv = provider.envVars.at(-1)!;
+      process.env[diagnosticsEnv] = "diag-key";
       await expect(module.diagnostics(), provider.name).resolves.toEqual({
         state: "configured",
-        source: `env:${provider.envVars[1]}`,
-        checkedPaths: [`env:${provider.envVars[1]}`],
+        source: `env:${diagnosticsEnv}`,
+        checkedPaths: [`env:${diagnosticsEnv}`],
         authPaths: ["/tmp/auth.json"],
+        ...(provider.endpoint ? { endpoint: provider.endpoint } : {}),
       });
 
       resetFixture();

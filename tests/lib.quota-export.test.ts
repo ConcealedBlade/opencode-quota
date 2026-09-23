@@ -237,6 +237,74 @@ describe("buildQuotaExport", () => {
     }
   });
 
+  it("keeps Global and CN Kimi cached results separate without changing export v2", async () => {
+    mockReadCachedProviderResult
+      .mockResolvedValueOnce({
+        hit: true,
+        result: {
+          attempted: true,
+          entries: [
+            {
+              accounting: QUOTA_ACCOUNTING,
+              name: "Kimi Code Weekly limit",
+              percentRemaining: 80,
+              label: "Weekly:",
+            },
+          ],
+          errors: [],
+        },
+        timestamp: Date.now(),
+      })
+      .mockResolvedValueOnce({
+        hit: true,
+        result: {
+          attempted: true,
+          entries: [
+            {
+              accounting: QUOTA_ACCOUNTING,
+              name: "Kimi Code (CN) Weekly limit",
+              percentRemaining: 60,
+              label: "Weekly:",
+            },
+          ],
+          errors: [],
+        },
+        timestamp: Date.now(),
+      });
+
+    const exportData = await buildQuotaExport({
+      providers: [
+        createMockProvider("kimi-code-plan-global"),
+        createMockProvider("kimi-code-plan-cn"),
+      ],
+      ctx: createMockContext(),
+      ttlMs: 60_000,
+      fromCache: true,
+    });
+
+    expect(exportData.version).toBe(2);
+    expect(Object.keys(exportData.providers)).toEqual([
+      "kimi-code-plan-global",
+      "kimi-code-plan-cn",
+    ]);
+    expect(exportData.providers["kimi-code-plan-global"]).toMatchObject({
+      status: "ok",
+      entries: [
+        expect.objectContaining({
+          name: "Kimi Code Weekly limit",
+          resultType: "quota",
+          acquisitionMethod: "remote_api",
+          ownership: "maintained",
+          authority: "provider_reported",
+        }),
+      ],
+    });
+    expect(exportData.providers["kimi-code-plan-cn"]).toMatchObject({
+      status: "ok",
+      entries: [expect.objectContaining({ name: "Kimi Code (CN) Weekly limit" })],
+    });
+  });
+
   it("exports semantic availability booleans with generic wording and the raw name", async () => {
     mockReadCachedProviderResult.mockResolvedValue({
       hit: true,

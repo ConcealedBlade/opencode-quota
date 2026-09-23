@@ -36,6 +36,7 @@ import { __resetQuotaStateForTests } from "../src/lib/quota-state.js";
 import { DEFAULT_CONFIG, type QuotaToastConfig } from "../src/lib/types.js";
 import { googleAntigravityProvider } from "../src/providers/google-antigravity.js";
 import { googleGeminiCliProvider } from "../src/providers/google-gemini-cli.js";
+import { kimiCodePlanCnProvider, kimiCodePlanGlobalProvider } from "../src/providers/kimi-code.js";
 
 function renderConfig(overrides: Partial<QuotaToastConfig> = {}): QuotaToastConfig {
   return { ...DEFAULT_CONFIG, showSessionTokens: false, ...overrides };
@@ -370,6 +371,62 @@ describe("collectQuotaRenderData shared quota state", () => {
         currentProviderID: "minimax-cn-coding-plan",
       }),
     ).toBe(true);
+  });
+
+  it("keeps Kimi regional and legacy current-provider selection separate", () => {
+    const selections = [
+      {
+        currentProviderID: "kimi-code-plan-global",
+        currentModel: "k3",
+        global: true,
+        cn: false,
+      },
+      {
+        currentProviderID: "kimi-code-plan-cn",
+        currentModel: "k3",
+        global: false,
+        cn: true,
+      },
+      { currentProviderID: "kimi", currentModel: "k3", global: false, cn: true },
+    ];
+
+    for (const selection of selections) {
+      expect(
+        matchesQuotaProviderCurrentSelection({
+          provider: kimiCodePlanGlobalProvider,
+          currentProviderID: selection.currentProviderID,
+          currentModel: selection.currentModel,
+        }),
+      ).toBe(selection.global);
+      expect(
+        matchesQuotaProviderCurrentSelection({
+          provider: kimiCodePlanCnProvider,
+          currentProviderID: selection.currentProviderID,
+          currentModel: selection.currentModel,
+        }),
+      ).toBe(selection.cn);
+    }
+  });
+
+  it("matches prefixed Kimi models without current-provider metadata", () => {
+    expect(
+      matchesQuotaProviderCurrentSelection({
+        provider: kimiCodePlanGlobalProvider,
+        currentModel: "kimi-code-plan-global/kimi-k2",
+      }),
+    ).toBe(true);
+    expect(
+      matchesQuotaProviderCurrentSelection({
+        provider: kimiCodePlanCnProvider,
+        currentModel: "kimi-code/future-model",
+      }),
+    ).toBe(true);
+    expect(
+      matchesQuotaProviderCurrentSelection({
+        provider: kimiCodePlanGlobalProvider,
+        currentModel: "kimi-code/future-model",
+      }),
+    ).toBe(false);
   });
 
   it("selects an explicit OpenAI provider for an unprefixed OpenAI model", () => {

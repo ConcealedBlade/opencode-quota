@@ -255,12 +255,20 @@ export interface ProviderApiKeyResolver<Source extends string> {
   }>;
 }
 
+export type InvalidAwareAuthResolution<Source extends string, AuthSource extends Source> = {
+  auth: InvalidAwareAuthResult;
+  diagnostics: InvalidAwareAuthDiagnostics<Source, AuthSource>;
+};
+
 export interface InvalidAwareProviderApiKeyResolver<
   Source extends string,
   AuthSource extends Source,
 > {
   parseAuth: (auth: unknown) => InvalidAwareAuthResult;
   resolve: (params?: { maxAgeMs?: number }) => Promise<InvalidAwareAuthResult>;
+  resolveWithDiagnostics: (params?: {
+    maxAgeMs?: number;
+  }) => Promise<InvalidAwareAuthResolution<Source, AuthSource>>;
   diagnostics: (params?: {
     maxAgeMs?: number;
   }) => Promise<InvalidAwareAuthDiagnostics<Source, AuthSource>>;
@@ -351,33 +359,47 @@ function createInvalidAwareProviderApiKeyResolver<Source extends string, AuthSou
     };
   };
 
-  return {
-    parseAuth,
-    resolve: async (params) => (await resolveWithSource(params)).auth,
-    diagnostics: async (params) => {
-      const { auth, source } = await resolveWithSource(params);
-      const paths = {
-        checkedPaths: getApiKeyCheckedPaths({
-          envVarNames: config.envVars.map((envVar) => envVar.name),
-          getConfigCandidates: config.getConfigCandidates,
-        }),
-        authPaths: config.auth.getAuthPaths(),
-      };
-      if (auth.state === "none") return { state: "none", source: null, ...paths };
-      if (auth.state === "invalid") {
-        return {
+  const resolveWithDiagnostics = async (params?: {
+    maxAgeMs?: number;
+  }): Promise<InvalidAwareAuthResolution<Source, AuthSource>> => {
+    const { auth, source } = await resolveWithSource(params);
+    const paths = {
+      checkedPaths: getApiKeyCheckedPaths({
+        envVarNames: config.envVars.map((envVar) => envVar.name),
+        getConfigCandidates: config.getConfigCandidates,
+      }),
+      authPaths: config.auth.getAuthPaths(),
+    };
+
+    if (auth.state === "none") {
+      return { auth, diagnostics: { state: "none", source: null, ...paths } };
+    }
+    if (auth.state === "invalid") {
+      return {
+        auth,
+        diagnostics: {
           state: "invalid",
           source: config.auth.authSource,
           error: auth.error,
           ...paths,
-        };
-      }
-      return {
+        },
+      };
+    }
+    return {
+      auth,
+      diagnostics: {
         state: "configured",
         source: source ?? config.auth.authSource,
         ...paths,
-      };
-    },
+      },
+    };
+  };
+
+  return {
+    parseAuth,
+    resolve: async (params) => (await resolveWithSource(params)).auth,
+    resolveWithDiagnostics,
+    diagnostics: async (params) => (await resolveWithDiagnostics(params)).diagnostics,
   };
 }
 

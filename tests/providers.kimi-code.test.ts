@@ -8,165 +8,262 @@ import {
 import { createProviderAvailabilityContext } from "./helpers/provider-test-harness.js";
 
 const authMocks = vi.hoisted(() => ({
-  resolveKimiAuthCached: vi.fn(),
+  resolveGlobal: vi.fn(),
+  resolveCn: vi.fn(),
+  resolveGlobalWithDiagnostics: vi.fn(),
+  resolveCnWithDiagnostics: vi.fn(),
 }));
 
 vi.mock("../src/lib/kimi-auth.js", () => ({
-  resolveKimiAuthCached: authMocks.resolveKimiAuthCached,
-  getKimiAuthDiagnostics: vi.fn(async () => ({
-    state: "none",
-    source: null,
-    checkedPaths: [],
-    authPaths: [],
-  })),
+  resolveKimiGlobalAuthCached: authMocks.resolveGlobal,
+  resolveKimiCnAuthCached: authMocks.resolveCn,
+  resolveKimiGlobalAuthWithDiagnosticsCached: authMocks.resolveGlobalWithDiagnostics,
+  resolveKimiCnAuthWithDiagnosticsCached: authMocks.resolveCnWithDiagnostics,
   DEFAULT_KIMI_AUTH_CACHE_MAX_AGE_MS: 5_000,
 }));
 
-vi.mock("../src/lib/kimi.js", () => ({
-  queryKimiQuota: vi.fn(),
-}));
-
+vi.mock("../src/lib/kimi.js", () => ({ queryKimiQuota: vi.fn() }));
 vi.mock("../src/lib/provider-availability.js", () => ({
   isCanonicalProviderAvailable: vi.fn(),
 }));
 
-import { kimiCodeProvider } from "../src/providers/kimi-code.js";
+import { queryKimiQuota } from "../src/lib/kimi.js";
+import { isCanonicalProviderAvailable } from "../src/lib/provider-availability.js";
+import { kimiCodePlanCnProvider, kimiCodePlanGlobalProvider } from "../src/providers/kimi-code.js";
 
-describe("kimi-code provider", () => {
+const successfulWindows = [
+  {
+    label: "Weekly limit",
+    used: 250,
+    limit: 1000,
+    percentRemaining: 75,
+    resetTimeIso: "2026-01-08T00:00:00.000Z",
+  },
+  {
+    label: "5h limit",
+    used: 100,
+    limit: 500,
+    percentRemaining: 80,
+    resetTimeIso: "2026-01-01T05:00:00.000Z",
+  },
+];
+
+describe("Kimi regional providers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    authMocks.resolveKimiAuthCached.mockResolvedValue({
+    authMocks.resolveGlobal.mockResolvedValue({
       state: "configured",
-      apiKey: "test-key",
+      apiKey: "global-key",
+      endpoint: "global",
     });
-  });
-
-  it("returns attempted:false when no kimi auth is configured", async () => {
-    authMocks.resolveKimiAuthCached.mockResolvedValueOnce({ state: "none" });
-
-    const out = await kimiCodeProvider.fetch({ config: {} } as any);
-    expectNotAttempted(out);
-  });
-
-  it("returns error when kimi auth is invalid", async () => {
-    authMocks.resolveKimiAuthCached.mockResolvedValueOnce({
-      state: "invalid",
-      error: "Invalid API key",
+    authMocks.resolveCn.mockResolvedValue({
+      state: "configured",
+      apiKey: "cn-key",
+      endpoint: "cn",
     });
-
-    const out = await kimiCodeProvider.fetch({ config: {} } as any);
-    expectAttemptedWithErrorLabel(out, "Kimi Code");
-    expect(out.errors[0]?.message).toBe("Invalid API key");
+    authMocks.resolveGlobalWithDiagnostics.mockResolvedValue({
+      auth: { state: "configured", apiKey: "global-key", endpoint: "global" },
+      diagnostics: {
+        state: "configured",
+        source: "env:KIMI_GLOBAL_API_KEY",
+        endpoint: "global",
+        checkedPaths: ["env:KIMI_GLOBAL_API_KEY"],
+        authPaths: [],
+      },
+    });
+    authMocks.resolveCnWithDiagnostics.mockResolvedValue({
+      auth: { state: "configured", apiKey: "cn-key", endpoint: "cn" },
+      diagnostics: {
+        state: "configured",
+        source: "env:KIMI_CN_API_KEY",
+        endpoint: "cn",
+        checkedPaths: ["env:KIMI_CN_API_KEY"],
+        authPaths: [],
+      },
+    });
+    vi.mocked(isCanonicalProviderAvailable).mockResolvedValue(true);
   });
 
-  it("maps success into canonical grouped-capable entries for all windows", async () => {
-    const { queryKimiQuota } = await import("../src/lib/kimi.js");
-    (queryKimiQuota as any).mockResolvedValueOnce({
+  it.each([
+    [kimiCodePlanGlobalProvider, "global", "global-key", "Kimi Code"],
+    [kimiCodePlanCnProvider, "cn", "cn-key", "Kimi Code (CN)"],
+  ] as const)("binds $id fetches to the resolved regional credential", async (provider, endpoint, apiKey, label) => {
+    vi.mocked(queryKimiQuota).mockResolvedValue({
       success: true,
-      label: "Kimi Code",
-      windows: [
-        {
-          label: "Weekly limit",
-          used: 250,
-          limit: 1000,
-          percentRemaining: 75,
-          resetTimeIso: "2026-01-08T00:00:00.000Z",
-        },
-        {
-          label: "5h limit",
-          used: 100,
-          limit: 500,
-          percentRemaining: 80,
-          resetTimeIso: "2026-01-01T05:00:00.000Z",
-        },
-      ],
+      label,
+      windows: successfulWindows,
     });
 
-    const out = await kimiCodeProvider.fetch({ config: {} } as any);
+    const out = await provider.fetch({ config: { requestTimeoutMs: 1234 } } as any);
+
     expectAttemptedWithNoErrors(out);
-    expect(visibleEntries(out.entries, "kimi-for-coding")).toEqual([
+    expect(queryKimiQuota).toHaveBeenCalledWith({
+      apiKey,
+      endpoint,
+      label,
+      requestTimeoutMs: 1234,
+    });
+    const combinedResolver =
+      endpoint === "global"
+        ? authMocks.resolveGlobalWithDiagnostics
+        : authMocks.resolveCnWithDiagnostics;
+    expect(combinedResolver).toHaveBeenCalledTimes(1);
+    expect(authMocks.resolveGlobal).not.toHaveBeenCalled();
+    expect(authMocks.resolveCn).not.toHaveBeenCalled();
+    expect(out.statusDetails).toEqual(
+      expect.arrayContaining([
+        { key: "api_endpoint", value: endpoint },
+        {
+          key: "api_base_url",
+          value:
+            endpoint === "global"
+              ? "https://api.kimi.ai/coding/v1"
+              : "https://api.kimi.com/coding/v1",
+        },
+      ]),
+    );
+  });
+
+  it("maps CN success into the existing accounting and presentation shape", async () => {
+    vi.mocked(queryKimiQuota).mockResolvedValue({
+      success: true,
+      label: "Kimi Code (CN)",
+      windows: successfulWindows,
+    });
+
+    const out = await kimiCodePlanCnProvider.fetch({ config: {} } as any);
+
+    expect(visibleEntries(out.entries, "kimi-code-plan-cn")).toEqual([
       {
-        name: "Kimi Code Weekly limit",
-        group: "Kimi Code",
+        name: "Kimi Code (CN) Weekly limit",
+        group: "Kimi Code (CN)",
         label: "Weekly limit:",
         right: "250/1000",
         percentRemaining: 75,
         resetTimeIso: "2026-01-08T00:00:00.000Z",
       },
       {
-        name: "Kimi Code 5h limit",
-        group: "Kimi Code",
+        name: "Kimi Code (CN) 5h limit",
+        group: "Kimi Code (CN)",
         label: "5h limit:",
         right: "100/500",
         percentRemaining: 80,
         resetTimeIso: "2026-01-01T05:00:00.000Z",
       },
     ]);
-    expect(out.presentation).toEqual({
-      singleWindowDisplayName: "Kimi Code",
+    expect(out.entries[0]?.accounting).toEqual({
+      resultType: "quota",
+      acquisitionMethod: "remote_api",
+      ownership: "maintained",
+      authority: "provider_reported",
     });
+    expect(out.presentation).toEqual({ singleWindowDisplayName: "Kimi Code (CN)" });
   });
 
-  it("maps errors into toast errors", async () => {
-    const { queryKimiQuota } = await import("../src/lib/kimi.js");
-    (queryKimiQuota as any).mockResolvedValueOnce({
-      success: false,
-      error: "Unauthorized",
-    });
-
-    const out = await kimiCodeProvider.fetch({} as any);
-    expectAttemptedWithErrorLabel(out, "Kimi Code");
+  it.each([
+    ["k3"],
+    ["k3-256k"],
+    ["kimi-for-coding"],
+    ["kimi-for-coding-highspeed"],
+  ])("matches the known model %s for each regional canonical id", (modelId) => {
+    expect(
+      kimiCodePlanGlobalProvider.matchesCurrentModel?.(`kimi-code-plan-global/${modelId}`),
+    ).toBe(true);
+    expect(kimiCodePlanCnProvider.matchesCurrentModel?.(`kimi-code-plan-cn/${modelId}`)).toBe(true);
   });
 
-  it("matches kimi model ids", () => {
-    expect(kimiCodeProvider.matchesCurrentModel?.("kimi-code/kimi-k2")).toBe(true);
-    expect(kimiCodeProvider.matchesCurrentModel?.("kimi/kimi-k2")).toBe(true);
-    expect(kimiCodeProvider.matchesCurrentModel?.("openai/gpt-5")).toBe(false);
+  it("keeps legacy provider ids owned by CN only", () => {
+    for (const providerId of ["kimi-for-coding", "kimi-code", "kimi", "kimi-for-code"]) {
+      expect(kimiCodePlanCnProvider.matchesCurrentModel?.(`${providerId}/k3`)).toBe(true);
+      expect(kimiCodePlanGlobalProvider.matchesCurrentModel?.(`${providerId}/k3`)).toBe(false);
+    }
   });
 
-  it("is available when provider ids include kimi and auth is configured", async () => {
-    const { isCanonicalProviderAvailable } = await import("../src/lib/provider-availability.js");
-    (isCanonicalProviderAvailable as any).mockResolvedValue(true);
-
-    const available = await kimiCodeProvider.isAvailable(
-      createProviderAvailabilityContext({ providerIds: ["kimi-for-coding"] }),
+  it("preserves provider-prefix matching for models outside the known Kimi list", () => {
+    expect(kimiCodePlanGlobalProvider.matchesCurrentModel?.("kimi-code-plan-global/kimi-k2")).toBe(
+      true,
     );
-    expect(available).toBe(true);
+    expect(kimiCodePlanCnProvider.matchesCurrentModel?.("kimi-code-plan-cn/future-model")).toBe(
+      true,
+    );
   });
 
-  it("is available when auth is invalid so the provider can surface the error", async () => {
-    const { isCanonicalProviderAvailable } = await import("../src/lib/provider-availability.js");
-    (isCanonicalProviderAvailable as any).mockResolvedValue(true);
-    authMocks.resolveKimiAuthCached.mockResolvedValueOnce({
+  it("rejects unqualified models without a provider prefix", () => {
+    expect(kimiCodePlanGlobalProvider.matchesCurrentModel?.("kimi-k2")).toBe(false);
+    expect(kimiCodePlanCnProvider.matchesCurrentModel?.("future-model")).toBe(false);
+  });
+
+  it("does not resolve auth when the regional runtime provider is unavailable", async () => {
+    vi.mocked(isCanonicalProviderAvailable).mockResolvedValue(false);
+
+    await expect(
+      kimiCodePlanGlobalProvider.isAvailable(
+        createProviderAvailabilityContext({ providerIds: ["kimi-code-plan-cn"] }),
+      ),
+    ).resolves.toBe(false);
+    expect(authMocks.resolveGlobal).not.toHaveBeenCalled();
+  });
+
+  it("keeps availability and auth state independent by region", async () => {
+    authMocks.resolveGlobal.mockResolvedValue({ state: "none" });
+    authMocks.resolveCn.mockResolvedValue({
       state: "invalid",
       error: 'Unsupported Kimi auth type: "oauth"',
     });
 
-    const available = await kimiCodeProvider.isAvailable(
-      createProviderAvailabilityContext({ providerIds: ["kimi-for-coding"] }),
-    );
-    expect(available).toBe(true);
+    await expect(
+      kimiCodePlanGlobalProvider.isAvailable(
+        createProviderAvailabilityContext({ providerIds: ["kimi-code-plan-global"] }),
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      kimiCodePlanCnProvider.isAvailable(
+        createProviderAvailabilityContext({ providerIds: ["kimi-code-plan-cn"] }),
+      ),
+    ).resolves.toBe(true);
   });
 
-  it("is not available when provider ids exist but auth is missing", async () => {
-    const { isCanonicalProviderAvailable } = await import("../src/lib/provider-availability.js");
-    (isCanonicalProviderAvailable as any).mockResolvedValue(true);
-    authMocks.resolveKimiAuthCached.mockResolvedValueOnce({ state: "none" });
+  it("returns not attempted for absent auth and preserves invalid-auth provenance", async () => {
+    authMocks.resolveGlobalWithDiagnostics.mockResolvedValueOnce({
+      auth: { state: "none" },
+      diagnostics: {
+        state: "none",
+        source: null,
+        checkedPaths: ["/trusted/opencode.json"],
+        authPaths: ["/trusted/auth.json"],
+      },
+    });
+    expectNotAttempted(await kimiCodePlanGlobalProvider.fetch({ config: {} } as any));
 
-    const available = await kimiCodeProvider.isAvailable(
-      createProviderAvailabilityContext({ providerIds: ["kimi-for-coding"] }),
+    authMocks.resolveCnWithDiagnostics.mockResolvedValueOnce({
+      auth: { state: "invalid", error: "Invalid API key" },
+      diagnostics: {
+        state: "invalid",
+        source: "auth.json",
+        checkedPaths: ["/trusted/opencode.json"],
+        authPaths: ["/trusted/auth.json"],
+        error: "Invalid API key",
+      },
+    });
+    const invalid = await kimiCodePlanCnProvider.fetch({ config: {} } as any);
+    expectAttemptedWithErrorLabel(invalid, "Kimi Code (CN)");
+    expect(invalid.errors[0]?.message).toBe("Invalid API key");
+    expect(invalid.statusDetails).toEqual(
+      expect.arrayContaining([
+        { key: "auth_state", value: "invalid" },
+        { key: "api_key_source", value: "auth.json" },
+        { key: "auth_error", value: "Invalid API key" },
+        { key: "api_endpoint", value: "cn" },
+      ]),
     );
-    expect(available).toBe(false);
+    expect(queryKimiQuota).not.toHaveBeenCalled();
   });
 
-  it("is not available when provider lookup throws", async () => {
-    const { isCanonicalProviderAvailable } = await import("../src/lib/provider-availability.js");
-    (isCanonicalProviderAvailable as any).mockRestore();
+  it("maps request errors to the same regional label", async () => {
+    vi.mocked(queryKimiQuota).mockResolvedValue({ success: false, error: "Unauthorized" });
 
-    const ctx = createProviderAvailabilityContext({ providersError: new Error("boom") });
-
-    const available = await kimiCodeProvider.isAvailable(ctx);
-    expect(available).toBe(false);
-    expect(authMocks.resolveKimiAuthCached).not.toHaveBeenCalled();
+    const out = await kimiCodePlanGlobalProvider.fetch({ config: {} } as any);
+    expectAttemptedWithErrorLabel(out, "Kimi Code");
+    expect(out.statusDetails).toContainEqual({ key: "live_fetch_error", value: "Unauthorized" });
   });
 });

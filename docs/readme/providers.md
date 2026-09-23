@@ -73,6 +73,7 @@ Business placement describes vendor plan availability. Except for configured Cop
 | Alibaba Personal Token Plan   | [Needs setup](#alibaba-personal-token-plan)                         | Official CLI   | Quota              |
 | DeepSeek                      | Automatic                                                           | Remote API     | Balance and status |
 | Kimi Code                     | Automatic                                                           | Remote API     | Quota              |
+| Kimi Code (CN)                | Automatic                                                           | Remote API     | Quota              |
 | MiniMax Token Plan            | Automatic                                                           | Remote API     | Quota              |
 | MiniMax Token Plan (CN)       | Automatic                                                           | Remote API     | Quota              |
 | Qwen Code                     | [Needs setup](#qwen-code)                                           | Local estimate | Quota              |
@@ -88,6 +89,7 @@ Business placement describes vendor plan availability. Except for configured Cop
 | Provider                 | Auth/setup | Data from  | Reports |
 | ------------------------ | ---------- | ---------- | ------- |
 | Kimi Code                | Automatic  | Remote API | Quota   |
+| Kimi Code (CN)           | Automatic  | Remote API | Quota   |
 | MiniMax Token Plan       | Automatic  | Remote API | Quota   |
 | MiniMax Token Plan (CN)  | Automatic  | Remote API | Quota   |
 | Zhipu Coding Plan        | Automatic  | Remote API | Quota   |
@@ -95,6 +97,8 @@ Business placement describes vendor plan availability. Except for configured Cop
 These vendors offer team or business plans, but the current integrations report only the configured member API key rather than organization-wide usage.
 
 </details>
+
+Kimi plans are region-bound: **Kimi Code** uses `api.kimi.ai`, while **Kimi Code (CN)** uses `api.kimi.com`. A key is sent only to its selected regional host. Legacy provider ids `kimi-for-coding`, `kimi-code`, and `kimi` belong to the CN plan.
 
 The friendly `Quota` label covers quota and rate-limit windows; JSON distinguishes them.
 

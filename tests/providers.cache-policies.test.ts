@@ -1,10 +1,46 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const cachePolicyMocks = vi.hoisted(() => ({
+  resolveGlobal: vi.fn(),
+  resolveCn: vi.fn(),
+  deriveIdentity: vi.fn(async (params: unknown) => JSON.stringify(params)),
+}));
+
+vi.mock("../src/lib/kimi-auth.js", () => ({
+  DEFAULT_KIMI_AUTH_CACHE_MAX_AGE_MS: 5_000,
+  resolveKimiGlobalAuthCached: cachePolicyMocks.resolveGlobal,
+  resolveKimiCnAuthCached: cachePolicyMocks.resolveCn,
+  resolveKimiGlobalAuthWithDiagnosticsCached: vi.fn(),
+  resolveKimiCnAuthWithDiagnosticsCached: vi.fn(),
+}));
+
+vi.mock("../src/lib/resolved-auth-identity.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/lib/resolved-auth-identity.js")>();
+  return {
+    ...actual,
+    deriveResolvedAuthIdentity: cachePolicyMocks.deriveIdentity,
+  };
+});
 
 import { QUOTA_PROVIDER_REGISTRATION_SOURCE } from "../src/lib/provider-registration.js";
 import { PROVIDER_CACHE_POLICIES } from "../src/providers/cache-policies.js";
 import { getProviders } from "../src/providers/registry.js";
 
 describe("provider cache policies", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cachePolicyMocks.resolveGlobal.mockResolvedValue({
+      state: "configured",
+      apiKey: "shared-kimi-secret",
+      endpoint: "global",
+    });
+    cachePolicyMocks.resolveCn.mockResolvedValue({
+      state: "configured",
+      apiKey: "shared-kimi-secret",
+      endpoint: "cn",
+    });
+  });
+
   it("classifies every canonical provider without an account-neutral fallback", () => {
     const registeredIds = QUOTA_PROVIDER_REGISTRATION_SOURCE.map(({ id }) => id).sort();
     expect(Object.keys(PROVIDER_CACHE_POLICIES).sort()).toEqual(registeredIds);
@@ -18,6 +54,10 @@ describe("provider cache policies", () => {
       .sort();
     expect(uncached).toEqual(["alibaba-token-plan", "cursor", "qwen-code"]);
 
+    expect(PROVIDER_CACHE_POLICIES["kimi-code-plan-global"].kind).toBe("resolved-auth");
+    expect(PROVIDER_CACHE_POLICIES["kimi-code-plan-cn"].kind).toBe("resolved-auth");
+    expect(PROVIDER_CACHE_POLICIES).not.toHaveProperty("kimi-for-coding");
+
     for (const id of [
       "anthropic",
       "copilot",
@@ -28,6 +68,45 @@ describe("provider cache policies", () => {
     ] as const) {
       expect(PROVIDER_CACHE_POLICIES[id].kind).toBe("resolved-auth");
     }
+  });
+
+  it("keeps Kimi identities isolated through the actual regional policy resolvers", async () => {
+    const globalPolicy = PROVIDER_CACHE_POLICIES["kimi-code-plan-global"];
+    const cnPolicy = PROVIDER_CACHE_POLICIES["kimi-code-plan-cn"];
+    if (globalPolicy.kind !== "resolved-auth" || cnPolicy.kind !== "resolved-auth") {
+      throw new Error("Expected resolved-auth Kimi cache policies");
+    }
+
+    const ctx = { config: {} } as never;
+    const cacheContext = {} as never;
+    const globalFirst = await globalPolicy.resolveIdentity(ctx, cacheContext);
+    const cnFirst = await cnPolicy.resolveIdentity(ctx, cacheContext);
+
+    expect(globalFirst).not.toBe(cnFirst);
+    expect(cachePolicyMocks.deriveIdentity).toHaveBeenCalledWith({
+      providerId: "kimi-code-plan-global",
+      principal: { kind: "credential", value: "shared-kimi-secret" },
+      qualifiers: ["global"],
+    });
+    expect(cachePolicyMocks.deriveIdentity).toHaveBeenCalledWith({
+      providerId: "kimi-code-plan-cn",
+      principal: { kind: "credential", value: "shared-kimi-secret" },
+      qualifiers: ["cn"],
+    });
+
+    cachePolicyMocks.resolveCn.mockResolvedValue({
+      state: "configured",
+      apiKey: "changed-cn-secret",
+      endpoint: "cn",
+    });
+
+    const globalSecond = await globalPolicy.resolveIdentity(ctx, cacheContext);
+    const cnSecond = await cnPolicy.resolveIdentity(ctx, cacheContext);
+
+    expect(globalSecond).toBe(globalFirst);
+    expect(cnSecond).not.toBe(cnFirst);
+    expect(cachePolicyMocks.resolveGlobal).toHaveBeenCalledTimes(2);
+    expect(cachePolicyMocks.resolveCn).toHaveBeenCalledTimes(2);
   });
 
   it("attaches the exhaustive policy to the stable provider singleton", () => {
