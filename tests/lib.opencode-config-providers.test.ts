@@ -85,7 +85,6 @@ describe("opencode config provider discovery", () => {
       join(workspaceDir, "opencode.json"),
       JSON.stringify({
         plugin: [
-          "opencode-qwencode-auth",
           "opencode-antigravity-auth@latest",
           "opencode-gemini-auth",
           "@playwo/opencode-cursor-oauth",
@@ -96,7 +95,6 @@ describe("opencode config provider discovery", () => {
     );
 
     await expect(loadConfiguredProviderIds({ configRootDir: workspaceDir })).resolves.toEqual([
-      "qwen-code",
       "google-antigravity",
       "google-gemini-cli",
       "cursor",
@@ -106,20 +104,20 @@ describe("opencode config provider discovery", () => {
   it("deduplicates provider ids inferred from provider blocks and plugin specs", async () => {
     writeFileSync(
       join(globalConfigDir, "opencode.json"),
-      JSON.stringify({ plugin: ["opencode-qwencode-auth"] }),
+      JSON.stringify({ plugin: ["open-cursor"] }),
       "utf8",
     );
     writeFileSync(
       join(workspaceDir, "opencode.json"),
       JSON.stringify({
-        provider: { "qwen-code": {}, cursor: {} },
+        provider: { "alibaba-coding-plan": {}, cursor: {} },
         plugin: [["@playwo/opencode-cursor-oauth", { enabled: true }]],
       }),
       "utf8",
     );
 
     await expect(loadConfiguredProviderIds({ configRootDir: workspaceDir })).resolves.toEqual([
-      "qwen-code",
+      "alibaba-coding-plan",
       "cursor",
     ]);
   });

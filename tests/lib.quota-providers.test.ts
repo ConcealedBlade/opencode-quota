@@ -880,20 +880,7 @@ describe("quotaProviders schema", () => {
     expect(normalizeJsonV1Timestamp(253_402_300_800_000, "unix-milliseconds")).toBeNull();
   });
 
-  it("accepts only the exact maintained Qwen and Alibaba tuning windows", () => {
-    expect(
-      validateQuotaProviders([
-        {
-          id: "qwen-code",
-          mode: "local-estimate",
-          windows: [
-            { id: "daily", type: "utc-day", requestLimit: 2000 },
-            { id: "rpm", type: "rolling", durationMinutes: 1, requestLimit: 120 },
-          ],
-        },
-      ]).issues,
-    ).toEqual([]);
-
+  it("accepts only the exact maintained Alibaba tuning windows", () => {
     expect(
       validateQuotaProviders([
         {
@@ -911,9 +898,9 @@ describe("quotaProviders schema", () => {
     expect(
       validateQuotaProviders([
         {
-          id: "qwen-code",
+          id: "alibaba-coding-plan",
           mode: "local-estimate",
-          windows: [{ id: "daily", type: "utc-day", requestLimit: 2000 }],
+          windows: [{ id: "five-hour", type: "rolling", durationMinutes: 300, requestLimit: 2000 }],
         },
       ]).issues[0]?.key,
     ).toBe("quotaProviders[0].windows");

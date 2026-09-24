@@ -7,20 +7,20 @@ import {
 } from "../scripts/lib/upstream-plugin-issues.mjs";
 import { getUpstreamPluginSpec } from "../scripts/lib/upstream-plugin-specs.mjs";
 
-const spec = getUpstreamPluginSpec("opencode-qwencode-auth");
+const spec = getUpstreamPluginSpec("opencode-gemini-auth");
 
 const tracked = {
-  npmUrl: "https://www.npmjs.com/package/opencode-qwencode-auth/v/1.2.0",
-  packageName: "opencode-qwencode-auth",
+  npmUrl: "https://www.npmjs.com/package/opencode-gemini-auth/v/1.2.0",
+  packageName: "opencode-gemini-auth",
   publishedAt: "2026-03-01T00:00:00.000Z",
-  referenceDir: "references/upstream-plugins/opencode-qwencode-auth",
-  repo: "gustavodiasdev/opencode-qwencode-auth",
+  referenceDir: "references/upstream-plugins/opencode-gemini-auth",
+  repo: "jenslys/opencode-gemini-auth",
   version: "1.2.0",
 };
 
 const latest = {
   ...tracked,
-  npmUrl: "https://www.npmjs.com/package/opencode-qwencode-auth/v/1.3.0",
+  npmUrl: "https://www.npmjs.com/package/opencode-gemini-auth/v/1.3.0",
   publishedAt: "2026-03-20T00:00:00.000Z",
   version: "1.3.0",
 };
@@ -35,7 +35,7 @@ describe("upstream-plugin-issues", () => {
     });
 
     expect(body).toContain("pnpm run upstream:prepare-review");
-    expect(body).toContain("<!-- opencode-quota:plugin=opencode-qwencode-auth -->");
+    expect(body).toContain("<!-- opencode-quota:plugin=opencode-gemini-auth -->");
     expect(body).toContain("<!-- opencode-quota:issue-state=update_available -->");
     expect(body).toContain("<!-- opencode-quota:latest-version=1.3.0 -->");
   });
@@ -132,7 +132,7 @@ describe("upstream-plugin-issues", () => {
   it("creates an issue when same-version npm metadata drifts", () => {
     const sameVersionLatest = {
       ...tracked,
-      npmUrl: "https://www.npmjs.com/package/opencode-qwencode-auth/v/1.2.0?activeTab=versions",
+      npmUrl: "https://www.npmjs.com/package/opencode-gemini-auth/v/1.2.0?activeTab=versions",
       publishedAt: "2026-03-02T00:00:00.000Z",
     };
 
@@ -144,7 +144,7 @@ describe("upstream-plugin-issues", () => {
     });
 
     expect(plan.create).toMatchObject({
-      title: "[check] opencode-qwencode-auth had update",
+      title: "[check] opencode-gemini-auth had update",
     });
     expect(plan.create?.body).toContain("<!-- opencode-quota:issue-state=update_available -->");
   });
@@ -158,7 +158,7 @@ describe("upstream-plugin-issues", () => {
     });
 
     expect(plan.create).toMatchObject({
-      title: "[check] opencode-qwencode-auth had update",
+      title: "[check] opencode-gemini-auth had update",
     });
     expect(plan.comments).toEqual([]);
     expect(plan.update).toBeNull();
@@ -168,7 +168,7 @@ describe("upstream-plugin-issues", () => {
   it("updates the canonical issue, comments on newer releases, and closes duplicates", () => {
     const previousLatest = {
       ...tracked,
-      npmUrl: "https://www.npmjs.com/package/opencode-qwencode-auth/v/1.2.5",
+      npmUrl: "https://www.npmjs.com/package/opencode-gemini-auth/v/1.2.5",
       publishedAt: "2026-03-10T00:00:00.000Z",
       version: "1.2.5",
     };
@@ -183,7 +183,7 @@ describe("upstream-plugin-issues", () => {
             tracked,
           }),
           number: 23,
-          title: "[check] opencode-qwencode-auth had update",
+          title: "[check] opencode-gemini-auth had update",
         },
         {
           body: buildUpstreamPluginIssueBody({
@@ -193,7 +193,7 @@ describe("upstream-plugin-issues", () => {
             tracked,
           }),
           number: 31,
-          title: "[check] opencode-qwencode-auth had update",
+          title: "[check] opencode-gemini-auth had update",
         },
       ],
       latest,
@@ -205,7 +205,7 @@ describe("upstream-plugin-issues", () => {
     expect(plan.update).toMatchObject({ issueNumber: 23 });
     expect(plan.comments).toEqual([
       {
-        body: "Newer upstream npm release detected for opencode-qwencode-auth: 1.2.5 -> 1.3.0.",
+        body: "Newer upstream npm release detected for opencode-gemini-auth: 1.2.5 -> 1.3.0.",
         issueNumber: 23,
       },
     ]);
@@ -224,7 +224,7 @@ describe("upstream-plugin-issues", () => {
         {
           body: "Manually tracked by a maintainer.",
           number: 52,
-          title: "[check] opencode-qwencode-auth had update",
+          title: "[check] opencode-gemini-auth had update",
         },
       ],
       latest,
@@ -233,7 +233,7 @@ describe("upstream-plugin-issues", () => {
     });
 
     expect(plan.create).toMatchObject({
-      title: "[check] opencode-qwencode-auth had update",
+      title: "[check] opencode-gemini-auth had update",
     });
     expect(plan.comments).toEqual([]);
     expect(plan.update).toBeNull();
@@ -251,7 +251,7 @@ describe("upstream-plugin-issues", () => {
             tracked,
           }),
           number: 45,
-          title: "[check] opencode-qwencode-auth had update",
+          title: "[check] opencode-gemini-auth had update",
         },
       ],
       latest: tracked,

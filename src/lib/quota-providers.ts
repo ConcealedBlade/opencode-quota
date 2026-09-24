@@ -9,7 +9,7 @@ export const QUOTA_PROVIDER_REMOTE_FORMATS = ["quota-v1", "openrouter-key-v1", "
 export const QUOTA_PROVIDER_MODES = ["remote-api", "local-estimate"] as const;
 export const QUOTA_PROVIDER_WINDOW_TYPES = ["utc-day", "rolling"] as const;
 export const QUOTA_PROVIDERS_AGGREGATE_ID = "quota-providers";
-export const MAINTAINED_LOCAL_ESTIMATE_IDS = ["qwen-code", "alibaba-coding-plan"] as const;
+export const MAINTAINED_LOCAL_ESTIMATE_IDS = ["alibaba-coding-plan"] as const;
 
 export function isMaintainedQuotaProviderTuning(definition: QuotaProviderDefinition): boolean {
   return (MAINTAINED_LOCAL_ESTIMATE_IDS as readonly string[]).includes(definition.id);
@@ -1212,17 +1212,11 @@ function validateMaintainedWindows(
   issues: QuotaProviderValidationIssue[],
 ): void {
   if (!windows || !(MAINTAINED_LOCAL_ESTIMATE_IDS as readonly string[]).includes(id)) return;
-  const expected =
-    id === "qwen-code"
-      ? [
-          { id: "daily", type: "utc-day" as const },
-          { id: "rpm", type: "rolling" as const, durationMinutes: 1 },
-        ]
-      : [
-          { id: "five-hour", type: "rolling" as const, durationMinutes: 300 },
-          { id: "weekly", type: "rolling" as const, durationMinutes: 10_080 },
-          { id: "monthly", type: "rolling" as const, durationMinutes: 43_200 },
-        ];
+  const expected = [
+    { id: "five-hour", type: "rolling" as const, durationMinutes: 300 },
+    { id: "weekly", type: "rolling" as const, durationMinutes: 10_080 },
+    { id: "monthly", type: "rolling" as const, durationMinutes: 43_200 },
+  ];
 
   if (
     windows.length !== expected.length ||
@@ -1240,9 +1234,7 @@ function validateMaintainedWindows(
     issues.push({
       key: `${providerKey}.windows`,
       message:
-        id === "qwen-code"
-          ? "qwen-code tuning requires ordered daily (utc-day) and rpm (1-minute rolling) request windows"
-          : "alibaba-coding-plan tuning requires ordered five-hour, weekly, and monthly rolling request windows",
+        "alibaba-coding-plan tuning requires ordered five-hour, weekly, and monthly rolling request windows",
     });
   }
 }

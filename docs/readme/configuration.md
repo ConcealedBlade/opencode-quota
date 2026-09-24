@@ -101,7 +101,7 @@ The estimate is a straight-line average since the confirmed fixed window began: 
 
 The provider's exact reset countdown stays separate from the estimate. If the calculated exhaustion is before reset, full displays use **Runs out ≈ 1h 50m**; Compact status and the prompt bar use **r/o ≈ 1h 50m**, where `r/o` means “runs out.” The approximation marker always has one following space, duration units are spaced, and partial minutes round up. If current use would last through the reset, displays say **lasts past reset**.
 
-Availability is deliberately narrow. A row needs a finite percentage, its original observation time, a nonzero elapsed interval, and explicit fixed-window start, end/reset, and full-reset evidence. OpenAI's known API rate-limit windows, xAI periods with explicit `currentPeriod.start` and `currentPeriod.end`, Cursor cycles with `cursorBillingCycleStartDay`, Qwen's maintained UTC-day window, and configured `local-estimate` `utc-day` windows can qualify. Rolling windows, RPM rows, balance/status/unlimited rows, Cursor's calendar-month fallback, and windows inferred only from labels do not. Unsupported rows are simply unchanged.
+Availability is deliberately narrow. A row needs a finite percentage, its original observation time, a nonzero elapsed interval, and explicit fixed-window start, end/reset, and full-reset evidence. OpenAI's known API rate-limit windows, xAI periods with explicit `currentPeriod.start` and `currentPeriod.end`, Cursor cycles with `cursorBillingCycleStartDay`, and configured `local-estimate` `utc-day` windows can qualify. Rolling windows, RPM rows, balance/status/unlimited rows, Cursor's calendar-month fallback, and windows inferred only from labels do not. Unsupported rows are simply unchanged.
 
 This option changes human presentation only. It reuses cached provider snapshots without another provider request, preserves the provider observation time, and does not add fields to JSON export v2.
 
@@ -237,7 +237,7 @@ The command writes the `experimental.quotaToast.quotaProviders` section. Configu
 - If any request cannot be priced, request counts stay visible and the budget percentage is reported unavailable.
 - Credentials resolve from `apiKeyEnv`, trusted global `provider.<providerId>.options.apiKey`, then API-key entries in OpenCode `auth.json`.
 - Definitions run automatically with `enabledProviders: "auto"`. A manual list must include `quota-providers` and every built-in provider you still want.
-- To tune maintained estimates, use the reserved `qwen-code` or `alibaba-coding-plan` ID and its maintained window shape. Do not add a duplicate normal provider block. Alibaba Personal Token Plan uses the reserved `alibaba-token-plan` ID and is not a local-estimate tuning target.
+- To tune maintained estimates, use the reserved `alibaba-coding-plan` ID and its maintained window shape. Do not add a duplicate normal provider block. Alibaba Personal Token Plan uses the reserved `alibaba-token-plan` ID and is not a local-estimate tuning target.
 - Project secrets, scripts, custom headers, executable mappings, regular expressions, and JSONPath are not accepted.
 
 Run `/quota_status` to see the exact state path and safe authentication source without exposing secrets.

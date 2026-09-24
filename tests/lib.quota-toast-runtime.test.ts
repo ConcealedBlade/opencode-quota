@@ -10,7 +10,6 @@ import {
   createPluginTuiConfigInspection,
   createPricingModuleMock,
   createProvidersRegistryModuleMock,
-  createQwenAuthModuleMock,
   createSessionTokensModuleMock,
   getToastMessage,
   makeQuotaToastTestConfig,
@@ -44,7 +43,6 @@ const mocks = vi.hoisted(() => ({
   getRuntimePricingSnapshotPath: vi.fn(),
   setPricingSnapshotAutoRefresh: vi.fn(),
   setPricingSnapshotSelection: vi.fn(),
-  resolveQwenLocalPlanCached: vi.fn(),
   resolveAlibabaCodingPlanAuthCached: vi.fn(),
   fetchSessionTokensForDisplay: vi.fn(),
   observeQuotaResetNotifications: vi.fn(),
@@ -60,9 +58,6 @@ vi.mock("../src/providers/registry.js", () =>
 vi.mock("../src/lib/modelsdev-pricing.js", () => createPricingModuleMock(mocks));
 vi.mock("../src/lib/session-tokens.js", () =>
   createSessionTokensModuleMock(mocks.fetchSessionTokensForDisplay),
-);
-vi.mock("../src/lib/qwen-auth.js", () =>
-  createQwenAuthModuleMock(mocks.resolveQwenLocalPlanCached),
 );
 vi.mock("../src/lib/alibaba-auth.js", () =>
   createAlibabaAuthModuleMock(mocks.resolveAlibabaCodingPlanAuthCached),

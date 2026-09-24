@@ -39,7 +39,6 @@ import {
   resolveQuotaRuntimeContext,
 } from "./quota-runtime-context.js";
 import type { SessionTokenError } from "./quota-status.js";
-import { isQwenCodeModelId, resolveQwenLocalPlanCached } from "./qwen-auth.js";
 import { inspectTuiConfig } from "./tui-config-diagnostics.js";
 import { DEFAULT_CONFIG, type QuotaToastConfig } from "./types.js";
 
@@ -212,11 +211,6 @@ export function createQuotaToastRuntime(
     const currentSession =
       params.sessionMeta ?? (await dependencies.resolveSessionMeta(params.sessionID));
     const currentModel = currentSession.modelID;
-    if (currentSession.providerID === "qwen-code" || isQwenCodeModelId(currentModel)) {
-      const plan = await resolveQwenLocalPlanCached();
-      return plan.state === "qwen_free" && isProviderEnabled("qwen-code");
-    }
-
     if (
       currentSession.providerID === "alibaba-coding-plan" ||
       currentSession.providerID === "alibaba" ||

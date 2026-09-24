@@ -1827,11 +1827,13 @@ describe("quota-state shared cache", () => {
     __resetQuotaStateForTests();
 
     const provider = {
-      id: "qwen-code",
+      id: "alibaba-coding-plan",
       isAvailable: vi.fn(),
       fetch: vi.fn().mockResolvedValue({
         attempted: true,
-        entries: [{ accounting: TEST_ACCOUNTING, name: "Qwen Free Daily", percentRemaining: 99 }],
+        entries: [
+          { accounting: TEST_ACCOUNTING, name: "Alibaba Coding Plan 5h", percentRemaining: 99 },
+        ],
         errors: [],
       }),
     } as any;

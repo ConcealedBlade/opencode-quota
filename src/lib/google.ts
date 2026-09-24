@@ -15,11 +15,8 @@ import {
 } from "./google-antigravity-companion.js";
 import { getOpencodeRuntimeDirCandidates } from "./opencode-runtime-paths.js";
 
-// NOTE: Google Antigravity auth differs intentionally from Qwen:
-// - Qwen reads OpenCode auth.json key "qwen-code" first, then falls back to
-//   legacy key "opencode-qwencode-auth", and uses local quota state.
-// - Google refresh flow requires upstream OAuth client credentials from
-//   opencode-antigravity-auth to match that plugin's runtime behavior.
+// NOTE: Google refresh flow requires upstream OAuth client credentials from
+// opencode-antigravity-auth to match that plugin's runtime behavior.
 
 import {
   getCachedAccessToken,

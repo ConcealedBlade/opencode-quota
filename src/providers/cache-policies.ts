@@ -143,7 +143,6 @@ export const PROVIDER_CACHE_POLICIES = {
     return resolved ? { credential: resolved.key } : null;
   }),
   cursor: UNCACHED,
-  "qwen-code": UNCACHED,
   "alibaba-token-plan": UNCACHED,
   "alibaba-coding-plan": resolvedCredentialPolicy("alibaba-coding-plan", async () => {
     const resolved = await resolveAlibabaCodingPlanAuthCached({

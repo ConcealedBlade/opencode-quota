@@ -4,6 +4,12 @@ import {
   isAlibabaModelId,
   resolveAlibabaCodingPlanAuthCached,
 } from "../lib/alibaba-auth.js";
+import {
+  ALIBABA_CODING_PLAN_STATE_VERSION,
+  computeAlibabaCodingPlanQuota,
+  getAlibabaCodingPlanQuotaPath,
+  readAlibabaCodingPlanQuotaState,
+} from "../lib/alibaba-coding-plan-local-quota.js";
 import type {
   QuotaProvider,
   QuotaProviderContext,
@@ -11,12 +17,6 @@ import type {
   QuotaToastEntry,
 } from "../lib/entries.js";
 import { findQuotaProviderDefinition } from "../lib/quota-providers.js";
-import {
-  ALIBABA_CODING_PLAN_STATE_VERSION,
-  computeAlibabaCodingPlanQuota,
-  getAlibabaCodingPlanQuotaPath,
-  readAlibabaCodingPlanQuotaState,
-} from "../lib/qwen-local-quota.js";
 import {
   attemptedErrorResult,
   attemptedResult,

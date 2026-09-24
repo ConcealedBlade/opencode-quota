@@ -246,21 +246,34 @@ describe("quota-providers aggregate provider", () => {
     ).toBe(true);
   });
 
-  it("skips maintained Qwen and Alibaba tuning in the aggregate", () => {
+  it("skips maintained Alibaba tuning in the aggregate", () => {
     const definitions: QuotaProviderDefinition[] = [
       {
-        id: "qwen-code",
-        providerId: "qwen-code",
-        label: "qwen-code",
+        id: "alibaba-coding-plan",
+        providerId: "alibaba-coding-plan",
+        label: "alibaba-coding-plan",
         mode: "local-estimate",
         windows: [
-          { id: "daily", label: "daily", type: "utc-day", requestLimit: 1000 },
           {
-            id: "rpm",
-            label: "rpm",
+            id: "five-hour",
+            label: "five-hour",
             type: "rolling",
-            durationMinutes: 1,
-            requestLimit: 60,
+            durationMinutes: 300,
+            requestLimit: 1200,
+          },
+          {
+            id: "weekly",
+            label: "weekly",
+            type: "rolling",
+            durationMinutes: 10080,
+            requestLimit: 9000,
+          },
+          {
+            id: "monthly",
+            label: "monthly",
+            type: "rolling",
+            durationMinutes: 43200,
+            requestLimit: 18000,
           },
         ],
       },
@@ -269,7 +282,7 @@ describe("quota-providers aggregate provider", () => {
     expect(
       selectEligibleQuotaProviders({
         definitions,
-        availableProviderIds: new Set(["qwen-code", "custom"]),
+        availableProviderIds: new Set(["alibaba-coding-plan", "custom"]),
       }).map((definition) => definition.id),
     ).toEqual(["custom"]);
   });

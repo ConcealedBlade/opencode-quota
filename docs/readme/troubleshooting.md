@@ -138,20 +138,6 @@ Run `/quota_status` and check the Cursor section.
 </details>
 
 <details>
-<summary><strong>Qwen Code</strong></summary>
-
-Run `/quota_status` and check `qwen_oauth_source`, `qwen_local_plan`, and the `qwen_code` live probe section.
-
-| Symptom              | Fix                                                                                                          |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Qwen not detected    | Put `opencode-qwencode-auth` before `@slkiser/opencode-quota` in `opencode.json`.                            |
-| Auth missing         | Complete the Qwen companion plugin auth flow.                                                                |
-| Counters do not move | Confirm the current model is `qwen-code/*`; Qwen quota is local request estimation for matching model usage. |
-| Usage looks stale    | Check the local state file path shown by `/quota_status`.                                                    |
-
-</details>
-
-<details>
 <summary><strong>Alibaba Coding Plan</strong></summary>
 
 Run `/quota_status` and check the Alibaba auth, resolved tier, state-file path, and `alibaba_coding_plan` live probe section.

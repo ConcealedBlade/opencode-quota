@@ -468,7 +468,6 @@ describe("collectQuotaRenderData shared quota state", () => {
   it.each([
     ["claude", "anthropic"],
     ["open-cursor", "cursor"],
-    ["qwen", "qwen-code"],
     ["alibaba", "alibaba-coding-plan"],
   ])("fails closed for normalization-only provider synonym %s", (currentProviderID, providerId) => {
     expect(

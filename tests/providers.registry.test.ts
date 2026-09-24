@@ -11,7 +11,6 @@ const EXPECTED_PROVIDER_ORDER = [
   "openrouter",
   "kilo",
   "cursor",
-  "qwen-code",
   "alibaba-coding-plan",
   "alibaba-token-plan",
   "synthetic",

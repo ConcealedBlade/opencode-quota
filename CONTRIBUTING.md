@@ -110,7 +110,7 @@ Recommended settings for `main`:
 
 Additional boundary tests to keep healthy when touching plugin/provider logic:
 
-- `tests/plugin.qwen-hook.test.ts`
+- `tests/plugin.question-hook.test.ts`
 - `tests/quota-provider-boundary.test.ts`
 
 ## Provider Changes

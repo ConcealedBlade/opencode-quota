@@ -15,10 +15,10 @@ import {
   TUI_PROVIDER_AVAILABILITY_HORIZON_MS,
 } from "./helpers/tui-provider-availability-timing.js";
 
-const ORDERED_PROVIDER_IDS = ["cursor", "qwen-code", "alibaba-coding-plan"] as const;
-const AVAILABLE_PROVIDER_IDS = ["cursor", "qwen-code"] as const;
+const ORDERED_PROVIDER_IDS = ["cursor", "synthetic", "alibaba-coding-plan"] as const;
+const AVAILABLE_PROVIDER_IDS = ["cursor", "synthetic"] as const;
 const NOTICE_TEXT = "Notice: Maintainer announcement available. Run /quota_announcements.";
-const COMPACT_TEXT = "Cursor timing 80% | Qwen timing 60% | +1 issue";
+const COMPACT_TEXT = "Cursor timing 80% | Synthetic timing 60% | +1 issue";
 const COMBINED_OUTPUT = JSON.stringify({
   status: "ready",
   announcementText: NOTICE_TEXT,
@@ -120,7 +120,7 @@ function createProviders(params: {
 }): QuotaProvider[] {
   const results: Record<(typeof AVAILABLE_PROVIDER_IDS)[number], QuotaProviderResult> = {
     cursor: createProviderResult("Cursor timing", 80),
-    "qwen-code": createProviderResult("Qwen timing", 60),
+    synthetic: createProviderResult("Synthetic timing", 60),
   };
 
   return ORDERED_PROVIDER_IDS.map(
@@ -299,8 +299,8 @@ describe("TUI home provider availability timing", () => {
       expect(result.homeCompletion).toEqual(result.readyCompact);
       expectInvariantVectors({
         result,
-        callsByProvider: { cursor: 2, "qwen-code": 1, "alibaba-coding-plan": 2 },
-        fetchesByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 0 },
+        callsByProvider: { cursor: 2, synthetic: 1, "alibaba-coding-plan": 2 },
+        fetchesByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 0 },
         outputSignature: COMBINED_OUTPUT,
       });
     }
@@ -329,8 +329,8 @@ describe("TUI home provider availability timing", () => {
     });
     expectInvariantVectors({
       result: jitterResult,
-      callsByProvider: { cursor: 2, "qwen-code": 1, "alibaba-coding-plan": 2 },
-      fetchesByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 0 },
+      callsByProvider: { cursor: 2, synthetic: 1, "alibaba-coding-plan": 2 },
+      fetchesByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 0 },
       outputSignature: COMBINED_OUTPUT,
     });
 
@@ -356,8 +356,8 @@ describe("TUI home provider availability timing", () => {
     });
     expectInvariantVectors({
       result: compactOnlyResult,
-      callsByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 1 },
-      fetchesByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 0 },
+      callsByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 1 },
+      fetchesByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 0 },
       outputSignature: COMPACT_ONLY_OUTPUT,
     });
 
@@ -390,8 +390,8 @@ describe("TUI home provider availability timing", () => {
     });
     expectInvariantVectors({
       result: announcementOnlyResult,
-      callsByProvider: { cursor: 1, "qwen-code": 0, "alibaba-coding-plan": 1 },
-      fetchesByProvider: { cursor: 0, "qwen-code": 0, "alibaba-coding-plan": 0 },
+      callsByProvider: { cursor: 1, synthetic: 0, "alibaba-coding-plan": 1 },
+      fetchesByProvider: { cursor: 0, synthetic: 0, "alibaba-coding-plan": 0 },
       outputSignature: ANNOUNCEMENT_ONLY_OUTPUT,
     });
   });
@@ -420,8 +420,8 @@ describe("TUI home provider availability timing", () => {
     });
     expectInvariantVectors({
       result: untargetedFixedResult,
-      callsByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 1 },
-      fetchesByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 0 },
+      callsByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 1 },
+      fetchesByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 0 },
       outputSignature: COMBINED_OUTPUT,
     });
 
@@ -450,14 +450,14 @@ describe("TUI home provider availability timing", () => {
     });
     expectInvariantVectors({
       result: untargetedJitterResult,
-      callsByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 1 },
-      fetchesByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 0 },
+      callsByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 1 },
+      fetchesByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 0 },
       outputSignature: COMBINED_OUTPUT,
     });
 
     const mixedDelayResult = await runProviderAvailabilityTimingSamples({
       scenario: "mixed-delay-combined",
-      delayDescription: "cursor=10,qwen-code=100,alibaba-coding-plan=40 ms",
+      delayDescription: "cursor=10,synthetic=100,alibaba-coding-plan=40 ms",
       orderedProviderIds: ORDERED_PROVIDER_IDS,
       runSample: () =>
         runSample({
@@ -465,7 +465,7 @@ describe("TUI home provider availability timing", () => {
           controlledDelayMs: 100,
           controlledDelayByProvider: {
             cursor: 10,
-            "qwen-code": 100,
+            synthetic: 100,
             "alibaba-coding-plan": 40,
           },
           announcementEnabled: true,
@@ -483,8 +483,8 @@ describe("TUI home provider availability timing", () => {
     });
     expectInvariantVectors({
       result: mixedDelayResult,
-      callsByProvider: { cursor: 2, "qwen-code": 1, "alibaba-coding-plan": 1 },
-      fetchesByProvider: { cursor: 1, "qwen-code": 1, "alibaba-coding-plan": 0 },
+      callsByProvider: { cursor: 2, synthetic: 1, "alibaba-coding-plan": 1 },
+      fetchesByProvider: { cursor: 1, synthetic: 1, "alibaba-coding-plan": 0 },
       outputSignature: COMBINED_OUTPUT,
     });
   });

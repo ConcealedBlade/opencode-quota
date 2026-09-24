@@ -63,9 +63,9 @@ v4 JSON uses schema `version: 2`. It clearly labels quota, usage, spend, budget,
 
 Update any app or script that reads the JSON before depending on v4 output. See [External integration](external-integration.md).
 
-### Alibaba and Qwen custom limits
+### Alibaba custom limits
 
-Built-in limits continue to work. If you changed Alibaba or Qwen limits, add those changes through `quotaProviders`. See [Custom providers](configuration.md#custom-providers).
+Built-in limits continue to work. If you changed Alibaba limits, add those changes through `quotaProviders`. See [Custom providers](configuration.md#custom-providers).
 
 ## Check the update
 

@@ -13,7 +13,6 @@ describe("upstream-plugin-specs", () => {
       "opencode-antigravity-auth",
       "opencode-cursor-oauth",
       "opencode-gemini-auth",
-      "opencode-qwencode-auth",
       "opencode-agy-auth",
     ]);
   });

@@ -115,19 +115,6 @@ export const QUOTA_PROVIDER_REGISTRATION_SOURCE = [
     },
   },
   {
-    id: "qwen-code",
-    label: "Qwen",
-    runtimeIds: ["qwen-code"],
-    synonyms: ["qwen"],
-    liveLocalUsage: true,
-    shape: {
-      autoSetup: "needs_quick_setup",
-      authentication: "companion_auth_oauth_token",
-      quota: "local_estimation",
-      quickSetupAnchor: "qwen-code",
-    },
-  },
-  {
     id: "alibaba-coding-plan",
     label: "Alibaba Coding Plan",
     runtimeIds: ["alibaba-coding-plan"],

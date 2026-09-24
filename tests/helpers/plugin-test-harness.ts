@@ -32,7 +32,6 @@ interface SessionTokenMocks {
 
 interface AuthPlanMocks {
   resolveAlibabaCodingPlanAuthCached?: MockFunction;
-  resolveQwenLocalPlanCached?: MockFunction;
 }
 
 interface PluginBootstrapMocks extends PricingMocks, AuthPlanMocks {
@@ -131,14 +130,6 @@ export function createPricingModuleMock(mocks: PricingMocks) {
 
 export function createSessionTokensModuleMock(fetchSessionTokensForDisplay: MockFunction) {
   return { fetchSessionTokensForDisplay };
-}
-
-export function createQwenAuthModuleMock(resolveQwenLocalPlanCached: MockFunction) {
-  return {
-    isQwenCodeModelId: (model?: string) =>
-      typeof model === "string" && model.toLowerCase().startsWith("qwen-code/"),
-    resolveQwenLocalPlanCached,
-  };
 }
 
 export function createAlibabaAuthModuleMock(resolveAlibabaCodingPlanAuthCached: MockFunction) {
@@ -280,7 +271,6 @@ export function seedDefaultSessionTokenMocks(mocks: SessionTokenMocks): void {
 }
 
 export function seedDefaultAuthPlanMocks(mocks: AuthPlanMocks): void {
-  mocks.resolveQwenLocalPlanCached?.mockResolvedValue({ state: "none" });
   mocks.resolveAlibabaCodingPlanAuthCached?.mockResolvedValue({ state: "none" });
 }
 

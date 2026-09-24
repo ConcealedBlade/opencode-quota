@@ -75,7 +75,6 @@ const COMPANION_PLUGIN_PROVIDER_IDS: ReadonlyArray<{
   providerId: string;
   matches: readonly string[];
 }> = [
-  { providerId: "qwen-code", matches: ["opencode-qwencode-auth"] },
   { providerId: "google-antigravity", matches: ["opencode-antigravity-auth"] },
   { providerId: "google-gemini-cli", matches: ["opencode-gemini-auth"] },
   {

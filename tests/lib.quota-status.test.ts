@@ -84,22 +84,15 @@ vi.mock("../src/lib/openrouter.js", () => ({
   resolveOpenRouterApiKey: openrouterMocks.resolveOpenRouterApiKey,
 }));
 
-vi.mock("../src/lib/qwen-local-quota.js", () => ({
-  QWEN_LOCAL_QUOTA_STATE_VERSION: 1,
+vi.mock("../src/lib/alibaba-coding-plan-local-quota.js", () => ({
   ALIBABA_CODING_PLAN_STATE_VERSION: 1,
-  computeQwenQuota: () => ({
-    day: { used: 0, limit: 1000 },
-    rpm: { used: 0, limit: 60 },
-  }),
   computeAlibabaCodingPlanQuota: () => ({
     tier: "lite",
     fiveHour: { used: 0, limit: 1200 },
     weekly: { used: 0, limit: 9000 },
     monthly: { used: 0, limit: 18000 },
   }),
-  getQwenLocalQuotaPath: () => "/tmp/qwen-state.json",
   getAlibabaCodingPlanQuotaPath: () => "/tmp/alibaba-state.json",
-  readQwenLocalQuotaState: vi.fn(async () => ({})),
   readAlibabaCodingPlanQuotaState: vi.fn(async () => ({})),
 }));
 
@@ -366,19 +359,10 @@ describe("buildQuotaStatusReport", () => {
     expect(section).not.toContain("401");
   });
 
-  it("uses maintained Qwen and Alibaba probes and state paths for tuning diagnostics", async () => {
+  it("uses maintained Alibaba probes and state paths for tuning diagnostics", async () => {
     const report = await buildQuotaStatusReportForTest({
-      enabledProviders: ["qwen-code", "alibaba-coding-plan"],
+      enabledProviders: ["alibaba-coding-plan"],
       quotaProviders: [
-        {
-          id: "qwen-code",
-          providerId: "qwen-code",
-          mode: "local-estimate",
-          windows: [
-            { id: "daily", type: "utc-day", requestLimit: 900 },
-            { id: "rpm", type: "rolling", durationMinutes: 1, requestLimit: 50 },
-          ],
-        },
         {
           id: "alibaba-coding-plan",
           providerId: "alibaba-coding-plan",
@@ -391,27 +375,6 @@ describe("buildQuotaStatusReport", () => {
         },
       ],
       providerLiveProbes: [
-        {
-          providerId: "qwen-code",
-          result: {
-            attempted: true,
-            entries: [
-              {
-                accounting: QUOTA_ACCOUNTING,
-                name: "Qwen Free Daily",
-                percentRemaining: 90,
-              },
-            ],
-            errors: [{ label: "Qwen", message: "one local row failed" }],
-            statusDetails: makeStatusDetails({
-              local_state_path: "/tmp/qwen-state.json",
-              local_state_exists: "true",
-              local_state_health: "valid",
-              local_state_version: "1",
-              local_state_last_update: "2026-03-12T12:00:00.000Z",
-            }),
-          },
-        },
         {
           providerId: "alibaba-coding-plan",
           result: {
@@ -438,16 +401,10 @@ describe("buildQuotaStatusReport", () => {
 
     const section = getReportSection(report, "quota_providers:");
     expect(section).toContain(
-      "provider_qwen-code: provider_id=qwen-code mode=local-estimate coverage=all_models outcome=partial",
-    );
-    expect(section).toContain("limits=daily:900,rpm:50");
-    expect(section).toContain("state_path=/tmp/qwen-state.json");
-    expect(section).toContain(
       "provider_alibaba-coding-plan: provider_id=alibaba-coding-plan mode=local-estimate coverage=all_models outcome=success",
     );
     expect(section).toContain("limits=five-hour:1000,weekly:8000,monthly:16000");
     expect(section).toContain("state_path=/tmp/alibaba-state.json");
-    expect(section).not.toContain("quota-providers/qwen-code.json");
     expect(section).not.toContain("quota-providers/alibaba-coding-plan.json");
   });
 
@@ -774,7 +731,6 @@ describe("buildQuotaStatusReport", () => {
     const report = await buildQuotaStatusReportForTest({
       enabledProviders: [
         "openai",
-        "qwen-code",
         "alibaba-coding-plan",
         "alibaba-token-plan",
         "minimax-coding-plan",
@@ -792,18 +748,6 @@ describe("buildQuotaStatusReport", () => {
               name: "OpenAI Pro",
               percentRemaining: 91,
               right: "91/100",
-              resetTimeIso: "2026-04-22T00:00:00.000Z",
-            },
-          ],
-        }),
-        makeProviderProbe("qwen-code", {
-          attempted: true,
-          entries: [
-            {
-              label: "Daily",
-              name: "Qwen Code Daily",
-              percentRemaining: 88,
-              right: "120/1000",
               resetTimeIso: "2026-04-22T00:00:00.000Z",
             },
           ],
@@ -868,11 +812,7 @@ describe("buildQuotaStatusReport", () => {
       "- live_entry_1: Pro 91/100 percent_remaining=91 reset_at=2026-04-22T00:00:00.000Z",
     );
 
-    const qwenSection = getReportSection(report, "qwen_code:");
-    expect(qwenSection).toContain("- live_probe: success");
-    expect(qwenSection).toContain(
-      "- live_entry_1: Daily 120/1000 percent_remaining=88 reset_at=2026-04-22T00:00:00.000Z",
-    );
+    expect(report).not.toContain("qwen_code:");
 
     const alibabaSection = getReportSection(report, "alibaba_coding_plan:");
     expect(alibabaSection).toContain("- live_probe: no_data");
@@ -1568,11 +1508,6 @@ describe("buildQuotaStatusReport", () => {
     const report = await buildProviderStatusReport("copilot", {
       configSource: "defaults",
       providerLiveProbes: [
-        makeProviderSuccessProbe("qwen-code", {
-          "qwen oauth auth configured": "false",
-          qwen_oauth_source: "(none)",
-          qwen_local_plan: "(none)",
-        }),
         makeProviderSuccessProbe("alibaba-coding-plan", {
           "alibaba auth configured": "false",
           alibaba_api_key_source: "(none)",
@@ -1632,9 +1567,6 @@ describe("buildQuotaStatusReport", () => {
       paths:
       - opencode_dirs: data=/tmp/data config=/tmp/config cache=/tmp/cache state=/tmp/state
       - auth.json: preferred=/tmp/auth.json present=(none) candidates=/tmp/auth.json
-      - qwen oauth auth configured: false
-      - qwen_oauth_source: (none)
-      - qwen_local_plan: (none)
       - alibaba auth configured: false
       - alibaba_api_key_source: (none)
       - alibaba_api_key_checked_paths: (none)
@@ -1661,7 +1593,10 @@ describe("buildQuotaStatusReport", () => {
       cursor:
       - plan: none
       - included_api_usd: (none)
-      - billing_cycle_start_day: (calendar month)"
+      - billing_cycle_start_day: (calendar month)
+
+      minimax:
+      "
     `);
 
     const titles = report

@@ -555,14 +555,6 @@ function supportedProviderPricingRow(params: {
     };
   }
 
-  if (id === "qwen-code") {
-    return {
-      id,
-      pricing: "no",
-      notes: "local request-count estimate (free tier, no token pricing API)",
-    };
-  }
-
   if (id === "alibaba-coding-plan") {
     return {
       id,
@@ -847,12 +839,6 @@ export async function buildQuotaStatusReport(params: {
 
   appendProviderStatusDetailRows(
     pathsRows,
-    "qwen-code",
-    params.providerLiveProbes,
-    new Set(["qwen oauth auth configured", "qwen_oauth_source", "qwen_local_plan"]),
-  );
-  appendProviderStatusDetailRows(
-    pathsRows,
     "alibaba-coding-plan",
     params.providerLiveProbes,
     new Set([
@@ -887,12 +873,6 @@ export async function buildQuotaStatusReport(params: {
 
   appendProviderStatusDetailRows(
     cursorRows,
-    "qwen-code",
-    params.providerLiveProbes,
-    new Set(["qwen free local quota"]),
-  );
-  appendProviderStatusDetailRows(
-    cursorRows,
     "alibaba-coding-plan",
     params.providerLiveProbes,
     new Set(["alibaba coding plan local quota", "alibaba coding plan error"]),
@@ -904,17 +884,6 @@ export async function buildQuotaStatusReport(params: {
     params.providerAvailability,
   );
   sections.push(createKvSection("cursor", "cursor:", cursorRows));
-
-  const qwenCodeLiveProbeSection = createCompactLiveProbeOnlySection({
-    id: "qwen_code",
-    title: "qwen_code:",
-    providerId: "qwen-code",
-    probes: params.providerLiveProbes,
-    availability: params.providerAvailability,
-  });
-  if (qwenCodeLiveProbeSection) {
-    sections.push(qwenCodeLiveProbeSection);
-  }
 
   const alibabaCodingPlanLiveProbeSection = createCompactLiveProbeOnlySection({
     id: "alibaba_coding_plan",

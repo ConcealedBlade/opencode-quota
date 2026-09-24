@@ -6,13 +6,11 @@ import {
   createConfigModuleMock,
   createPluginToolMockModule,
   createPricingModuleMock,
-  createQwenAuthModuleMock,
   seedDefaultPluginBootstrapMocks,
 } from "./helpers/plugin-test-harness.js";
 
 const mocks = vi.hoisted(() => ({
   loadConfig: vi.fn(),
-  resolveQwenLocalPlanCached: vi.fn(),
   resolveAlibabaCodingPlanAuthCached: vi.fn(),
   getPricingSnapshotMeta: vi.fn(),
   getPricingSnapshotSource: vi.fn(),
@@ -32,9 +30,6 @@ vi.mock("../src/lib/opencode-auth.js", () => ({
   getAuthPaths: vi.fn(() => ["/tmp/auth.json"]),
   clearReadAuthFileCacheForTests: vi.fn(),
 }));
-vi.mock("../src/lib/qwen-auth.js", () =>
-  createQwenAuthModuleMock(mocks.resolveQwenLocalPlanCached),
-);
 vi.mock("../src/lib/alibaba-auth.js", () =>
   createAlibabaAuthModuleMock(mocks.resolveAlibabaCodingPlanAuthCached),
 );
@@ -50,7 +45,7 @@ describe("plugin question hook accounting boundary", () => {
   });
 
   it("does not treat a successful question-tool execution as a completed model request", async () => {
-    const client = createClient({ modelID: "qwen3-coder-plus", providerID: "qwen-code" });
+    const client = createClient({ modelID: "qwen3-coder-plus", providerID: "alibaba-coding-plan" });
     const hooks = await QuotaToastPlugin({ client } as any);
 
     await hooks["tool.execute.after"]?.(
@@ -59,12 +54,11 @@ describe("plugin question hook accounting boundary", () => {
     );
 
     expect(client.session.get).not.toHaveBeenCalled();
-    expect(mocks.resolveQwenLocalPlanCached).not.toHaveBeenCalled();
     expect(mocks.resolveAlibabaCodingPlanAuthCached).not.toHaveBeenCalled();
   });
 
   it("does not use question-tool failure metadata as accounting authority", async () => {
-    const client = createClient({ modelID: "qwen3-coder-plus", providerID: "qwen-code" });
+    const client = createClient({ modelID: "qwen3-coder-plus", providerID: "alibaba-coding-plan" });
     const hooks = await QuotaToastPlugin({ client } as any);
 
     await hooks["tool.execute.after"]?.(
@@ -73,6 +67,6 @@ describe("plugin question hook accounting boundary", () => {
     );
 
     expect(client.session.get).not.toHaveBeenCalled();
-    expect(mocks.resolveQwenLocalPlanCached).not.toHaveBeenCalled();
+    expect(mocks.resolveAlibabaCodingPlanAuthCached).not.toHaveBeenCalled();
   });
 });

@@ -258,16 +258,17 @@ describe("provider add global config workflow", () => {
     expect(await readFile(sidecarPath, "utf8")).toContain("// preserve");
   });
 
-  it("does not require a normal provider block for maintained Qwen tuning", async () => {
+  it("does not require a normal provider block for maintained Alibaba tuning", async () => {
     const dir = await configDir();
     const plan = await planProviderAdd({
       configDir: dir,
       definition: {
-        id: "qwen-code",
+        id: "alibaba-coding-plan",
         mode: "local-estimate",
         windows: [
-          { id: "daily", type: "utc-day", requestLimit: 2000 },
-          { id: "rpm", type: "rolling", durationMinutes: 1, requestLimit: 120 },
+          { id: "five-hour", type: "rolling", durationMinutes: 300, requestLimit: 2000 },
+          { id: "weekly", type: "rolling", durationMinutes: 10080, requestLimit: 10000 },
+          { id: "monthly", type: "rolling", durationMinutes: 43200, requestLimit: 20000 },
         ],
       },
     });

@@ -706,7 +706,7 @@ describe("tui runtime helpers", () => {
       throw new Error("state is not hydrated");
     });
     const sessionGet = vi.fn().mockResolvedValue({
-      data: { model: { providerID: "qwen-code", id: "qwen3-coder-plus" } },
+      data: { model: { providerID: "alibaba-coding-plan", id: "qwen3-coder-plus" } },
     });
     const messages = vi.fn(() => []);
 
@@ -722,7 +722,7 @@ describe("tui runtime helpers", () => {
     expect(sessionGet).toHaveBeenCalledWith({ sessionID: "session-throwing-state" });
     expect(messages).not.toHaveBeenCalled();
     expect(meta).toEqual({
-      providerID: "qwen-code",
+      providerID: "alibaba-coding-plan",
       modelID: "qwen3-coder-plus",
     });
   });

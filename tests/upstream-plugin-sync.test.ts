@@ -110,14 +110,6 @@ async function seedReferenceRoot(repoRoot: string) {
             repo: "anthonyhaussman/opencode-agy-auth",
             version: "1.0.0",
           },
-          "opencode-qwencode-auth": {
-            npmUrl: "https://www.npmjs.com/package/opencode-qwencode-auth/v/1.0.0",
-            packageName: "opencode-qwencode-auth",
-            publishedAt: "2026-03-01T00:00:00.000Z",
-            referenceDir: "references/upstream-plugins/opencode-qwencode-auth",
-            repo: "gustavodiasdev/opencode-qwencode-auth",
-            version: "1.0.0",
-          },
         },
       },
       null,
@@ -130,7 +122,6 @@ async function seedReferenceRoot(repoRoot: string) {
     "opencode-antigravity-auth",
     "opencode-cursor-oauth",
     "opencode-gemini-auth",
-    "opencode-qwencode-auth",
     "opencode-agy-auth",
   ]) {
     const pluginDir = path.join(referenceRoot, pluginId);
@@ -206,19 +197,6 @@ describe("upstream-plugin-sync", () => {
           version: "2.0.0",
         },
       ],
-      [
-        "opencode-qwencode-auth",
-        {
-          npmUrl: "https://www.npmjs.com/package/opencode-qwencode-auth/v/2.0.0",
-          packageName: "opencode-qwencode-auth",
-          pluginId: "opencode-qwencode-auth",
-          publishedAt: "2026-03-20T00:00:00.000Z",
-          referenceDir: "references/upstream-plugins/opencode-qwencode-auth",
-          repo: "gustavodiasdev/opencode-qwencode-auth",
-          tarballUrl: "https://example.test/opencode-qwencode-auth-2.0.0.tgz",
-          version: "2.0.0",
-        },
-      ],
     ]);
 
     await seedReferenceRoot(testState.repoRoot);
@@ -241,7 +219,7 @@ describe("upstream-plugin-sync", () => {
     const result = await syncUpstreamPluginReferences();
     const referenceRoot = path.join(testState.repoRoot, "references", "upstream-plugins");
 
-    expect(result.syncedPlugins).toHaveLength(5);
+    expect(result.syncedPlugins).toHaveLength(4);
     await expect(readFile(path.join(referenceRoot, "README.md"), "utf8")).resolves.toBe(
       "reference readme\n",
     );

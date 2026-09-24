@@ -56,6 +56,10 @@ After installation:
 
 The updater prints the complete preview before its own config or cache changes. `--yes` authorizes only the previewed safe config edits and manifest-verified cache cleanup; it never moves or deletes secrets. See [Updating safely](docs/readme/updating.md) for detailed behavior and manual credential steps.
 
+**Breaking changes in 4.10.3:**
+
+- Qwen Code was removed because Qwen ended its OAuth free tier; use Alibaba Coding Plan.
+
 ## Choose your setup
 
 <table>
@@ -193,7 +197,6 @@ Gemini CLI quota support is deprecated for new installs. Existing v4 configurati
 | Kimi Code (CN)                | Automatic                                                                    | Remote API     | Quota              |
 | MiniMax Token Plan            | Automatic                                                                    | Remote API     | Quota              |
 | MiniMax Token Plan (CN)       | Automatic                                                                    | Remote API     | Quota              |
-| Qwen Code                     | [Needs setup](docs/readme/providers.md#qwen-code)                            | Local estimate | Quota              |
 | Xiaomi MiMo                   | [Needs setup](docs/readme/providers.md#xiaomi-mimo)                          | Dashboard API  | Quota and balance  |
 | Z.ai Coding Plan              | Automatic                                                                    | Remote API     | Quota              |
 | Zhipu Coding Plan             | Automatic                                                                    | Remote API     | Quota              |

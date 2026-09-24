@@ -1,22 +1,16 @@
 import { join } from "path";
 
 import { writeJsonAtomic } from "./atomic-json.js";
-import type { FixedWindowProjectionEvidence } from "./entries.js";
 import { clampPercent } from "./format-utils.js";
 import { getOpencodeRuntimeDirs } from "./opencode-runtime-paths.js";
 import type { OpenCodeMessage } from "./opencode-storage.js";
 import { iterCompletedAssistantMessages } from "./opencode-storage.js";
 import type { AlibabaCodingPlanTier } from "./types.js";
 
-export const QWEN_LOCAL_QUOTA_STATE_VERSION = 1 as const;
 export const ALIBABA_CODING_PLAN_STATE_VERSION = 1 as const;
-const QWEN_FREE_DAILY_LIMIT = 1000;
-const QWEN_FREE_RPM_LIMIT = 60;
-const RPM_WINDOW_MS = 60_000;
 const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000;
 const WEEKLY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const MONTHLY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-const MAX_QWEN_RECENT_TIMESTAMPS = 300;
 
 export const ALIBABA_CODING_PLAN_LIMITS: Readonly<
   Record<AlibabaCodingPlanTier, { fiveHour: number; weekly: number; monthly: number }>
@@ -37,34 +31,10 @@ const MAX_ALIBABA_MONTHLY_LIMIT = Math.max(
   ...Object.values(ALIBABA_CODING_PLAN_LIMITS).map((limits) => limits.monthly),
 );
 
-export interface QwenLocalQuotaStateFileV1 {
-  version: 1;
-  utcDay: string;
-  dayCount: number;
-  recent: number[];
-  updatedAt: number;
-}
-
 export interface AlibabaCodingPlanStateFileV1 {
   version: 1;
   recent: number[];
   updatedAt: number;
-}
-
-export interface QwenComputedQuota {
-  day: {
-    used: number;
-    limit: number;
-    percentRemaining: number;
-    resetTimeIso: string;
-    fixedWindow?: FixedWindowProjectionEvidence;
-  };
-  rpm: {
-    used: number;
-    limit: number;
-    percentRemaining: number;
-    resetTimeIso?: string;
-  };
 }
 
 interface RollingComputedQuotaWindow {
@@ -81,71 +51,10 @@ export interface AlibabaCodingPlanComputedQuota {
   monthly: RollingComputedQuotaWindow;
 }
 
-function utcDayKey(tsMs: number): string {
-  return new Date(tsMs).toISOString().slice(0, 10);
-}
-
-function utcDayStart(tsMs: number): number {
-  const now = new Date(tsMs);
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-}
-
-function nextUtcMidnightIso(tsMs: number): string {
-  const now = new Date(tsMs);
-  const nextMidnight = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1,
-    0,
-    0,
-    0,
-  );
-  return new Date(nextMidnight).toISOString();
-}
-
-function defaultQwenState(nowMs: number): QwenLocalQuotaStateFileV1 {
-  return {
-    version: QWEN_LOCAL_QUOTA_STATE_VERSION,
-    utcDay: utcDayKey(nowMs),
-    dayCount: 0,
-    recent: [],
-    updatedAt: nowMs,
-  };
-}
-
 function defaultAlibabaState(nowMs: number): AlibabaCodingPlanStateFileV1 {
   return {
     version: ALIBABA_CODING_PLAN_STATE_VERSION,
     recent: [],
-    updatedAt: nowMs,
-  };
-}
-
-function applyUtcResetAndPrune(
-  state: QwenLocalQuotaStateFileV1,
-  nowMs: number,
-): QwenLocalQuotaStateFileV1 {
-  const today = utcDayKey(nowMs);
-  const recentFloor = nowMs - RPM_WINDOW_MS;
-  const recent = state.recent
-    .filter((ts) => ts >= recentFloor && ts <= nowMs)
-    .slice(-MAX_QWEN_RECENT_TIMESTAMPS);
-
-  if (state.utcDay !== today) {
-    return {
-      version: QWEN_LOCAL_QUOTA_STATE_VERSION,
-      utcDay: today,
-      dayCount: 0,
-      recent,
-      updatedAt: nowMs,
-    };
-  }
-
-  return {
-    version: QWEN_LOCAL_QUOTA_STATE_VERSION,
-    utcDay: today,
-    dayCount: state.dayCount,
-    recent,
     updatedAt: nowMs,
   };
 }
@@ -199,11 +108,6 @@ function computeRollingWindow(params: {
   };
 }
 
-export function getQwenLocalQuotaPath(): string {
-  const { stateDir } = getOpencodeRuntimeDirs();
-  return join(stateDir, "opencode-quota", "qwen-local-quota.json");
-}
-
 export function getAlibabaCodingPlanQuotaPath(): string {
   const { stateDir } = getOpencodeRuntimeDirs();
   return join(stateDir, "opencode-quota", "alibaba-coding-plan-local-quota.json");
@@ -215,10 +119,7 @@ interface MaintainedLocalQuotaDependencies {
     completedSinceMs: number;
     completedUntilMs: number;
   }) => Promise<OpenCodeMessage[]>;
-  writeState?: (
-    path: string,
-    state: QwenLocalQuotaStateFileV1 | AlibabaCodingPlanStateFileV1,
-  ) => Promise<void>;
+  writeState?: (path: string, state: AlibabaCodingPlanStateFileV1) => Promise<void>;
 }
 
 function completedTimestamp(message: OpenCodeMessage): number | null {
@@ -270,39 +171,13 @@ async function readCompletedMessages(
 
 async function writeDerivedState(
   path: string,
-  state: QwenLocalQuotaStateFileV1 | AlibabaCodingPlanStateFileV1,
+  state: AlibabaCodingPlanStateFileV1,
   dependencies: MaintainedLocalQuotaDependencies,
 ): Promise<void> {
   const writeState =
     dependencies.writeState ??
     ((target, value) => writeJsonAtomic(target, value, { trailingNewline: true }));
   await writeState(path, state);
-}
-
-export async function readQwenLocalQuotaState(
-  dependencies: MaintainedLocalQuotaDependencies = {},
-): Promise<QwenLocalQuotaStateFileV1> {
-  const nowMs = dependencies.nowMs ?? Date.now();
-  const sinceMs = Date.UTC(
-    new Date(nowMs).getUTCFullYear(),
-    new Date(nowMs).getUTCMonth(),
-    new Date(nowMs).getUTCDate(),
-  );
-  const timestamps = completedTimestamps({
-    messages: await readCompletedMessages(dependencies, sinceMs, nowMs),
-    providerIds: ["qwen-code"],
-    sinceMs,
-    untilMs: nowMs,
-  });
-  const state: QwenLocalQuotaStateFileV1 = {
-    ...defaultQwenState(nowMs),
-    dayCount: timestamps.length,
-    recent: timestamps
-      .filter((timestamp) => timestamp >= nowMs - RPM_WINDOW_MS)
-      .slice(-MAX_QWEN_RECENT_TIMESTAMPS),
-  };
-  await writeDerivedState(getQwenLocalQuotaPath(), state, dependencies);
-  return state;
 }
 
 export async function readAlibabaCodingPlanQuotaState(
@@ -321,53 +196,6 @@ export async function readAlibabaCodingPlanQuotaState(
   };
   await writeDerivedState(getAlibabaCodingPlanQuotaPath(), state, dependencies);
   return state;
-}
-
-export function computeQwenQuota(params: {
-  state: QwenLocalQuotaStateFileV1;
-  nowMs?: number;
-  dayLimit?: number;
-  rpmLimit?: number;
-}): QwenComputedQuota {
-  const nowMs = params.nowMs ?? Date.now();
-  const dayLimit = params.dayLimit ?? QWEN_FREE_DAILY_LIMIT;
-  const rpmLimit = params.rpmLimit ?? QWEN_FREE_RPM_LIMIT;
-  const state = applyUtcResetAndPrune(params.state, nowMs);
-
-  const dayUsed = Math.max(0, Math.trunc(state.dayCount));
-  const rpmUsed = state.recent.length;
-  const oldestRecent = oldestTimestamp(state.recent);
-  const dayStartedAtMs = utcDayStart(nowMs);
-  const dayEndsAtIso = nextUtcMidnightIso(nowMs);
-  const fixedWindow =
-    dayStartedAtMs < state.updatedAt && state.updatedAt < Date.parse(dayEndsAtIso)
-      ? ({
-          kind: "fixed_window",
-          startedAtIso: new Date(dayStartedAtMs).toISOString(),
-          observedAtIso: new Date(state.updatedAt).toISOString(),
-          endsAtIso: dayEndsAtIso,
-          fullReset: true,
-        } as const)
-      : undefined;
-
-  return {
-    day: {
-      used: dayUsed,
-      limit: dayLimit,
-      percentRemaining: toPercentRemaining(dayUsed, dayLimit),
-      resetTimeIso: dayEndsAtIso,
-      ...(fixedWindow ? { fixedWindow } : {}),
-    },
-    rpm: {
-      used: rpmUsed,
-      limit: rpmLimit,
-      percentRemaining: toPercentRemaining(rpmUsed, rpmLimit),
-      resetTimeIso:
-        typeof oldestRecent === "number"
-          ? new Date(oldestRecent + RPM_WINDOW_MS).toISOString()
-          : undefined,
-    },
-  };
 }
 
 export function computeAlibabaCodingPlanQuota(params: {

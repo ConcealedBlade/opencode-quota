@@ -312,16 +312,6 @@ export interface CopilotAuthData {
 
 export type AlibabaCodingPlanTier = "lite" | "pro";
 
-export interface QwenOAuthAuthData {
-  type: string;
-  access?: string;
-  refresh?: string;
-  expires?: number;
-  plan?: string;
-  tier?: string;
-  [key: string]: unknown;
-}
-
 export interface CursorOAuthAuthData {
   type: string;
   access?: string;
@@ -488,10 +478,6 @@ export interface AuthData {
   "nano-gpt"?: NanoGptAuthData;
   deepseek?: DeepSeekAuthData;
   cursor?: CursorOAuthAuthData;
-  // Canonical OpenCode provider id used by the Qwen auth plugin.
-  "qwen-code"?: QwenOAuthAuthData;
-  // Legacy package-name key kept for backward compatibility with older installs.
-  "opencode-qwencode-auth"?: QwenOAuthAuthData;
   alibaba?: AlibabaAuthData;
   "alibaba-coding-plan"?: AlibabaAuthData;
   "zai-coding-plan"?: {

@@ -62,13 +62,6 @@ describe("provider-metadata", () => {
         notes: "companion runtime/plugin integration plus local usage accounting",
       },
       {
-        id: "qwen-code",
-        autoSetup: "needs_quick_setup",
-        authentication: "companion_auth_oauth_token",
-        quota: "local_estimation",
-        quickSetupAnchor: "qwen-code",
-      },
-      {
         id: "alibaba-coding-plan",
         autoSetup: "yes",
         authentication: "opencode_auth_api_key",
@@ -422,13 +415,6 @@ describe("provider-metadata", () => {
       quota: "remote_api",
       notes: "OAuth for personal flow; PAT for managed billing",
     });
-    expect(getQuotaProviderShape("qwen")).toEqual({
-      id: "qwen-code",
-      autoSetup: "needs_quick_setup",
-      authentication: "companion_auth_oauth_token",
-      quota: "local_estimation",
-      quickSetupAnchor: "qwen-code",
-    });
     expect(getQuotaProviderShape("alibaba")).toEqual({
       id: "alibaba-coding-plan",
       autoSetup: "yes",
@@ -502,6 +488,7 @@ describe("provider-metadata", () => {
       notes: "Reads the Xiaomi MiMo dashboard with a filtered trusted cookie",
     });
     expect(getQuotaProviderShape("not-a-provider")).toBeUndefined();
+    expect(getQuotaProviderShape("qwen-code")).toBeUndefined();
   });
 
   it("returns display labels for known providers", () => {

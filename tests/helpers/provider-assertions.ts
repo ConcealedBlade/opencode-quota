@@ -111,20 +111,6 @@ export const PROVIDER_ACCOUNTING_LEDGER: Record<string, Array<QuotaToastEntry["a
       authority: "locally_derived",
     },
   ],
-  "qwen-code": [
-    {
-      resultType: "quota",
-      acquisitionMethod: "local_estimation",
-      ownership: "maintained",
-      authority: "locally_derived",
-    },
-    {
-      resultType: "rate_limit",
-      acquisitionMethod: "local_estimation",
-      ownership: "maintained",
-      authority: "locally_derived",
-    },
-  ],
   "alibaba-coding-plan": [
     {
       resultType: "quota",
