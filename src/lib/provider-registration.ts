@@ -18,7 +18,6 @@ export type QuotaProviderQuotaSource =
   | "local_cli_report";
 
 export interface QuotaProviderShapeSource {
-  lifecycle?: "deprecated";
   recommendedReplacementId?: string;
   autoSetup: QuotaProviderAutoSetup;
   authentication: QuotaProviderAuthentication;
@@ -169,7 +168,6 @@ export const QUOTA_PROVIDER_REGISTRATION_SOURCE = [
     runtimeIds: ["google-gemini-cli", "gemini-cli", "gemini", "opencode-gemini-auth", "google"],
     synonyms: ["gemini-cli", "google-gemini", "opencode-gemini-auth", "gemini"],
     shape: {
-      lifecycle: "deprecated",
       recommendedReplacementId: "google-agy",
       autoSetup: "needs_quick_setup",
       authentication: "companion_auth_oauth_token",

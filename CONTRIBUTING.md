@@ -139,7 +139,7 @@ Keep README setup wording tied to real behavior.
 - Copy the template files to the target paths listed in `contributing/provider-template/README.md`.
 - Replace the example names, IDs, environment variables, and config keys before coding.
 - Add tests for every supported auth source; do not leave copied template tests skipped, todo-only, or unresolved.
-- Use the current README setup label—`Automatic`, `Needs setup`, or `Existing setups only`—that matches the real user workflow.
+- Use the current README setup label—`Automatic` or `Needs setup`—that matches the real user workflow.
 - In the PR checklist, state whether you started from the provider template; if not, explain why it does not apply.
 
 ### Accounting Result Contract

@@ -8,7 +8,7 @@
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Provider support                     | [Pre-configured providers](#pre-configured-providers) · [Custom providers](#custom-providers)                                                                                                                         |
 | Billing, API key, or dashboard setup | [GitHub Copilot](#github-copilot) · [DeepSeek](#deepseek) · [Kilo Gateway](#kilo-gateway) · [Xiaomi MiMo](#xiaomi-mimo) · [Ollama Cloud](#ollama-cloud) · [OpenCode Go](#opencode-go) · [OpenCode Zen](#opencode-zen) |
-| CLI or companion-plugin setup        | [Anthropic](#anthropic-claude) · [Cursor](#cursor) · [Alibaba Personal Token Plan](#alibaba-personal-token-plan) · [Google AGY](#google-agy-quick-setup) · [Gemini CLI (deprecated)](#gemini-cli) |
+| CLI or companion-plugin setup        | [Anthropic](#anthropic-claude) · [Cursor](#cursor) · [Alibaba Personal Token Plan](#alibaba-personal-token-plan) · [Google AGY](#google-agy-quick-setup) · [Gemini CLI](#gemini-cli) |
 
 ## Pre-configured providers
 
@@ -46,7 +46,7 @@ Most providers work automatically. `Automatic` means OpenCode Quota reuses the c
 | Anthropic (Claude)      | [Needs setup](#anthropic-claude)       | Local CLI/OAuth    | Quota              |
 | Chutes AI               | Automatic                              | Remote API         | Quota              |
 | Cursor                  | [Needs setup](#cursor)                 | Local estimate     | Budget and spend   |
-| Gemini CLI (deprecated) | [Existing setups only](#gemini-cli)    | Remote API         | Quota              |
+| Gemini CLI              | [Needs setup](#gemini-cli)             | Remote API         | Quota              |
 | GitHub Copilot          | [Needs setup](#github-copilot)         | Remote API         | Budget and usage   |
 | Google AGY              | [Needs setup](#google-agy-quick-setup) | Remote API         | Quota              |
 | NanoGPT                 | Automatic                              | Remote API         | Quota and balance  |
@@ -475,13 +475,9 @@ If the AGY auth entry does not include a project id, set `OPENCODE_AGY_PROJECT_I
 
 <a id="gemini-cli"></a>
 
-### Gemini CLI (deprecated)
+### Gemini CLI
 
-**Deprecated in v4.1:** Existing configurations, aliases, companion detection, authentication, and quota fetching continue to work unchanged. Do not use this provider for a new install. Removal is planned for v5.0.0, and OpenCode Quota does not switch providers or authentication automatically.
-
-Google's official Antigravity CLI replaces the individual Gemini CLI experience. Google AI Studio or Vertex AI are the supported choices for third-party access. Within OpenCode Quota, `google-agy` is the suggested successor for quota reporting; this is an OpenCode Quota recommendation, not a Google endorsement.
-
-The instructions below remain available only to maintain an existing setup.
+Gemini CLI works only with Gemini Code Assist Standard or Enterprise (organization) accounts. Google ended personal Gemini Code Assist accounts (individual, AI Pro, and AI Ultra) on 2026-06-18; see [Google's notice](https://developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals). Personal Google users should use [Google AGY](#google-agy-quick-setup).
 
 Use companion plugin [`opencode-gemini-auth`](https://github.com/jenslys/opencode-gemini-auth#readme). Add it before `@slkiser/opencode-quota` in `opencode.json`, then authenticate Google once:
 

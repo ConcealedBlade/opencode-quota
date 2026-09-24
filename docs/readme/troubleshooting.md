@@ -206,9 +206,9 @@ Run `/quota_status` and check the `google_agy` section.
 </details>
 
 <details>
-<summary><strong>Gemini CLI (deprecated)</strong></summary>
+<summary><strong>Gemini CLI</strong></summary>
 
-This section is only for repairing an existing setup. Gemini CLI quota support is deprecated in v4.1 and planned for removal in v5.0.0. Existing configuration and authentication continue to work; OpenCode Quota does not switch either one automatically. For new choices, see [Gemini CLI in the provider guide](providers.md#gemini-cli).
+Gemini CLI works only with Gemini Code Assist Standard or Enterprise (organization) accounts. Google ended personal accounts on 2026-06-18, so personal Google users should use [Google AGY](providers.md#google-agy-quick-setup) instead.
 
 Run `/quota_status` and check the Gemini CLI live probe rows.
 

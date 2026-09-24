@@ -60,6 +60,7 @@ The updater prints the complete preview before its own config or cache changes. 
 
 - Qwen Code was removed because Qwen ended its OAuth free tier; use Alibaba Coding Plan.
 - Google Antigravity was removed because its companion plugin is archived and Google rejects it; use Google AGY.
+- Personal Google accounts can no longer use Gemini CLI because Google ended them on 2026-06-18; use Google AGY.
 
 ## Choose your setup
 
@@ -168,7 +169,7 @@ Run `npx @slkiser/opencode-quota@latest --help` for command options. See [Extern
 | Anthropic (Claude)      | [Needs setup](docs/readme/providers.md#anthropic-claude)       | Local CLI/OAuth    | Quota              |
 | Chutes AI               | Automatic                                                      | Remote API         | Quota              |
 | Cursor                  | [Needs setup](docs/readme/providers.md#cursor)                 | Local estimate     | Budget and spend   |
-| Gemini CLI (deprecated) | [Existing setups only](docs/readme/providers.md#gemini-cli)    | Remote API         | Quota              |
+| Gemini CLI              | [Needs setup](docs/readme/providers.md#gemini-cli)             | Remote API         | Quota              |
 | GitHub Copilot          | [Needs setup](docs/readme/providers.md#github-copilot)         | Remote API         | Budget and usage   |
 | Google AGY              | [Needs setup](docs/readme/providers.md#google-agy-quick-setup) | Remote API         | Quota              |
 | NanoGPT                 | Automatic                                                      | Remote API         | Quota and balance  |
@@ -178,7 +179,7 @@ Run `npx @slkiser/opencode-quota@latest --help` for command options. See [Extern
 | Synthetic               | Automatic                                                      | Remote API         | Quota              |
 | xAI SuperGrok           | Automatic                                                      | Remote API         | Quota              |
 
-Gemini CLI quota support is deprecated for new installs. Existing v4 configurations still work, with removal planned for v5.0.0. See the [provider guide](docs/readme/providers.md#gemini-cli) before choosing a replacement.
+Gemini CLI works only with Gemini Code Assist Standard or Enterprise (organization) accounts. Personal Google users should use Google AGY.
 
 </details>
 

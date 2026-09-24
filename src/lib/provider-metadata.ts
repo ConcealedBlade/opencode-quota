@@ -18,7 +18,6 @@ export type {
 
 export interface QuotaProviderShape {
   id: CanonicalQuotaProviderId;
-  lifecycle?: "deprecated";
   recommendedReplacementId?: CanonicalQuotaProviderId;
   autoSetup: QuotaProviderAutoSetup;
   authentication: QuotaProviderAuthentication;

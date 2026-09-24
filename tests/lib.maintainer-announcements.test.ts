@@ -154,9 +154,9 @@ describe("maintainer announcements", () => {
       endsAt: "2026-08-22T00:00:00.000Z",
     } satisfies MaintainerAnnouncement;
     const geminiAnnouncement = {
-      id: "google-gemini-cli-deprecated",
+      id: "google-gemini-cli-org-only",
       message:
-        "Gemini CLI quota support in OpenCode Quota is deprecated, with removal planned for v5.0.0. Existing v4 configurations continue to work. Google's official Antigravity CLI replaces the individual Gemini CLI experience. Google AI Studio or Vertex AI are the supported choices for third-party access. OpenCode Quota's Google integrations are independent and are not endorsed by Google.",
+        "Gemini CLI quota support stays. It only works with Gemini Code Assist Standard or Enterprise (organization) accounts because Google ended personal accounts on 2026-06-18. Personal Google users should use Google AGY.",
       providerIds: ["google-gemini-cli"],
     } satisfies MaintainerAnnouncement;
     const active = getActiveMaintainerAnnouncements({
@@ -174,7 +174,7 @@ describe("maintainer announcements", () => {
     ]);
   });
 
-  it("targets the Gemini deprecation notice to Gemini configurations and aliases", () => {
+  it("targets the Gemini CLI organization-only notice to Gemini configurations and aliases", () => {
     const getActiveIds = (enabledProviders: string[]) =>
       getActiveMaintainerAnnouncements({
         nowMs: BUNDLED_NOW_MS,
@@ -183,11 +183,11 @@ describe("maintainer announcements", () => {
 
     expect(getActiveIds(["google-gemini-cli"])).toEqual([
       "opencode-ecosystem-listing-support",
-      "google-gemini-cli-deprecated",
+      "google-gemini-cli-org-only",
     ]);
     expect(getActiveIds(["gemini-cli"])).toEqual([
       "opencode-ecosystem-listing-support",
-      "google-gemini-cli-deprecated",
+      "google-gemini-cli-org-only",
     ]);
     expect(getActiveIds(["google-agy"])).toEqual(["opencode-ecosystem-listing-support"]);
   });
