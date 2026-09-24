@@ -512,7 +512,7 @@ describe("scoped update config planning", () => {
     write(obsoleteGoFile, `{"authCookie":"legacy-go-file-content-canary"}`);
     write(
       supportedZenFile,
-      `{"workspaceId":"supported-zen-file-content-canary","authCookie":"supported-zen-file-content-canary"}`,
+      `{"workspaceId":"supported-zen-file-content-canary","consoleSessionCookie":"supported-zen-file-content-canary"}`,
     );
     write(authFile, `{"opencode-go":{"type":"api","key":"auth-json-key-canary"}}`);
     const env = {

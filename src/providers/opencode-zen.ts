@@ -100,7 +100,7 @@ export const opencodeZenProvider: QuotaProvider = {
 
     const result = await queryOpenCodeZenQuota(
       config.config.workspaceId,
-      config.config.authCookie,
+      config.config.consoleSessionCookie,
       {
         requestTimeoutMs: ctx.config?.requestTimeoutMsConfigured
           ? ctx.config.requestTimeoutMs

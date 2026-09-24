@@ -98,12 +98,12 @@ Workspace/cookie material cannot be converted into the official API key. Do not 
 
 `OPENCODE_WORKSPACE_ID` and `OPENCODE_AUTH_COOKIE` are ambiguous names: they may come from an older Zen setup, but they may instead belong to OpenCode's workspace feature. Current quota code ignores them. The updater reports them only when it finds no supported global `opencode-quota/opencode.json` path, and it does not read or move their values.
 
-First decide whether those variables really contain Zen credentials. If they do, create the supported file under your global OpenCode config directory. The usual path is `~/.config/opencode/opencode-quota/opencode.json`:
+First decide whether those variables really contain Zen credentials. If they do, the old `auth` cookie no longer works after the OpenCode Console redesign: create the supported file under your global OpenCode config directory with a fresh `__Host-console_session` cookie ([how to find it](providers.md#opencode-zen)). The usual path is `~/.config/opencode/opencode-quota/opencode.json`:
 
 ```json
 {
-  "workspaceId": "your-workspace-id",
-  "authCookie": "your-auth-cookie"
+  "workspaceId": "wrk_your-workspace-id",
+  "consoleSessionCookie": "your-console-session-cookie"
 }
 ```
 

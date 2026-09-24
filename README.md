@@ -61,6 +61,7 @@ The updater prints the complete preview before its own config or cache changes. 
 - Qwen Code was removed because Qwen ended its OAuth free tier; use Alibaba Coding Plan.
 - Google Antigravity was removed because its companion plugin is archived and Google rejects it; use Google AGY.
 - Personal Google accounts can no longer use Gemini CLI because Google ended them on 2026-06-18; use Google AGY.
+- OpenCode Zen now needs the new Console cookie in `consoleSessionCookie`; `authCookie` no longer works. See [OpenCode Zen setup](docs/readme/providers.md#opencode-zen).
 
 ## Choose your setup
 
@@ -154,7 +155,7 @@ Run `npx @slkiser/opencode-quota@latest --help` for command options. See [Extern
 | Ollama Cloud       | Automatic                                                      | Remote API         | Quota and usage    |
 | OpenAI             | Automatic                                                      | Remote API         | Quota              |
 | OpenCode Go        | Automatic                                                      | Remote API         | Quota              |
-| OpenCode Zen       | [Needs setup](docs/readme/providers.md#opencode-zen)           | Dashboard scraping | Budget and balance |
+| OpenCode Zen       | [Needs setup](docs/readme/providers.md#opencode-zen)           | Dashboard API      | Budget and balance |
 | OpenRouter         | Automatic                                                      | Remote API         | Budget and spend   |
 | Synthetic          | Automatic                                                      | Remote API         | Quota              |
 | xAI SuperGrok      | Automatic                                                      | Remote API         | Quota              |
@@ -174,7 +175,7 @@ Run `npx @slkiser/opencode-quota@latest --help` for command options. See [Extern
 | Google AGY              | [Needs setup](docs/readme/providers.md#google-agy-quick-setup) | Remote API         | Quota              |
 | NanoGPT                 | Automatic                                                      | Remote API         | Quota and balance  |
 | OpenAI                  | Automatic                                                      | Remote API         | Quota              |
-| OpenCode Zen            | [Needs setup](docs/readme/providers.md#opencode-zen)           | Dashboard scraping | Budget and balance |
+| OpenCode Zen            | [Needs setup](docs/readme/providers.md#opencode-zen)           | Dashboard API      | Budget and balance |
 | OpenRouter              | Automatic                                                      | Remote API         | Budget and spend   |
 | Synthetic               | Automatic                                                      | Remote API         | Quota              |
 | xAI SuperGrok           | Automatic                                                      | Remote API         | Quota              |

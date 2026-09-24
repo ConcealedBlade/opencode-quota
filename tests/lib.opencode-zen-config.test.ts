@@ -53,7 +53,10 @@ describe("opencode-zen config resolution", () => {
     process.env.OPENCODE_AUTH_COOKIE = "cookie-env";
     const [primary] = await createConfigDirs();
     const path = configPath(primary);
-    await writeFile(path, JSON.stringify({ workspaceId: "wrk_file", authCookie: "cookie-file" }));
+    await writeFile(
+      path,
+      JSON.stringify({ workspaceId: "wrk_file", consoleSessionCookie: "cookie-file" }),
+    );
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary],
     });
@@ -62,7 +65,7 @@ describe("opencode-zen config resolution", () => {
 
     await expect(resolveOpenCodeZenConfig()).resolves.toEqual({
       state: "configured",
-      config: { workspaceId: "wrk_file", authCookie: "cookie-file" },
+      config: { workspaceId: "wrk_file", consoleSessionCookie: "cookie-file" },
       source: path,
     });
   });
@@ -81,7 +84,7 @@ describe("opencode-zen config resolution", () => {
     const path = configPath(primary);
     await writeFile(
       path,
-      JSON.stringify({ workspaceId: " wrk_file ", authCookie: " cookie-file " }),
+      JSON.stringify({ workspaceId: " wrk_file ", consoleSessionCookie: " cookie-file " }),
     );
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary],
@@ -91,7 +94,7 @@ describe("opencode-zen config resolution", () => {
 
     await expect(resolveOpenCodeZenConfig()).resolves.toEqual({
       state: "configured",
-      config: { workspaceId: "wrk_file", authCookie: "cookie-file" },
+      config: { workspaceId: "wrk_file", consoleSessionCookie: "cookie-file" },
       source: path,
     });
   });
@@ -99,7 +102,7 @@ describe("opencode-zen config resolution", () => {
   it("returns incomplete for missing and wrong-type file fields", async () => {
     const [primary] = await createConfigDirs();
     const path = configPath(primary);
-    await writeFile(path, JSON.stringify({ workspaceId: 123, authCookie: "cookie" }));
+    await writeFile(path, JSON.stringify({ workspaceId: 123, consoleSessionCookie: "cookie" }));
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary],
     });
@@ -113,12 +116,60 @@ describe("opencode-zen config resolution", () => {
     });
   });
 
+  it("reports an old authCookie key without using its value", async () => {
+    const [primary] = await createConfigDirs();
+    const path = configPath(primary);
+    await writeFile(path, JSON.stringify({ workspaceId: "wrk_file", authCookie: "old-cookie" }));
+    runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
+      configDirs: [primary],
+    });
+
+    const { getOpenCodeZenConfigDiagnostics, resolveOpenCodeZenConfig } = await import(
+      "../src/lib/opencode-zen-config.js"
+    );
+    const expectedError =
+      "authCookie no longer works after the OpenCode Console redesign; paste the __Host-console_session cookie as consoleSessionCookie";
+
+    await expect(resolveOpenCodeZenConfig()).resolves.toEqual({
+      state: "invalid",
+      source: path,
+      error: expectedError,
+    });
+    const diagnostics = await getOpenCodeZenConfigDiagnostics();
+    expect(diagnostics).toMatchObject({ state: "invalid", error: expectedError });
+    expect(JSON.stringify(diagnostics)).not.toContain("old-cookie");
+  });
+
+  it("ignores an old authCookie key once consoleSessionCookie is set", async () => {
+    const [primary] = await createConfigDirs();
+    const path = configPath(primary);
+    await writeFile(
+      path,
+      JSON.stringify({
+        workspaceId: "wrk_file",
+        authCookie: "old-cookie",
+        consoleSessionCookie: "session-file",
+      }),
+    );
+    runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
+      configDirs: [primary],
+    });
+
+    const { resolveOpenCodeZenConfig } = await import("../src/lib/opencode-zen-config.js");
+
+    await expect(resolveOpenCodeZenConfig()).resolves.toEqual({
+      state: "configured",
+      config: { workspaceId: "wrk_file", consoleSessionCookie: "session-file" },
+      source: path,
+    });
+  });
+
   it("stops at the first invalid config instead of falling through", async () => {
     const [primary, fallback] = await createConfigDirs();
     await writeFile(configPath(primary), "[]");
     await writeFile(
       configPath(fallback),
-      JSON.stringify({ workspaceId: "wrk_ok", authCookie: "cookie-ok" }),
+      JSON.stringify({ workspaceId: "wrk_ok", consoleSessionCookie: "cookie-ok" }),
     );
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary, fallback],
@@ -136,7 +187,7 @@ describe("opencode-zen config resolution", () => {
   it("does not include malformed credential text in JSON parse errors", async () => {
     const [primary] = await createConfigDirs();
     const path = configPath(primary);
-    await writeFile(path, '{"authCookie":super-secret}');
+    await writeFile(path, '{"consoleSessionCookie":super-secret}');
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary],
     });
@@ -163,7 +214,7 @@ describe("opencode-zen config resolution", () => {
     process.env.OPENCODE_GO_AUTH_COOKIE = "go-env-cookie-canary";
     await writeFile(
       path,
-      JSON.stringify({ workspaceId: zenWorkspaceCanary, authCookie: zenCookieCanary }),
+      JSON.stringify({ workspaceId: zenWorkspaceCanary, consoleSessionCookie: zenCookieCanary }),
     );
     await writeFile(obsoleteGoPath, JSON.stringify({ authCookie: goFileCanary }));
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({ configDirs: [primary] });
@@ -192,7 +243,7 @@ describe("opencode-zen config resolution", () => {
 
     expect(beforeResult).toEqual({
       state: "configured",
-      config: { workspaceId: zenWorkspaceCanary, authCookie: zenCookieCanary },
+      config: { workspaceId: zenWorkspaceCanary, consoleSessionCookie: zenCookieCanary },
       source: path,
     });
     expect(afterResult).toEqual(beforeResult);
@@ -225,7 +276,7 @@ describe("opencode-zen config resolution", () => {
     const path = configPath(primary);
     await writeFile(
       path,
-      JSON.stringify({ workspaceId: "wrk_initial", authCookie: "cookie-initial" }),
+      JSON.stringify({ workspaceId: "wrk_initial", consoleSessionCookie: "cookie-initial" }),
     );
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary],
@@ -235,7 +286,7 @@ describe("opencode-zen config resolution", () => {
     const first = await resolveOpenCodeZenConfigCached({ maxAgeMs: 5_000 });
     await writeFile(
       path,
-      JSON.stringify({ workspaceId: "wrk_changed", authCookie: "cookie-changed" }),
+      JSON.stringify({ workspaceId: "wrk_changed", consoleSessionCookie: "cookie-changed" }),
     );
 
     await expect(resolveOpenCodeZenConfigCached({ maxAgeMs: 5_000 })).resolves.toEqual(first);
@@ -246,7 +297,7 @@ describe("opencode-zen config resolution", () => {
     const path = configPath(primary);
     await writeFile(
       path,
-      JSON.stringify({ workspaceId: "wrk_secret", authCookie: "cookie-secret" }),
+      JSON.stringify({ workspaceId: "wrk_secret", consoleSessionCookie: "cookie-secret" }),
     );
     runtimePathMocks.getOpencodeRuntimeDirCandidates.mockReturnValue({
       configDirs: [primary],

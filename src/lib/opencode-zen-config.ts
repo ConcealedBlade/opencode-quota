@@ -5,7 +5,7 @@ import { getOpencodeRuntimeDirCandidates } from "./opencode-runtime-paths.js";
 
 export interface OpenCodeZenConfig {
   workspaceId: string;
-  authCookie: string;
+  consoleSessionCookie: string;
 }
 
 export type ResolvedOpenCodeZenConfig =
@@ -26,6 +26,9 @@ type ReadConfigFileResult =
   | { state: "missing" }
   | { state: "loaded"; config: Partial<OpenCodeZenConfig> }
   | { state: "invalid"; error: string };
+
+const LEGACY_AUTH_COOKIE_ERROR =
+  "authCookie no longer works after the OpenCode Console redesign; paste the __Host-console_session cookie as consoleSessionCookie";
 
 function getConfigCandidatePaths(): string[] {
   const { configDirs } = getOpencodeRuntimeDirCandidates();
@@ -68,13 +71,19 @@ export async function resolveOpenCodeZenConfig(): Promise<ResolvedOpenCodeZenCon
 
     const workspaceId =
       typeof fileResult.config.workspaceId === "string" ? fileResult.config.workspaceId.trim() : "";
-    const authCookie =
-      typeof fileResult.config.authCookie === "string" ? fileResult.config.authCookie.trim() : "";
+    const consoleSessionCookie =
+      typeof fileResult.config.consoleSessionCookie === "string"
+        ? fileResult.config.consoleSessionCookie.trim()
+        : "";
 
-    if (workspaceId && authCookie) {
+    if (!consoleSessionCookie && "authCookie" in fileResult.config) {
+      return { state: "invalid", source: path, error: LEGACY_AUTH_COOKIE_ERROR };
+    }
+
+    if (workspaceId && consoleSessionCookie) {
       return {
         state: "configured",
-        config: { workspaceId, authCookie },
+        config: { workspaceId, consoleSessionCookie },
         source: path,
       };
     }
@@ -82,7 +91,7 @@ export async function resolveOpenCodeZenConfig(): Promise<ResolvedOpenCodeZenCon
     return {
       state: "incomplete",
       source: path,
-      missing: workspaceId ? "authCookie" : "workspaceId",
+      missing: workspaceId ? "consoleSessionCookie" : "workspaceId",
     };
   }
 

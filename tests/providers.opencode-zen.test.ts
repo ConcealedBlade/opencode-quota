@@ -124,7 +124,7 @@ function budgetEntry(
 function configured(): void {
   mocks.resolveOpenCodeZenConfigCached.mockResolvedValueOnce({
     state: "configured",
-    config: { workspaceId: "wrk_123", authCookie: "cookie-abc" },
+    config: { workspaceId: "wrk_123", consoleSessionCookie: "cookie-abc" },
     source: "env(OPENCODE_*)",
   });
 }
@@ -162,12 +162,12 @@ describe("opencode Zen provider", () => {
     [
       {
         state: "configured",
-        config: { workspaceId: "wrk", authCookie: "cookie" },
+        config: { workspaceId: "wrk", consoleSessionCookie: "cookie" },
         source: "env(OPENCODE_*)",
       },
       true,
     ],
-    [{ state: "incomplete", source: "env", missing: "authCookie" }, false],
+    [{ state: "incomplete", source: "env", missing: "consoleSessionCookie" }, false],
     [{ state: "invalid", source: "/tmp/opencode.json", error: "broken" }, false],
     [{ state: "none" }, false],
   ])("reports availability for config state %j", async (configState, expected) => {
@@ -197,6 +197,15 @@ describe("opencode Zen provider", () => {
       "Missing OPENCODE_AUTH_COOKIE",
     ],
     [{ state: "invalid", source: "/tmp/opencode.json", error: "bad JSON" }, "Invalid config"],
+    [
+      {
+        state: "invalid",
+        source: "/tmp/opencode.json",
+        error:
+          "authCookie no longer works after the OpenCode Console redesign; paste the __Host-console_session cookie as consoleSessionCookie",
+      },
+      "paste the __Host-console_session cookie as consoleSessionCookie",
+    ],
   ])("projects config state as an attempted error", async (configState, message) => {
     mocks.resolveOpenCodeZenConfigCached.mockResolvedValueOnce(configState);
     const result = await opencodeZenProvider.fetch(context());
@@ -206,17 +215,16 @@ describe("opencode Zen provider", () => {
     expect(mocks.queryOpenCodeZenQuota).not.toHaveBeenCalled();
   });
 
-  it("projects scraper failures as attempted errors", async () => {
+  it("projects Console failures as attempted errors", async () => {
+    const sessionError =
+      "OpenCode Console session expired or invalid — paste a fresh __Host-console_session cookie as consoleSessionCookie";
     configured();
-    mocks.queryOpenCodeZenQuota.mockResolvedValueOnce({
-      success: false,
-      error: "OpenCode Zen billing error 403",
-    });
+    mocks.queryOpenCodeZenQuota.mockResolvedValueOnce({ success: false, error: sessionError });
 
     const result = await opencodeZenProvider.fetch(context());
 
     expectAttemptedWithErrorLabel(result, "OpenCode");
-    expect(result.errors[0]?.message).toBe("OpenCode Zen billing error 403");
+    expect(result.errors[0]?.message).toBe(sessionError);
   });
 
   it("makes structured balance primary when no monthly budget is available", async () => {
@@ -348,7 +356,7 @@ describe("opencode Zen provider", () => {
     );
   });
 
-  it("passes a user-configured timeout and otherwise keeps the scraper default", async () => {
+  it("passes a user-configured timeout and otherwise keeps the Console default", async () => {
     configured();
     success();
     await opencodeZenProvider.fetch(
