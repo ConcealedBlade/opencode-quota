@@ -60,6 +60,33 @@ You can also ask naturally:
 > "What is my current agy quota?"
 > "Show me my quota summary"
 
+### Companion Plugin: `opencode-quota`
+
+This repository is compatible with [`opencode-quota`](https://github.com/slkiser/opencode-quota), an OpenCode plugin for displaying quota information directly in your status bar or interface.
+
+Follow the [Google AGY Quick Setup Guide](https://github.com/slkiser/opencode-quota/blob/main/docs/readme/providers.md#google-agy-quick-setup) to set them up together.
+
+To use both plugins side by side, register them in your `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "@anthonyhaussman/opencode-agy-auth",
+    "opencode-quota"
+  ],
+  "provider": {
+    "google-agy": {
+      "options": {
+        "projectId": "your-google-cloud-project-id"
+      }
+    }
+  }
+}
+```
+
+When used together, `opencode-quota` seamlessly visualizes rate limits and quotas for models authenticated through `google-agy`.
+
 ### Disk Persistence
 
 The plugin persists turn-state and retry-cooldown data to disk so that it survives OpenCode restarts. Files are stored under `~/.config/opencode/` (or `%APPDATA%\opencode\` on Windows):
@@ -110,3 +137,26 @@ To test and develop the plugin locally with OpenCode before publishing:
 
 3. **Verify the plugin**:
    Launch OpenCode in your target project. OpenCode will automatically resolve and load your local plugin directory. You can test your changes by running `npm run build` in the plugin directory and restarting your OpenCode session.
+
+## Alpha Channel (Pre-release)
+
+To test bleeding-edge features, upcoming changes, or [OpenCode v2](https://opencode.ai/v2/docs) compatibility before official releases, configure the `@alpha` distribution tag:
+
+```bash
+npm install @anthonyhaussman/opencode-agy-auth@alpha
+```
+
+Or configure it directly in your `opencode.json`:
+
+```json
+{
+  "plugin": ["@anthonyhaussman/opencode-agy-auth@alpha"]
+}
+```
+
+### OpenCode v2 Compatibility
+
+The `@alpha` channel provides dual compatibility with both OpenCode v1 and [OpenCode v2](https://opencode.ai/v2/docs), supporting the new v2 plugin architecture, unified hooks, and OAuth credential handling while maintaining full backward compatibility.
+
+> [!WARNING]
+> **Instability Warning**: The `@alpha` release contains experimental features, active development builds, and potential breaking protocol changes. It may be unstable, break unexpectedly, or cause disruptions in session authentication and model requests. Use only for testing and development. For day-to-day work, use the stable release.

@@ -1,3 +1,4 @@
+import type { RetrieveUserQuotaSummaryResponse } from "../../plugin/project/types";
 export interface QuotaContext {
     terminal: boolean;
     retryDelayMs?: number;
@@ -21,8 +22,16 @@ declare function parseRetryDelayValue(value: string | {
     nanos?: number;
 }): number | null;
 declare function parseRetryDelayFromMessage(message: string): number | null;
+export declare const MAX_QUOTA_RESET_WAIT_MS = 7200000;
+export declare function findResetTimeForModel(summary: RetrieveUserQuotaSummaryResponse | null | undefined, model?: string): string | null;
+export declare function resolveQuotaResetDelay(accessToken: string, projectId: string, model?: string, userAgentModel?: string): Promise<{
+    waitMs: number;
+    resetTime: string;
+} | null>;
 export declare const retryInternals: {
     parseRetryDelayValue: typeof parseRetryDelayValue;
     parseRetryDelayFromMessage: typeof parseRetryDelayFromMessage;
+    findResetTimeForModel: typeof findResetTimeForModel;
+    resolveQuotaResetDelay: typeof resolveQuotaResetDelay;
 };
 export {};

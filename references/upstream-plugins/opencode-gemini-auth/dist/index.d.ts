@@ -1,6 +1,3 @@
-import { Config } from '@opencode-ai/sdk';
-import { ToolDefinition } from '@opencode-ai/plugin';
-
 /**
  * Result returned to the caller after constructing an OAuth authorization URL.
  */
@@ -30,6 +27,21 @@ declare function authorizeGemini(): Promise<GeminiAuthorization>;
  */
 declare function exchangeGeminiWithVerifier(code: string, verifier: string): Promise<GeminiTokenExchangeResult>;
 
+interface PluginConfig {
+    provider?: Record<string, {
+        options?: Record<string, unknown>;
+    }>;
+    command?: Record<string, {
+        description: string;
+        template: string;
+    }>;
+    [key: string]: unknown;
+}
+interface ToolDefinition {
+    description: string;
+    args: Record<string, unknown>;
+    execute(args: unknown, context: unknown): Promise<string>;
+}
 interface OAuthAuthDetails {
     type: "oauth";
     refresh: string;
@@ -83,7 +95,7 @@ interface PluginClient {
     };
     config?: {
         get(options?: unknown): Promise<{
-            data?: Config;
+            data?: PluginConfig;
         } | undefined>;
     };
     tui?: {
@@ -101,7 +113,7 @@ interface PluginContext {
     client: PluginClient;
 }
 interface PluginResult {
-    config?: (config: Config) => Promise<void>;
+    config?: (config: PluginConfig) => Promise<void>;
     tool?: Record<string, ToolDefinition>;
     auth: {
         provider: string;

@@ -271,6 +271,38 @@ describe("upstream-plugin-sanitization", () => {
     expect(sourceMap).not.toContain("SAFE_TEST_CLIENT_SECRET");
   });
 
+  it("redacts Google OAuth values from the Gemini CLI auth server bundle", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "opencode-quota-sanitize-"));
+    tempRoots.push(tempRoot);
+
+    await writeGeminiDistBundle(tempRoot, "SAFE_TEST_CLIENT_ID", "SAFE_TEST_CLIENT_SECRET");
+    const distDir = path.join(tempRoot, "dist");
+    await writeFile(
+      path.join(distDir, "server.js"),
+      'var GEMINI_CLIENT_ID = "SAFE_TEST_CLIENT_ID";\nvar GEMINI_CLIENT_SECRET = "SAFE_TEST_CLIENT_SECRET";\n',
+      "utf8",
+    );
+    await writeFile(
+      path.join(distDir, "server.js.map"),
+      JSON.stringify({
+        sourcesContent: [
+          'export const GEMINI_CLIENT_ID = "SAFE_TEST_CLIENT_ID";\nexport const GEMINI_CLIENT_SECRET = "SAFE_TEST_CLIENT_SECRET";\n',
+        ],
+      }),
+      "utf8",
+    );
+
+    await sanitizeUpstreamPluginSnapshot("opencode-gemini-auth", tempRoot);
+
+    for (const relativePath of ["dist/server.js", "dist/server.js.map"]) {
+      const content = await readFile(path.join(tempRoot, relativePath), "utf8");
+      expect(content).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com");
+      expect(content).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
+      expect(content).not.toContain("SAFE_TEST_CLIENT_ID");
+      expect(content).not.toContain("SAFE_TEST_CLIENT_SECRET");
+    }
+  });
+
   it("fails closed when Gemini OAuth targets are all absent", async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "opencode-quota-sanitize-"));
     tempRoots.push(tempRoot);

@@ -4,6 +4,9 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// src/plugin-v2.ts
+import { Integration, Plugin } from "@opencode/plugin";
+
 // src/constants.ts
 var GEMINI_CLIENT_ID = "REDACTED_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com";
 var GEMINI_CLIENT_SECRET = "REDACTED_GOOGLE_OAUTH_CLIENT_SECRET";
@@ -15,18 +18,6 @@ var GEMINI_SCOPES = [
 var GEMINI_REDIRECT_URI = "http://localhost:8085/oauth2callback";
 var GEMINI_CODE_ASSIST_ENDPOINT = "https://cloudcode-pa.googleapis.com";
 var GEMINI_PROVIDER_ID = "google";
-
-// src/fetch.ts
-function geminiFetch(input, init) {
-  const proxy = process.env.OPENCODE_GEMINI_AUTH_PROXY;
-  if (!proxy) {
-    return fetch(input, init);
-  }
-  return fetch(input, {
-    ...init ?? {},
-    proxy
-  });
-}
 
 // src/plugin/oauth-authorize.ts
 import { spawn } from "child_process";
@@ -252,6 +243,18 @@ function createLogWriter(filePath) {
     stream.write(`${line}
 `);
   };
+}
+
+// src/fetch.ts
+function geminiFetch(input, init) {
+  const proxy = process.env.OPENCODE_GEMINI_AUTH_PROXY;
+  if (!proxy) {
+    return fetch(input, init);
+  }
+  return fetch(input, {
+    ...init ?? {},
+    proxy
+  });
 }
 
 // src/gemini/oauth.ts
@@ -542,10 +545,6 @@ function wait(ms) {
     setTimeout(resolve, ms);
   });
 }
-function getCacheKey(auth) {
-  const refresh = auth.refresh?.trim();
-  return refresh ? refresh : void 0;
-}
 
 // src/plugin/project/api.ts
 async function loadManagedProject(accessToken, projectId, userAgentModel) {
@@ -647,23 +646,6 @@ async function onboardManagedProject(accessToken, tierId, projectId, userAgentMo
   }
   return void 0;
 }
-async function retrieveUserQuota(accessToken, projectId, userAgentModel) {
-  const url = `${GEMINI_CODE_ASSIST_ENDPOINT}/v1internal:retrieveUserQuota`;
-  const headers = buildCodeAssistHeaders(accessToken, userAgentModel);
-  try {
-    const response = await geminiFetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ project: projectId })
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
 function buildCodeAssistHeaders(accessToken, userAgentModel) {
   return {
     "Content-Type": "application/json",
@@ -706,9 +688,6 @@ async function readResponseTextIfNeeded(response, needed) {
 
 // src/plugin/auth.ts
 var ACCESS_TOKEN_EXPIRY_BUFFER_MS = 60 * 1e3;
-function isOAuthAuth(auth) {
-  return auth.type === "oauth";
-}
 function parseRefreshParts(refresh) {
   const [refreshToken = "", projectId = "", managedProjectId = ""] = (refresh ?? "").split("|");
   return {
@@ -727,12 +706,6 @@ function formatRefreshParts(parts) {
   const projectSegment = parts.projectId ?? "";
   const managedSegment = parts.managedProjectId ?? "";
   return `${parts.refreshToken}|${projectSegment}|${managedSegment}`;
-}
-function accessTokenExpired(auth) {
-  if (!auth.access || typeof auth.expires !== "number") {
-    return true;
-  }
-  return auth.expires <= Date.now() + ACCESS_TOKEN_EXPIRY_BUFFER_MS;
 }
 
 // src/plugin/project/context.ts
@@ -817,52 +790,6 @@ async function resolveProjectContextFromAccessToken(auth, accessToken, configure
   }
   throw new ProjectIdRequiredError();
 }
-async function ensureProjectContext(auth, client, configuredProjectId, userAgentModel) {
-  const accessToken = auth.access;
-  if (!accessToken) {
-    return { auth, effectiveProjectId: "" };
-  }
-  const cacheKey = buildProjectCacheKey(auth, configuredProjectId);
-  if (cacheKey) {
-    const cached = projectContextResultCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-    const pending = projectContextPendingCache.get(cacheKey);
-    if (pending) {
-      return pending;
-    }
-  }
-  const resolveContext = async () => resolveProjectContextFromAccessToken(
-    auth,
-    accessToken,
-    configuredProjectId,
-    async (updatedAuth) => {
-      await client.auth.set({
-        path: { id: GEMINI_PROVIDER_ID },
-        body: updatedAuth
-      });
-    },
-    userAgentModel
-  );
-  if (!cacheKey) {
-    return resolveContext();
-  }
-  const promise = resolveContext().then((result) => {
-    const nextKey = getCacheKey(result.auth) ?? cacheKey;
-    projectContextPendingCache.delete(cacheKey);
-    projectContextResultCache.set(nextKey, result);
-    if (nextKey !== cacheKey) {
-      projectContextResultCache.delete(cacheKey);
-    }
-    return result;
-  }).catch((error) => {
-    projectContextPendingCache.delete(cacheKey);
-    throw error;
-  });
-  projectContextPendingCache.set(cacheKey, promise);
-  return promise;
-}
 function withProjectAuth(auth, refreshToken, projectId, managedProjectId) {
   return {
     ...auth,
@@ -872,14 +799,6 @@ function withProjectAuth(auth, refreshToken, projectId, managedProjectId) {
       managedProjectId
     })
   };
-}
-function buildProjectCacheKey(auth, configuredProjectId) {
-  const base = getCacheKey(auth);
-  if (!base) {
-    return void 0;
-  }
-  const project = configuredProjectId?.trim() ?? "";
-  return project ? `${base}|cfg:${project}` : base;
 }
 
 // src/plugin/provider.ts
@@ -899,17 +818,6 @@ function resolveConfiguredProjectIdFromConfig(config) {
   }
   const providerConfig = config.provider[GEMINI_PROVIDER_ID];
   return normalizeProjectId2(providerConfig?.options?.projectId);
-}
-async function resolveConfiguredProjectIdFromClient(client) {
-  if (!client?.config?.get) {
-    return void 0;
-  }
-  try {
-    const result = await client.config.get();
-    return resolveConfiguredProjectIdFromConfig(result?.data);
-  } catch {
-    return void 0;
-  }
 }
 function normalizeProjectId2(value) {
   if (typeof value !== "string") {
@@ -1324,866 +1232,12 @@ function shouldIgnoreMalformedAuthCode(result) {
   return /invalid_grant/i.test(result.error) && /malformed auth code/i.test(result.error);
 }
 
-// src/plugin/cache.ts
-var authCache = /* @__PURE__ */ new Map();
-function normalizeRefreshKey(refresh) {
-  const key = refresh?.trim();
-  return key ? key : void 0;
-}
-function resolveCachedAuth(auth) {
-  const key = normalizeRefreshKey(auth.refresh);
-  if (!key) {
-    return auth;
-  }
-  const cached = authCache.get(key);
-  if (!cached) {
-    authCache.set(key, auth);
-    return auth;
-  }
-  if (!accessTokenExpired(auth)) {
-    authCache.set(key, auth);
-    return auth;
-  }
-  if (!accessTokenExpired(cached)) {
-    return cached;
-  }
-  authCache.set(key, auth);
-  return auth;
-}
-function storeCachedAuth(auth) {
-  const key = normalizeRefreshKey(auth.refresh);
-  if (!key) {
-    return;
-  }
-  authCache.set(key, auth);
-}
-function clearCachedAuth(refresh) {
-  if (!refresh) {
-    authCache.clear();
-    return;
-  }
-  const key = normalizeRefreshKey(refresh);
-  if (key) {
-    authCache.delete(key);
-  }
-}
-
-// src/plugin/retry/quota.ts
-var CLOUDCODE_DOMAINS = /* @__PURE__ */ new Set([
-  "cloudcode-pa.googleapis.com",
-  "staging-cloudcode-pa.googleapis.com",
-  "autopush-cloudcode-pa.googleapis.com",
-  "cloudaicompanion.googleapis.com"
-]);
-async function classifyQuotaResponse(response) {
-  const payload = await parseErrorBody(response);
-  if (!payload) {
-    return null;
-  }
-  const details = Array.isArray(payload.details) ? payload.details : [];
-  const retryInfo = details.find(
-    (detail) => isObject(detail) && detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
-  );
-  const retryDelayMs = (retryInfo?.retryDelay ? parseRetryDelayValue(retryInfo.retryDelay) : null) ?? parseRetryDelayFromMessage(payload.message ?? "") ?? void 0;
-  const errorInfo = details.find(
-    (detail) => isObject(detail) && detail["@type"] === "type.googleapis.com/google.rpc.ErrorInfo"
-  );
-  if (errorInfo?.domain && !CLOUDCODE_DOMAINS.has(errorInfo.domain)) {
-    return null;
-  }
-  if (errorInfo?.reason === "QUOTA_EXHAUSTED") {
-    return { terminal: true, retryDelayMs, reason: errorInfo.reason };
-  }
-  if (errorInfo?.reason === "RATE_LIMIT_EXCEEDED") {
-    return { terminal: false, retryDelayMs: retryDelayMs ?? 1e4, reason: errorInfo.reason };
-  }
-  if (errorInfo?.reason === "MODEL_CAPACITY_EXHAUSTED") {
-    return {
-      terminal: retryDelayMs === void 0,
-      retryDelayMs,
-      reason: errorInfo.reason
-    };
-  }
-  const quotaFailure = details.find(
-    (detail) => isObject(detail) && detail["@type"] === "type.googleapis.com/google.rpc.QuotaFailure"
-  );
-  if (quotaFailure?.violations?.length) {
-    const allTexts = quotaFailure.violations.flatMap((violation) => [violation.quotaId ?? "", violation.description ?? ""]).join(" ").toLowerCase();
-    if (allTexts.includes("perday") || allTexts.includes("daily") || allTexts.includes("per day")) {
-      return { terminal: true, retryDelayMs, reason: errorInfo?.reason };
-    }
-    if (allTexts.includes("perminute") || allTexts.includes("per minute")) {
-      return { terminal: false, retryDelayMs: retryDelayMs ?? 6e4, reason: errorInfo?.reason };
-    }
-    return { terminal: false, retryDelayMs, reason: errorInfo?.reason };
-  }
-  const quotaLimit = errorInfo?.metadata?.quota_limit?.toLowerCase() ?? "";
-  if (quotaLimit.includes("perminute") || quotaLimit.includes("per minute")) {
-    return { terminal: false, retryDelayMs: retryDelayMs ?? 6e4, reason: errorInfo?.reason };
-  }
-  return { terminal: false, retryDelayMs, reason: errorInfo?.reason };
-}
-async function parseRetryDelayFromBody(response) {
-  const payload = await parseErrorBody(response);
-  if (!payload) {
-    return null;
-  }
-  const details = Array.isArray(payload.details) ? payload.details : [];
-  const retryInfo = details.find(
-    (detail) => isObject(detail) && detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
-  );
-  if (retryInfo?.retryDelay) {
-    const delayMs = parseRetryDelayValue(retryInfo.retryDelay);
-    if (delayMs !== null) {
-      return delayMs;
-    }
-  }
-  if (typeof payload.message === "string") {
-    return parseRetryDelayFromMessage(payload.message);
-  }
-  return null;
-}
-function parseRetryDelayValue(value) {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    if (trimmed.endsWith("ms")) {
-      const milliseconds = Number(trimmed.slice(0, -2));
-      return Number.isFinite(milliseconds) && milliseconds > 0 ? Math.round(milliseconds) : null;
-    }
-    const match = trimmed.match(/^([\d.]+)s$/);
-    if (!match?.[1]) {
-      return null;
-    }
-    const seconds2 = Number(match[1]);
-    return Number.isFinite(seconds2) && seconds2 > 0 ? Math.round(seconds2 * 1e3) : null;
-  }
-  const seconds = typeof value.seconds === "number" ? value.seconds : 0;
-  const nanos = typeof value.nanos === "number" ? value.nanos : 0;
-  if (!Number.isFinite(seconds) || !Number.isFinite(nanos)) {
-    return null;
-  }
-  const totalMs = Math.round(seconds * 1e3 + nanos / 1e6);
-  return totalMs > 0 ? totalMs : null;
-}
-function parseRetryDelayFromMessage(message) {
-  const retryMatch = message.match(/Please retry in ([0-9.]+(?:ms|s))/i);
-  if (retryMatch?.[1]) {
-    return parseRetryDelayValue(retryMatch[1]);
-  }
-  const afterMatch = message.match(/after\s+([0-9.]+(?:ms|s))/i);
-  if (afterMatch?.[1]) {
-    return parseRetryDelayValue(afterMatch[1]);
-  }
-  return null;
-}
-async function parseErrorBody(response) {
-  let text = "";
-  try {
-    text = await response.clone().text();
-  } catch {
-    return null;
-  }
-  if (!text) {
-    return null;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  const normalized = normalizeErrorEnvelope(parsed);
-  if (!normalized || !isObject(normalized.error)) {
-    return null;
-  }
-  const error = normalized.error;
-  return {
-    message: typeof error.message === "string" ? error.message : void 0,
-    details: Array.isArray(error.details) ? error.details : void 0
-  };
-}
-function isObject(value) {
-  return !!value && typeof value === "object";
-}
-function normalizeErrorEnvelope(parsed) {
-  if (Array.isArray(parsed)) {
-    const first = parsed[0];
-    return isObject(first) ? first : null;
-  }
-  return isObject(parsed) ? parsed : null;
-}
-
-// src/plugin/retry/helpers.ts
-var DEFAULT_MAX_ATTEMPTS = 3;
-var DEFAULT_INITIAL_DELAY_MS = 5e3;
-var DEFAULT_MAX_DELAY_MS = 3e4;
-var RETRYABLE_NETWORK_CODES = /* @__PURE__ */ new Set([
-  "ECONNRESET",
-  "ETIMEDOUT",
-  "EPIPE",
-  "ENOTFOUND",
-  "EAI_AGAIN",
-  "ECONNREFUSED",
-  "ERR_SSL_SSLV3_ALERT_BAD_RECORD_MAC",
-  "ERR_SSL_WRONG_VERSION_NUMBER",
-  "ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC",
-  "ERR_SSL_BAD_RECORD_MAC",
-  "EPROTO"
-]);
-function canRetryRequest(init) {
-  if (!init?.body) {
-    return true;
-  }
-  const body = init.body;
-  if (typeof body === "string") {
-    return true;
-  }
-  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
-    return true;
-  }
-  if (typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer) {
-    return true;
-  }
-  if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView(body)) {
-    return true;
-  }
-  if (typeof Blob !== "undefined" && body instanceof Blob) {
-    return true;
-  }
-  return false;
-}
-function isRetryableStatus(status) {
-  return status === 429 || status >= 500 && status < 600;
-}
-function isRetryableNetworkError(error) {
-  const code = getNetworkErrorCode(error);
-  if (code && RETRYABLE_NETWORK_CODES.has(code)) {
-    return true;
-  }
-  return error instanceof Error && error.message.toLowerCase().includes("fetch failed");
-}
-async function resolveRetryDelayMs(response, attempt, quotaDelayMs) {
-  const retryAfterMsHeader = parseRetryAfterMs(response.headers.get("retry-after-ms"));
-  if (retryAfterMsHeader !== null) {
-    return clampDelay(retryAfterMsHeader);
-  }
-  const retryAfterHeader = parseRetryAfter(response.headers.get("retry-after"));
-  if (retryAfterHeader !== null) {
-    return clampDelay(retryAfterHeader);
-  }
-  if (quotaDelayMs !== void 0) {
-    return clampDelay(quotaDelayMs);
-  }
-  const bodyDelay = await parseRetryDelayFromBody(response);
-  if (bodyDelay !== null) {
-    return clampDelay(bodyDelay);
-  }
-  return getExponentialDelayWithJitter(attempt);
-}
-function getExponentialDelayWithJitter(attempt) {
-  const base = Math.min(DEFAULT_MAX_DELAY_MS, DEFAULT_INITIAL_DELAY_MS * Math.pow(2, attempt - 1));
-  const jitter = base * 0.3 * (Math.random() * 2 - 1);
-  return clampDelay(base + jitter);
-}
-function wait2(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-function getNetworkErrorCode(error) {
-  const readCode = (value) => {
-    if (!value || typeof value !== "object") {
-      return void 0;
-    }
-    if ("code" in value && typeof value.code === "string") {
-      return value.code;
-    }
-    return void 0;
-  };
-  const direct = readCode(error);
-  if (direct) {
-    return direct;
-  }
-  let cursor = error;
-  for (let depth = 0; depth < 5; depth += 1) {
-    if (!cursor || typeof cursor !== "object" || !("cause" in cursor)) {
-      break;
-    }
-    cursor = cursor.cause;
-    const code = readCode(cursor);
-    if (code) {
-      return code;
-    }
-  }
-  return void 0;
-}
-function parseRetryAfterMs(value) {
-  if (!value) {
-    return null;
-  }
-  const parsed = Number(value.trim());
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return Math.round(parsed);
-}
-function parseRetryAfter(value) {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const seconds = Number(trimmed);
-  if (Number.isFinite(seconds)) {
-    return Math.max(0, Math.round(seconds * 1e3));
-  }
-  const parsedDate = Date.parse(trimmed);
-  if (!Number.isNaN(parsedDate)) {
-    return Math.max(0, parsedDate - Date.now());
-  }
-  return null;
-}
-function clampDelay(delayMs) {
-  if (!Number.isFinite(delayMs)) {
-    return DEFAULT_MAX_DELAY_MS;
-  }
-  return Math.min(Math.max(0, Math.round(delayMs)), DEFAULT_MAX_DELAY_MS);
-}
-
-// src/plugin/token.ts
-var refreshInFlight = /* @__PURE__ */ new Map();
-function parseOAuthErrorPayload(text) {
-  if (!text) {
-    return {};
-  }
-  try {
-    const payload = JSON.parse(text);
-    if (!payload || typeof payload !== "object") {
-      return { description: text };
-    }
-    let code;
-    if (typeof payload.error === "string") {
-      code = payload.error;
-    } else if (payload.error && typeof payload.error === "object") {
-      code = payload.error.status ?? payload.error.code;
-      if (!payload.error_description && payload.error.message) {
-        return { code, description: payload.error.message };
-      }
-    }
-    const description = payload.error_description;
-    if (description) {
-      return { code, description };
-    }
-    if (payload.error && typeof payload.error === "object" && payload.error.message) {
-      return { code, description: payload.error.message };
-    }
-    return { code };
-  } catch {
-    return { description: text };
-  }
-}
-async function refreshAccessToken(auth, client) {
-  const parts = parseRefreshParts(auth.refresh);
-  if (!parts.refreshToken) {
-    return void 0;
-  }
-  const pending = refreshInFlight.get(parts.refreshToken);
-  if (pending) {
-    return pending;
-  }
-  const refreshPromise = refreshAccessTokenInternal(auth, client, parts);
-  refreshInFlight.set(parts.refreshToken, refreshPromise);
-  try {
-    return await refreshPromise;
-  } finally {
-    refreshInFlight.delete(parts.refreshToken);
-  }
-}
-async function refreshAccessTokenInternal(auth, client, parts) {
-  try {
-    const response = await fetchTokenRefresh(parts.refreshToken);
-    if (!response.ok) {
-      let errorText;
-      try {
-        errorText = await response.text();
-      } catch {
-        errorText = void 0;
-      }
-      if (isGeminiDebugEnabled()) {
-        logGeminiDebugMessage(
-          `OAuth refresh response: ${response.status} ${response.statusText}`
-        );
-        const preview = formatDebugBodyPreview(errorText);
-        if (preview) {
-          logGeminiDebugMessage(`OAuth refresh error body: ${preview}`);
-        }
-      }
-      const { code, description } = parseOAuthErrorPayload(errorText);
-      const details = [code, description ?? errorText].filter(Boolean).join(": ");
-      const baseMessage = `Gemini token refresh failed (${response.status} ${response.statusText})`;
-      console.warn(`[Gemini OAuth] ${details ? `${baseMessage} - ${details}` : baseMessage}`);
-      if (code === "invalid_grant") {
-        console.warn(
-          "[Gemini OAuth] Google revoked the stored refresh token. Run `opencode auth login` and reauthenticate the Google provider."
-        );
-        clearCachedAuth(auth.refresh);
-        invalidateProjectContextCache(auth.refresh);
-        try {
-          const clearedAuth = {
-            type: "oauth",
-            refresh: formatRefreshParts({
-              refreshToken: "",
-              projectId: parts.projectId,
-              managedProjectId: parts.managedProjectId
-            })
-          };
-          await client.auth.set({
-            path: { id: GEMINI_PROVIDER_ID },
-            body: clearedAuth
-          });
-        } catch (storeError) {
-          console.error("Failed to clear stored Gemini OAuth credentials:", storeError);
-        }
-      }
-      return void 0;
-    }
-    const payload = await response.json();
-    if (isGeminiDebugEnabled()) {
-      const rotated = payload.refresh_token && payload.refresh_token !== parts.refreshToken;
-      logGeminiDebugMessage(
-        `OAuth refresh success: expires_in=${payload.expires_in}s refresh_rotated=${rotated ? "yes" : "no"}`
-      );
-    }
-    const refreshedParts = {
-      refreshToken: payload.refresh_token ?? parts.refreshToken,
-      projectId: parts.projectId,
-      managedProjectId: parts.managedProjectId
-    };
-    const updatedAuth = {
-      ...auth,
-      access: payload.access_token,
-      expires: Date.now() + payload.expires_in * 1e3,
-      refresh: formatRefreshParts(refreshedParts)
-    };
-    clearCachedAuth(auth.refresh);
-    storeCachedAuth(updatedAuth);
-    invalidateProjectContextCache(auth.refresh);
-    if (refreshedParts.refreshToken !== parts.refreshToken) {
-      try {
-        await client.auth.set({
-          path: { id: GEMINI_PROVIDER_ID },
-          body: updatedAuth
-        });
-      } catch (storeError) {
-        console.error("Failed to persist refreshed Gemini OAuth credentials:", storeError);
-      }
-    }
-    return updatedAuth;
-  } catch (error) {
-    console.error("Failed to refresh Gemini access token due to an unexpected error:", error);
-    return void 0;
-  }
-}
-async function fetchTokenRefresh(refreshToken) {
-  const tokenUrl = "https://oauth2.googleapis.com/token";
-  const init = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: GEMINI_CLIENT_ID,
-      client_secret: GEMINI_CLIENT_SECRET
-    })
-  };
-  let attempt = 1;
-  while (attempt <= DEFAULT_MAX_ATTEMPTS) {
-    if (isGeminiDebugEnabled()) {
-      logGeminiDebugMessage(`OAuth refresh attempt ${attempt}: POST ${tokenUrl}`);
-    }
-    try {
-      const response = await geminiFetch(tokenUrl, init);
-      if (!isRetryableStatus(response.status) || attempt >= DEFAULT_MAX_ATTEMPTS) {
-        return response;
-      }
-      const delayMs = await resolveRetryDelayMs(response, attempt);
-      if (delayMs > 0) {
-        await wait2(delayMs);
-      }
-      attempt += 1;
-      continue;
-    } catch (error) {
-      if (attempt >= DEFAULT_MAX_ATTEMPTS || !isRetryableNetworkError(error)) {
-        throw error;
-      }
-      await wait2(getExponentialDelayWithJitter(attempt));
-      attempt += 1;
-    }
-  }
-  return geminiFetch(tokenUrl, init);
-}
-
-// src/plugin/quota.ts
-var GEMINI_QUOTA_TOOL_NAME = "gemini_quota";
-function createGeminiQuotaTool({
-  client,
-  getAuthResolver,
-  getConfiguredProjectId,
-  getUserAgentModel
-}) {
-  return {
-    description: "Retrieve current Gemini Code Assist quota usage for the authenticated user and project.",
-    args: {},
-    async execute() {
-      const getAuth = getAuthResolver();
-      if (!getAuth) {
-        return "Gemini quota is unavailable before Google auth is initialized. Authenticate with the Google provider and retry.";
-      }
-      const auth = await getAuth();
-      if (!isOAuthAuth(auth)) {
-        return "Gemini quota requires OAuth with Google. Run `opencode auth login` and choose `OAuth with Google (Gemini CLI)`.";
-      }
-      let authRecord = resolveCachedAuth(auth);
-      if (accessTokenExpired(authRecord)) {
-        const refreshed = await refreshAccessToken(authRecord, client);
-        if (!refreshed?.access) {
-          return "Gemini quota lookup failed because the access token could not be refreshed. Re-authenticate and retry.";
-        }
-        authRecord = refreshed;
-      }
-      if (!authRecord.access) {
-        return "Gemini quota lookup failed because no access token is available. Re-authenticate and retry.";
-      }
-      try {
-        const projectContext = await ensureProjectContext(
-          authRecord,
-          client,
-          getConfiguredProjectId(),
-          getUserAgentModel()
-        );
-        if (!projectContext.effectiveProjectId) {
-          return "Gemini quota lookup failed because no Google Cloud project could be resolved.";
-        }
-        const quota = await retrieveUserQuota(
-          authRecord.access,
-          projectContext.effectiveProjectId,
-          getUserAgentModel()
-        );
-        if (!quota?.buckets?.length) {
-          return `No Gemini quota buckets were returned for project \`${projectContext.effectiveProjectId}\`.`;
-        }
-        return formatGeminiQuotaOutput(
-          projectContext.effectiveProjectId,
-          quota.buckets
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "unknown error";
-        return `Gemini quota lookup failed: ${message}`;
-      }
-    }
-  };
-}
-function formatGeminiQuotaOutput(projectId, buckets) {
-  const sortedBuckets = [...buckets].sort(compareQuotaBuckets);
-  const groupedRows = groupQuotaRows(sortedBuckets);
-  const versionGroups = groupByVersion(groupedRows);
-  const variantWidth = Math.max(
-    "Variant".length,
-    ...versionGroups.flatMap(
-      (group) => group.models.flatMap((model) => model.rows.map((row) => row.variant.length))
-    )
-  );
-  const tokenTypeValues = [...new Set(versionGroups.flatMap(
-    (group) => group.models.flatMap((model) => model.rows.map((row) => row.tokenType))
-  ))];
-  const showTokenType = tokenTypeValues.length > 1 || tokenTypeValues[0] !== "REQUESTS";
-  const lines = [
-    `Gemini quota usage for project \`${projectId}\``,
-    "",
-    showTokenType ? `  \u21B3 ${pad("Variant", variantWidth)}  Remaining                   Reset      Type` : `  \u21B3 ${pad("Variant", variantWidth)}  Remaining                   Reset`
-  ];
-  for (let index = 0; index < versionGroups.length; index += 1) {
-    const versionGroup = versionGroups[index];
-    if (!versionGroup) {
-      continue;
-    }
-    if (index > 0) {
-      lines.push("");
-    }
-    lines.push(formatVersionGroupTitle(versionGroup));
-    for (const model of versionGroup.models) {
-      lines.push(model.baseModel);
-      for (const row of model.rows) {
-        lines.push(
-          showTokenType ? `  \u21B3 ${pad(row.variant, variantWidth)}  ${pad(row.usageRemaining, 27)} ${pad(row.resetValue, 8)} ${row.tokenType}` : `  \u21B3 ${pad(row.variant, variantWidth)}  ${pad(row.usageRemaining, 27)} ${row.resetValue}`
-        );
-      }
-    }
-  }
-  return lines.join("\n");
-}
-function compareQuotaBuckets(left, right) {
-  const leftModel = left.modelId ?? "";
-  const rightModel = right.modelId ?? "";
-  if (leftModel !== rightModel) {
-    return leftModel.localeCompare(rightModel);
-  }
-  const leftTokenType = left.tokenType ?? "";
-  const rightTokenType = right.tokenType ?? "";
-  if (leftTokenType !== rightTokenType) {
-    return leftTokenType.localeCompare(rightTokenType);
-  }
-  return (left.resetTime ?? "").localeCompare(right.resetTime ?? "");
-}
-function formatUsageRemaining(bucket) {
-  const remainingAmount = formatRemainingAmount(bucket.remainingAmount);
-  const remainingFraction = bucket.remainingFraction;
-  const hasFraction = typeof remainingFraction === "number" && Number.isFinite(remainingFraction);
-  if (hasFraction) {
-    const clamped = clamp(remainingFraction, 0, 1);
-    const percent = (clamped * 100).toFixed(1);
-    const bar = buildProgressBar(clamped);
-    return remainingAmount ? `${bar} ${percent}% (${remainingAmount} left)` : `${bar} ${percent}%`;
-  }
-  if (remainingAmount) {
-    return remainingAmount;
-  }
-  return "unknown";
-}
-function formatRemainingAmount(value) {
-  if (!value) {
-    return void 0;
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) {
-    return value;
-  }
-  return parsed.toLocaleString("en-US");
-}
-function formatRelativeResetTime(resetTime) {
-  if (!resetTime) {
-    return void 0;
-  }
-  const resetAt = new Date(resetTime).getTime();
-  if (Number.isNaN(resetAt)) {
-    return void 0;
-  }
-  const diffMs = resetAt - Date.now();
-  if (diffMs <= 0) {
-    return "reset pending";
-  }
-  const totalMinutes = Math.ceil(diffMs / (1e3 * 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours > 0 && minutes > 0) {
-    return `resets in ${hours}h ${minutes}m`;
-  }
-  if (hours > 0) {
-    return `resets in ${hours}h`;
-  }
-  return `resets in ${minutes}m`;
-}
-function buildProgressBar(fraction, width = 20) {
-  const clamped = clamp(fraction, 0, 1);
-  const filled = clamped >= 1 ? width : Math.max(0, Math.min(width, Math.max(clamped > 0 ? 1 : 0, Math.floor(clamped * width))));
-  const empty = width - filled;
-  return `${"\u2593".repeat(filled)}${"\u2591".repeat(empty)}`;
-}
-function pad(value, width) {
-  if (value.length >= width) {
-    return value;
-  }
-  return value.padEnd(width, " ");
-}
-function clamp(value, min, max) {
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
-function normalizeTokenType(bucket) {
-  const value = bucket.tokenType?.trim();
-  return value ? value.toUpperCase() : "REQUESTS";
-}
-function groupQuotaRows(sortedBuckets) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const bucket of sortedBuckets) {
-    const modelId = bucket.modelId?.trim() || "unknown-model";
-    const { baseModel, variant } = splitModelVariant(modelId);
-    const usageRemaining = formatUsageRemaining(bucket);
-    const resetLabel = formatRelativeResetTime(bucket.resetTime);
-    const resetValue = resetLabel?.replace("resets in ", "") ?? "-";
-    const tokenType = normalizeTokenType(bucket);
-    const existing = groups.get(baseModel);
-    if (existing) {
-      existing.rows.push({
-        variant,
-        usageRemaining,
-        resetValue,
-        tokenType
-      });
-      continue;
-    }
-    groups.set(baseModel, {
-      baseModel,
-      version: extractModelVersion(baseModel),
-      rows: [{
-        variant,
-        usageRemaining,
-        resetValue,
-        tokenType
-      }]
-    });
-  }
-  return [...groups.values()];
-}
-function groupByVersion(models) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const model of models) {
-    const key = model.version ?? "__unknown__";
-    const existing = groups.get(key);
-    if (existing) {
-      existing.models.push(model);
-      continue;
-    }
-    groups.set(key, {
-      title: model.version ? `Gemini ${model.version}` : "Other",
-      version: model.version,
-      models: [model]
-    });
-  }
-  const ordered = [...groups.values()].sort(
-    (left, right) => compareVersionDesc(left.version, right.version)
-  );
-  for (const group of ordered) {
-    group.models.sort((left, right) => left.baseModel.localeCompare(right.baseModel));
-  }
-  return ordered;
-}
-function extractModelVersion(modelId) {
-  const match = modelId.match(/^gemini-([0-9]+(?:\.[0-9]+)*)-/i);
-  return match?.[1];
-}
-function compareVersionDesc(left, right) {
-  if (!left && !right) {
-    return 0;
-  }
-  if (!left) {
-    return 1;
-  }
-  if (!right) {
-    return -1;
-  }
-  const leftSegments = left.split(".").map((part) => Number.parseInt(part, 10));
-  const rightSegments = right.split(".").map((part) => Number.parseInt(part, 10));
-  const max = Math.max(leftSegments.length, rightSegments.length);
-  for (let index = 0; index < max; index += 1) {
-    const l = leftSegments[index] ?? 0;
-    const r = rightSegments[index] ?? 0;
-    if (Number.isNaN(l) || Number.isNaN(r)) {
-      break;
-    }
-    if (l > r) {
-      return -1;
-    }
-    if (l < r) {
-      return 1;
-    }
-  }
-  return right.localeCompare(left);
-}
-function formatVersionGroupTitle(group) {
-  const modelCount = group.models.length;
-  const bucketCount = group.models.reduce((count, model) => count + model.rows.length, 0);
-  const modelLabel = modelCount === 1 ? "model" : "models";
-  const bucketLabel = bucketCount === 1 ? "bucket" : "buckets";
-  return `${group.title} (${modelCount} ${modelLabel}, ${bucketCount} ${bucketLabel})`;
-}
-function splitModelVariant(modelId) {
-  const vertexSuffix = "_vertex";
-  if (modelId.endsWith(vertexSuffix)) {
-    return {
-      baseModel: modelId.slice(0, -vertexSuffix.length),
-      variant: "vertex"
-    };
-  }
-  return {
-    baseModel: modelId,
-    variant: "default"
-  };
-}
-
-// src/plugin/notify.ts
-var MODEL_CAPACITY_TOAST_COOLDOWN_MS = 3e4;
-var modelCapacityToastCooldownByKey = /* @__PURE__ */ new Map();
-var TEST_TOAST_FLAG = "OPENCODE_GEMINI_TEST_TOAST";
-var testToastShownByProject = /* @__PURE__ */ new Set();
-async function maybeShowGeminiCapacityToast(client, response, projectId, requestedModel) {
-  if (response.status !== 429 || !client.tui?.showToast) {
-    return;
-  }
-  const quotaContext = await classifyQuotaResponse(response);
-  if (quotaContext?.reason !== "MODEL_CAPACITY_EXHAUSTED") {
-    return;
-  }
-  const model = requestedModel ?? "the selected model";
-  const toastKey = `${projectId}|${model}|MODEL_CAPACITY_EXHAUSTED`;
-  const now = Date.now();
-  const cooldownUntil = modelCapacityToastCooldownByKey.get(toastKey) ?? 0;
-  if (cooldownUntil > now) {
-    return;
-  }
-  modelCapacityToastCooldownByKey.set(toastKey, now + MODEL_CAPACITY_TOAST_COOLDOWN_MS);
-  await client.tui.showToast({
-    body: {
-      title: "Gemini Capacity Unavailable",
-      message: `Google reports temporary server capacity limits for ${model}. Please retry in a few seconds.`,
-      variant: "warning",
-      duration: 7e3
-    }
-  });
-  if (isGeminiDebugEnabled()) {
-    logGeminiDebugMessage(`Toast: emitted capacity warning for model=${model} project=${projectId}`);
-  }
-}
-async function maybeShowGeminiTestToast(client, projectId) {
-  if (process.env[TEST_TOAST_FLAG]?.trim() !== "1" || !client.tui?.showToast) {
-    return;
-  }
-  const key = projectId || "global";
-  if (testToastShownByProject.has(key)) {
-    return;
-  }
-  testToastShownByProject.add(key);
-  await client.tui.showToast({
-    body: {
-      title: "Gemini Toast Test",
-      message: "Temporary test toast from opencode-gemini-auth.",
-      variant: "info",
-      duration: 5e3
-    }
-  });
-  if (isGeminiDebugEnabled()) {
-    logGeminiDebugMessage(`Toast: emitted test toast (project=${key})`);
-  }
-}
-
 // src/plugin/request/prepare.ts
 import { randomUUID as randomUUID3 } from "crypto";
 
 // src/plugin/request-helpers/types.ts
 var GEMINI_PREVIEW_LINK = "https://goo.gle/enable-preview-features";
-var CLOUDCODE_DOMAINS2 = [
+var CLOUDCODE_DOMAINS = [
   "cloudcode-pa.googleapis.com",
   "staging-cloudcode-pa.googleapis.com",
   "autopush-cloudcode-pa.googleapis.com"
@@ -2323,7 +1377,7 @@ function extractValidationInfo(details) {
   const errorInfo = details.find(
     (detail) => typeof detail === "object" && detail !== null && detail["@type"] === "type.googleapis.com/google.rpc.ErrorInfo"
   );
-  if (!errorInfo || errorInfo.reason !== "VALIDATION_REQUIRED" || !errorInfo.domain || !CLOUDCODE_DOMAINS2.includes(errorInfo.domain)) {
+  if (!errorInfo || errorInfo.reason !== "VALIDATION_REQUIRED" || !errorInfo.domain || !CLOUDCODE_DOMAINS.includes(errorInfo.domain)) {
     return null;
   }
   const helpDetail = details.find(
@@ -2380,7 +1434,7 @@ function extractRetryDelay(details, errorMessage) {
     (detail) => typeof detail === "object" && detail !== null && detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
   );
   if (retryInfo?.retryDelay) {
-    const delayMs = parseRetryDelayValue2(retryInfo.retryDelay);
+    const delayMs = parseRetryDelayValue(retryInfo.retryDelay);
     if (delayMs !== null) {
       return delayMs;
     }
@@ -2390,15 +1444,15 @@ function extractRetryDelay(details, errorMessage) {
   }
   const retryMatch = errorMessage.match(/Please retry in ([0-9.]+(?:ms|s))/);
   if (retryMatch?.[1]) {
-    return parseRetryDelayValue2(retryMatch[1]);
+    return parseRetryDelayValue(retryMatch[1]);
   }
   const resetMatch = errorMessage.match(/after\s+([0-9.]+(?:ms|s))/i);
   if (resetMatch?.[1]) {
-    return parseRetryDelayValue2(resetMatch[1]);
+    return parseRetryDelayValue(resetMatch[1]);
   }
   return null;
 }
-function parseRetryDelayValue2(value) {
+function parseRetryDelayValue(value) {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -2994,410 +2048,527 @@ function transformStreamingLine(line) {
   return line;
 }
 
-// src/plugin/retry/index.ts
-var retryCooldownByKey = /* @__PURE__ */ new Map();
-var RETRY_IN_FLIGHT_LOG_INTERVAL_MS = 5e3;
-var MODEL_CAPACITY_COOLDOWN_MS = 8e3;
-async function fetchWithRetry(input, init) {
-  if (!canRetryRequest(init)) {
-    return geminiFetch(input, init);
-  }
-  const retryInit = cloneRetryableInit(init);
-  const throttleKey = buildRetryThrottleKey(input, retryInit);
-  await waitForRetryCooldown(throttleKey, retryInit.signal);
-  let attempt = 1;
-  const url = readRequestUrl(input);
-  while (attempt <= DEFAULT_MAX_ATTEMPTS) {
-    let response;
-    const stopInFlightLog = startInFlightLog(attempt, url);
-    try {
-      debugRetry(
-        `attempt ${attempt}/${DEFAULT_MAX_ATTEMPTS} -> ${url}`
-      );
-      response = await geminiFetch(input, retryInit);
-    } catch (error) {
-      stopInFlightLog();
-      if (attempt >= DEFAULT_MAX_ATTEMPTS || !isRetryableNetworkError(error)) {
-        debugRetry(
-          `attempt ${attempt} network error is non-retryable or maxed: ${formatErrorSummary(error)}`
-        );
-        throw error;
-      }
-      if (retryInit.signal?.aborted) {
-        debugRetry(`attempt ${attempt} aborted before retry`);
-        throw error;
-      }
-      const delayMs2 = getExponentialDelayWithJitter(attempt);
-      debugRetry(
-        `attempt ${attempt} network retry scheduled in ${delayMs2}ms (${formatErrorSummary(error)})`
-      );
-      await wait2(delayMs2);
-      attempt += 1;
-      continue;
-    }
-    stopInFlightLog();
-    if (!isRetryableStatus(response.status)) {
-      debugRetry(`attempt ${attempt} success or non-retryable status: ${response.status}`);
-      return response;
-    }
-    const quotaContext = response.status === 429 ? await classifyQuotaResponse(response) : null;
-    if (response.status === 429 && quotaContext?.terminal) {
-      if (quotaContext.reason === "MODEL_CAPACITY_EXHAUSTED") {
-        const cooldownMs = quotaContext.retryDelayMs ?? MODEL_CAPACITY_COOLDOWN_MS;
-        setRetryCooldown(throttleKey, cooldownMs);
-        debugRetry(`terminal model capacity; cooldown ${cooldownMs}ms before next request`);
-      }
-      debugRetry(
-        `attempt ${attempt} terminal 429 (${quotaContext.reason ?? "unknown"}), returning without retry`
-      );
-      return response;
-    }
-    if (attempt >= DEFAULT_MAX_ATTEMPTS || retryInit.signal?.aborted) {
-      debugRetry(
-        `attempt ${attempt} reached retry boundary (status=${response.status})`
-      );
-      return response;
-    }
-    const delayMs = await resolveRetryDelayMs(response, attempt, quotaContext?.retryDelayMs);
-    debugRetry(
-      `attempt ${attempt} retrying status=${response.status} reason=${quotaContext?.reason ?? "n/a"} delay=${delayMs}ms`
-    );
-    if (delayMs > 0 && response.status === 429) {
-      setRetryCooldown(throttleKey, delayMs);
-    }
-    if (delayMs > 0) {
-      await wait2(delayMs);
-    }
-    attempt += 1;
-  }
-  return geminiFetch(input, retryInit);
+// src/plugin/cache.ts
+var authCache = /* @__PURE__ */ new Map();
+function normalizeRefreshKey(refresh) {
+  const key = refresh?.trim();
+  return key ? key : void 0;
 }
-function cloneRetryableInit(init) {
-  if (!init) {
-    return {};
-  }
-  return {
-    ...init,
-    headers: new Headers(init.headers ?? {})
-  };
-}
-function buildRetryThrottleKey(input, init) {
-  const url = readRequestUrl(input);
-  const body = typeof init.body === "string" ? safeParseBody(init.body) : null;
-  const project = readString2(body?.project);
-  const model = readString2(body?.model);
-  return `${url}|${project ?? ""}|${model ?? ""}`;
-}
-async function waitForRetryCooldown(key, signal) {
-  const until = retryCooldownByKey.get(key);
-  if (!until) {
+function storeCachedAuth(auth) {
+  const key = normalizeRefreshKey(auth.refresh);
+  if (!key) {
     return;
   }
-  const remaining = until - Date.now();
-  if (remaining <= 0) {
-    retryCooldownByKey.delete(key);
+  authCache.set(key, auth);
+}
+function clearCachedAuth(refresh) {
+  if (!refresh) {
+    authCache.clear();
     return;
   }
-  if (signal?.aborted) {
-    debugRetry(`cooldown skipped due to abort (key=${shortKey(key)})`);
-    return;
+  const key = normalizeRefreshKey(refresh);
+  if (key) {
+    authCache.delete(key);
   }
-  debugRetry(`cooldown wait ${remaining}ms (key=${shortKey(key)})`);
-  await wait2(remaining);
-  retryCooldownByKey.delete(key);
 }
-function setRetryCooldown(key, delayMs) {
-  const next = Date.now() + delayMs;
-  const current = retryCooldownByKey.get(key) ?? 0;
-  retryCooldownByKey.set(key, Math.max(current, next));
-  debugRetry(`cooldown set ${delayMs}ms (key=${shortKey(key)})`);
-}
-function readRequestUrl(input) {
-  if (typeof input === "string") {
-    return input;
-  }
-  if (input instanceof URL) {
-    return input.toString();
-  }
-  const request = input;
-  if (request.url) {
-    return request.url;
-  }
-  return input.toString();
-}
-function safeParseBody(body) {
-  if (!body) {
+
+// src/plugin/retry/quota.ts
+async function parseRetryDelayFromBody(response) {
+  const payload = await parseErrorBody(response);
+  if (!payload) {
     return null;
   }
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === "object") {
-      return parsed;
+  const details = Array.isArray(payload.details) ? payload.details : [];
+  const retryInfo = details.find(
+    (detail) => isObject(detail) && detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+  );
+  if (retryInfo?.retryDelay) {
+    const delayMs = parseRetryDelayValue2(retryInfo.retryDelay);
+    if (delayMs !== null) {
+      return delayMs;
     }
-  } catch {
+  }
+  if (typeof payload.message === "string") {
+    return parseRetryDelayFromMessage(payload.message);
   }
   return null;
 }
-function readString2(value) {
-  return typeof value === "string" && value.trim() ? value : void 0;
-}
-function debugRetry(message) {
-  if (!isGeminiDebugEnabled()) {
-    return;
+function parseRetryDelayValue2(value) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (trimmed.endsWith("ms")) {
+      const milliseconds = Number(trimmed.slice(0, -2));
+      return Number.isFinite(milliseconds) && milliseconds > 0 ? Math.round(milliseconds) : null;
+    }
+    const match = trimmed.match(/^([\d.]+)s$/);
+    if (!match?.[1]) {
+      return null;
+    }
+    const seconds2 = Number(match[1]);
+    return Number.isFinite(seconds2) && seconds2 > 0 ? Math.round(seconds2 * 1e3) : null;
   }
-  logGeminiDebugMessage(`Retry: ${message}`);
-}
-function formatErrorSummary(error) {
-  if (error instanceof Error) {
-    return error.message;
+  const seconds = typeof value.seconds === "number" ? value.seconds : 0;
+  const nanos = typeof value.nanos === "number" ? value.nanos : 0;
+  if (!Number.isFinite(seconds) || !Number.isFinite(nanos)) {
+    return null;
   }
-  return String(error);
+  const totalMs = Math.round(seconds * 1e3 + nanos / 1e6);
+  return totalMs > 0 ? totalMs : null;
 }
-function shortKey(key) {
-  return key.length <= 120 ? key : `${key.slice(0, 120)}...`;
-}
-function startInFlightLog(attempt, url) {
-  if (!isGeminiDebugEnabled()) {
-    return () => {
-    };
+function parseRetryDelayFromMessage(message) {
+  const retryMatch = message.match(/Please retry in ([0-9.]+(?:ms|s))/i);
+  if (retryMatch?.[1]) {
+    return parseRetryDelayValue2(retryMatch[1]);
   }
-  const startedAt = Date.now();
-  const interval = setInterval(() => {
-    const elapsed = Date.now() - startedAt;
-    debugRetry(`attempt ${attempt} still waiting for response (${elapsed}ms) -> ${url}`);
-  }, RETRY_IN_FLIGHT_LOG_INTERVAL_MS);
-  return () => {
-    clearInterval(interval);
-  };
+  const afterMatch = message.match(/after\s+([0-9.]+(?:ms|s))/i);
+  if (afterMatch?.[1]) {
+    return parseRetryDelayValue2(afterMatch[1]);
+  }
+  return null;
 }
-
-// src/plugin.ts
-var GEMINI_QUOTA_COMMAND = "gquota";
-var GEMINI_QUOTA_COMMAND_TEMPLATE = `Retrieve Gemini Code Assist quota usage for the current authenticated account.
-
-Immediately call \`${GEMINI_QUOTA_TOOL_NAME}\` with no arguments and return its output verbatim.
-Do not call other tools.
-`;
-var latestGeminiAuthResolver;
-var latestGeminiConfiguredProjectId;
-var latestGeminiUserAgentModel;
-var GeminiCLIOAuthPlugin = async ({ client }) => {
-  const resolveLatestConfiguredProjectId = async (provider) => {
-    const configProjectId = await resolveConfiguredProjectIdFromClient(client) ?? latestGeminiConfiguredProjectId;
-    const resolvedProjectId = resolveConfiguredProjectId({
-      provider,
-      configProjectId
-    });
-    latestGeminiConfiguredProjectId = resolvedProjectId;
-    return resolvedProjectId;
-  };
+async function parseErrorBody(response) {
+  let text = "";
+  try {
+    text = await response.clone().text();
+  } catch {
+    return null;
+  }
+  if (!text) {
+    return null;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const normalized = normalizeErrorEnvelope(parsed);
+  if (!normalized || !isObject(normalized.error)) {
+    return null;
+  }
+  const error = normalized.error;
   return {
-    config: async (config) => {
-      latestGeminiConfiguredProjectId = resolveConfiguredProjectIdFromConfig(config);
-      config.command = config.command || {};
-      config.command[GEMINI_QUOTA_COMMAND] = {
-        description: "Show Gemini Code Assist quota usage",
-        template: GEMINI_QUOTA_COMMAND_TEMPLATE
-      };
-    },
-    tool: {
-      [GEMINI_QUOTA_TOOL_NAME]: createGeminiQuotaTool({
-        client,
-        getAuthResolver: () => latestGeminiAuthResolver,
-        getConfiguredProjectId: () => latestGeminiConfiguredProjectId,
-        getUserAgentModel: () => latestGeminiUserAgentModel
-      })
-    },
-    auth: {
-      provider: GEMINI_PROVIDER_ID,
-      loader: async (getAuth, provider) => {
-        latestGeminiAuthResolver = getAuth;
-        const auth = await getAuth();
-        if (!isOAuthAuth(auth)) {
-          return null;
-        }
-        await resolveLatestConfiguredProjectId(provider);
-        normalizeProviderModelCosts(provider);
-        const thinkingConfigDefaults = resolveThinkingConfigDefaults(provider);
-        return {
-          apiKey: "",
-          async fetch(input, init) {
-            if (!isGenerativeLanguageRequest(input)) {
-              return geminiFetch(input, init);
-            }
-            const latestAuth = await getAuth();
-            if (!isOAuthAuth(latestAuth)) {
-              return geminiFetch(input, init);
-            }
-            let authRecord = resolveCachedAuth(latestAuth);
-            if (accessTokenExpired(authRecord)) {
-              const refreshed = await refreshAccessToken(authRecord, client);
-              if (!refreshed) {
-                return geminiFetch(input, init);
-              }
-              authRecord = refreshed;
-            }
-            if (!authRecord.access) {
-              return geminiFetch(input, init);
-            }
-            const configuredProjectId = await resolveLatestConfiguredProjectId(provider);
-            const requestTarget = parseGenerativeLanguageRequest(input);
-            const requestUserAgentModel = requestTarget?.effectiveModel;
-            if (requestUserAgentModel) {
-              latestGeminiUserAgentModel = requestUserAgentModel;
-            }
-            const projectContext = await ensureProjectContextOrThrow(
-              authRecord,
-              client,
-              configuredProjectId,
-              requestUserAgentModel
-            );
-            await maybeShowGeminiTestToast(client, projectContext.effectiveProjectId);
-            await maybeLogAvailableQuotaModels(
-              authRecord.access,
-              projectContext.effectiveProjectId,
-              requestUserAgentModel
-            );
-            const transformed = prepareGeminiRequest(
-              input,
-              init,
-              authRecord.access,
-              projectContext.effectiveProjectId,
-              thinkingConfigDefaults
-            );
-            const debugContext = startGeminiDebugRequest({
-              originalUrl: toUrlString(input),
-              resolvedUrl: toUrlString(transformed.request),
-              method: transformed.init.method,
-              headers: transformed.init.headers,
-              body: transformed.init.body,
-              streaming: transformed.streaming,
-              projectId: projectContext.effectiveProjectId
-            });
-            const response = await fetchWithRetry(transformed.request, transformed.init);
-            await maybeShowGeminiCapacityToast(
-              client,
-              response,
-              projectContext.effectiveProjectId,
-              transformed.requestedModel
-            );
-            return transformGeminiResponse(
-              response,
-              transformed.streaming,
-              debugContext,
-              transformed.requestedModel
-            );
-          }
-        };
-      },
-      methods: [
-        {
-          label: "OAuth with Google (Gemini CLI)",
-          type: "oauth",
-          authorize: createOAuthAuthorizeMethod({
-            getConfiguredProjectId: () => resolveLatestConfiguredProjectId(),
-            getUserAgentModel: () => latestGeminiUserAgentModel
-          })
-        },
-        {
-          provider: GEMINI_PROVIDER_ID,
-          label: "Manually enter API Key",
-          type: "api"
-        }
-      ]
-    }
+    message: typeof error.message === "string" ? error.message : void 0,
+    details: Array.isArray(error.details) ? error.details : void 0
   };
-};
-var GoogleOAuthPlugin = GeminiCLIOAuthPlugin;
-var loggedQuotaModelsByProject = /* @__PURE__ */ new Set();
-function normalizeProviderModelCosts(provider) {
-  if (!provider?.models || typeof provider.models !== "object") {
-    return;
+}
+function isObject(value) {
+  return !!value && typeof value === "object";
+}
+function normalizeErrorEnvelope(parsed) {
+  if (Array.isArray(parsed)) {
+    const first = parsed[0];
+    return isObject(first) ? first : null;
   }
-  for (const [modelId, model] of Object.entries(provider.models)) {
-    if (!model || typeof model !== "object") {
-      continue;
+  return isObject(parsed) ? parsed : null;
+}
+
+// src/plugin/retry/helpers.ts
+var DEFAULT_MAX_ATTEMPTS = 3;
+var DEFAULT_INITIAL_DELAY_MS = 5e3;
+var DEFAULT_MAX_DELAY_MS = 3e4;
+var RETRYABLE_NETWORK_CODES = /* @__PURE__ */ new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EPIPE",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ERR_SSL_SSLV3_ALERT_BAD_RECORD_MAC",
+  "ERR_SSL_WRONG_VERSION_NUMBER",
+  "ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC",
+  "ERR_SSL_BAD_RECORD_MAC",
+  "EPROTO"
+]);
+function isRetryableStatus(status) {
+  return status === 429 || status >= 500 && status < 600;
+}
+function isRetryableNetworkError(error) {
+  const code = getNetworkErrorCode(error);
+  if (code && RETRYABLE_NETWORK_CODES.has(code)) {
+    return true;
+  }
+  return error instanceof Error && error.message.toLowerCase().includes("fetch failed");
+}
+async function resolveRetryDelayMs(response, attempt, quotaDelayMs) {
+  const retryAfterMsHeader = parseRetryAfterMs(response.headers.get("retry-after-ms"));
+  if (retryAfterMsHeader !== null) {
+    return clampDelay(retryAfterMsHeader);
+  }
+  const retryAfterHeader = parseRetryAfter(response.headers.get("retry-after"));
+  if (retryAfterHeader !== null) {
+    return clampDelay(retryAfterHeader);
+  }
+  if (quotaDelayMs !== void 0) {
+    return clampDelay(quotaDelayMs);
+  }
+  const bodyDelay = await parseRetryDelayFromBody(response);
+  if (bodyDelay !== null) {
+    return clampDelay(bodyDelay);
+  }
+  return getExponentialDelayWithJitter(attempt);
+}
+function getExponentialDelayWithJitter(attempt) {
+  const base = Math.min(DEFAULT_MAX_DELAY_MS, DEFAULT_INITIAL_DELAY_MS * Math.pow(2, attempt - 1));
+  const jitter = base * 0.3 * (Math.random() * 2 - 1);
+  return clampDelay(base + jitter);
+}
+function wait2(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+function getNetworkErrorCode(error) {
+  const readCode = (value) => {
+    if (!value || typeof value !== "object") {
+      return void 0;
     }
-    const existingCost = model.cost;
-    const isValidCost = existingCost && typeof existingCost === "object" && typeof existingCost.input === "number" && typeof existingCost.output === "number";
-    const normalizedCost = {
-      input: isValidCost ? existingCost.input : 0,
-      output: isValidCost ? existingCost.output : 0,
-      cache: {
-        read: isValidCost && typeof existingCost.cache === "object" && existingCost.cache !== null && typeof existingCost.cache.read === "number" ? existingCost.cache.read : 0,
-        write: isValidCost && typeof existingCost.cache === "object" && existingCost.cache !== null && typeof existingCost.cache.write === "number" ? existingCost.cache.write : 0
+    if ("code" in value && typeof value.code === "string") {
+      return value.code;
+    }
+    return void 0;
+  };
+  const direct = readCode(error);
+  if (direct) {
+    return direct;
+  }
+  let cursor = error;
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (!cursor || typeof cursor !== "object" || !("cause" in cursor)) {
+      break;
+    }
+    cursor = cursor.cause;
+    const code = readCode(cursor);
+    if (code) {
+      return code;
+    }
+  }
+  return void 0;
+}
+function parseRetryAfterMs(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value.trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.round(parsed);
+}
+function parseRetryAfter(value) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const seconds = Number(trimmed);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.round(seconds * 1e3));
+  }
+  const parsedDate = Date.parse(trimmed);
+  if (!Number.isNaN(parsedDate)) {
+    return Math.max(0, parsedDate - Date.now());
+  }
+  return null;
+}
+function clampDelay(delayMs) {
+  if (!Number.isFinite(delayMs)) {
+    return DEFAULT_MAX_DELAY_MS;
+  }
+  return Math.min(Math.max(0, Math.round(delayMs)), DEFAULT_MAX_DELAY_MS);
+}
+
+// src/plugin/token.ts
+var refreshInFlight = /* @__PURE__ */ new Map();
+function parseOAuthErrorPayload(text) {
+  if (!text) {
+    return {};
+  }
+  try {
+    const payload = JSON.parse(text);
+    if (!payload || typeof payload !== "object") {
+      return { description: text };
+    }
+    let code;
+    if (typeof payload.error === "string") {
+      code = payload.error;
+    } else if (payload.error && typeof payload.error === "object") {
+      code = payload.error.status ?? payload.error.code;
+      if (!payload.error_description && payload.error.message) {
+        return { code, description: payload.error.message };
       }
-    };
-    model.cost = normalizedCost;
+    }
+    const description = payload.error_description;
+    if (description) {
+      return { code, description };
+    }
+    if (payload.error && typeof payload.error === "object" && payload.error.message) {
+      return { code, description: payload.error.message };
+    }
+    return { code };
+  } catch {
+    return { description: text };
   }
 }
-function resolveThinkingConfigDefaults(provider) {
-  const providerOptions = provider && typeof provider === "object" ? provider.options ?? void 0 : void 0;
-  const providerThinkingConfig = providerOptions?.thinkingConfig;
-  const modelThinkingConfigByModel = {};
-  for (const [modelId, model] of Object.entries(provider.models ?? {})) {
-    if (!model || typeof model !== "object") {
-      continue;
-    }
-    const modelOptions = model.options;
-    if (modelOptions && typeof modelOptions === "object" && "thinkingConfig" in modelOptions) {
-      modelThinkingConfigByModel[modelId] = modelOptions.thinkingConfig;
-    }
-  }
-  if (providerThinkingConfig === void 0 && Object.keys(modelThinkingConfigByModel).length === 0) {
+async function refreshAccessToken(auth, client) {
+  const parts = parseRefreshParts(auth.refresh);
+  if (!parts.refreshToken) {
     return void 0;
   }
+  const pending = refreshInFlight.get(parts.refreshToken);
+  if (pending) {
+    return pending;
+  }
+  const refreshPromise = refreshAccessTokenInternal(auth, client, parts);
+  refreshInFlight.set(parts.refreshToken, refreshPromise);
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshInFlight.delete(parts.refreshToken);
+  }
+}
+async function refreshAccessTokenInternal(auth, client, parts) {
+  try {
+    const response = await fetchTokenRefresh(parts.refreshToken);
+    if (!response.ok) {
+      let errorText;
+      try {
+        errorText = await response.text();
+      } catch {
+        errorText = void 0;
+      }
+      if (isGeminiDebugEnabled()) {
+        logGeminiDebugMessage(
+          `OAuth refresh response: ${response.status} ${response.statusText}`
+        );
+        const preview = formatDebugBodyPreview(errorText);
+        if (preview) {
+          logGeminiDebugMessage(`OAuth refresh error body: ${preview}`);
+        }
+      }
+      const { code, description } = parseOAuthErrorPayload(errorText);
+      const details = [code, description ?? errorText].filter(Boolean).join(": ");
+      const baseMessage = `Gemini token refresh failed (${response.status} ${response.statusText})`;
+      console.warn(`[Gemini OAuth] ${details ? `${baseMessage} - ${details}` : baseMessage}`);
+      if (code === "invalid_grant") {
+        console.warn(
+          "[Gemini OAuth] Google revoked the stored refresh token. Run `opencode auth login` and reauthenticate the Google provider."
+        );
+        clearCachedAuth(auth.refresh);
+        invalidateProjectContextCache(auth.refresh);
+        try {
+          const clearedAuth = {
+            type: "oauth",
+            refresh: formatRefreshParts({
+              refreshToken: "",
+              projectId: parts.projectId,
+              managedProjectId: parts.managedProjectId
+            })
+          };
+          await client.auth.set({
+            path: { id: GEMINI_PROVIDER_ID },
+            body: clearedAuth
+          });
+        } catch (storeError) {
+          console.error("Failed to clear stored Gemini OAuth credentials:", storeError);
+        }
+      }
+      return void 0;
+    }
+    const payload = await response.json();
+    if (isGeminiDebugEnabled()) {
+      const rotated = payload.refresh_token && payload.refresh_token !== parts.refreshToken;
+      logGeminiDebugMessage(
+        `OAuth refresh success: expires_in=${payload.expires_in}s refresh_rotated=${rotated ? "yes" : "no"}`
+      );
+    }
+    const refreshedParts = {
+      refreshToken: payload.refresh_token ?? parts.refreshToken,
+      projectId: parts.projectId,
+      managedProjectId: parts.managedProjectId
+    };
+    const updatedAuth = {
+      ...auth,
+      access: payload.access_token,
+      expires: Date.now() + payload.expires_in * 1e3,
+      refresh: formatRefreshParts(refreshedParts)
+    };
+    clearCachedAuth(auth.refresh);
+    storeCachedAuth(updatedAuth);
+    invalidateProjectContextCache(auth.refresh);
+    if (refreshedParts.refreshToken !== parts.refreshToken) {
+      try {
+        await client.auth.set({
+          path: { id: GEMINI_PROVIDER_ID },
+          body: updatedAuth
+        });
+      } catch (storeError) {
+        console.error("Failed to persist refreshed Gemini OAuth credentials:", storeError);
+      }
+    }
+    return updatedAuth;
+  } catch (error) {
+    console.error("Failed to refresh Gemini access token due to an unexpected error:", error);
+    return void 0;
+  }
+}
+async function fetchTokenRefresh(refreshToken) {
+  const tokenUrl = "https://oauth2.googleapis.com/token";
+  const init = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: GEMINI_CLIENT_ID,
+      client_secret: GEMINI_CLIENT_SECRET
+    })
+  };
+  let attempt = 1;
+  while (attempt <= DEFAULT_MAX_ATTEMPTS) {
+    if (isGeminiDebugEnabled()) {
+      logGeminiDebugMessage(`OAuth refresh attempt ${attempt}: POST ${tokenUrl}`);
+    }
+    try {
+      const response = await geminiFetch(tokenUrl, init);
+      if (!isRetryableStatus(response.status) || attempt >= DEFAULT_MAX_ATTEMPTS) {
+        return response;
+      }
+      const delayMs = await resolveRetryDelayMs(response, attempt);
+      if (delayMs > 0) {
+        await wait2(delayMs);
+      }
+      attempt += 1;
+      continue;
+    } catch (error) {
+      if (attempt >= DEFAULT_MAX_ATTEMPTS || !isRetryableNetworkError(error)) {
+        throw error;
+      }
+      await wait2(getExponentialDelayWithJitter(attempt));
+      attempt += 1;
+    }
+  }
+  return geminiFetch(tokenUrl, init);
+}
+
+// src/plugin-v2.ts
+var GEMINI_OAUTH_METHOD_ID = Integration.MethodID.make("gemini-cli");
+var noPersistClient = {
+  auth: { set: async () => {
+  } }
+};
+async function setupV2(ctx) {
+  const requests = /* @__PURE__ */ new WeakMap();
+  const getConfiguredProjectId = () => resolveV2ConfiguredProjectId(ctx);
+  const authorize = createOAuthAuthorizeMethod({ getConfiguredProjectId });
+  await ctx.integration.transform((draft) => {
+    draft.method.update({
+      integrationID: GEMINI_PROVIDER_ID,
+      method: {
+        id: GEMINI_OAUTH_METHOD_ID,
+        type: "oauth",
+        label: "OAuth with Google (Gemini CLI)"
+      },
+      authorize: async () => {
+        const authorization = await authorize();
+        return authorization.method === "auto" ? {
+          url: authorization.url,
+          instructions: authorization.instructions,
+          mode: "auto",
+          callback: authorization.callback().then(toV2Credential)
+        } : {
+          url: authorization.url,
+          instructions: authorization.instructions,
+          mode: "code",
+          callback: (code) => authorization.callback(code).then(toV2Credential)
+        };
+      },
+      refresh: async (credential) => {
+        const refreshed = await refreshAccessToken(credential, noPersistClient);
+        if (!refreshed?.access || refreshed.expires === void 0) {
+          throw new Error("Gemini OAuth token refresh failed");
+        }
+        return { ...credential, ...refreshed };
+      },
+      label: (credential) => typeof credential.metadata?.email === "string" ? credential.metadata.email : void 0
+    });
+  });
+  await ctx.session.hook("http.request", async (event) => {
+    if (!isGenerativeLanguageRequest(event.request)) {
+      return;
+    }
+    const connection = await ctx.integration.connection.active(GEMINI_PROVIDER_ID);
+    const credential = connection ? await ctx.integration.connection.resolve(connection) : void 0;
+    if (!isV2Credential(credential) || credential.methodID !== GEMINI_OAUTH_METHOD_ID) {
+      return;
+    }
+    const project = await resolveProjectContextFromAccessToken(
+      credential,
+      credential.access,
+      await getConfiguredProjectId(),
+      void 0,
+      event.model.id
+    );
+    const original = event.request;
+    const body = original.method === "GET" || original.method === "HEAD" ? void 0 : await original.clone().text();
+    const transformed = prepareGeminiRequest(
+      original,
+      { method: original.method, headers: original.headers, body, signal: original.signal },
+      credential.access,
+      project.effectiveProjectId
+    );
+    const request = new Request(transformed.request, transformed.init);
+    requests.set(request, {
+      streaming: transformed.streaming,
+      requestedModel: transformed.requestedModel
+    });
+    event.request = request;
+  }, { providerID: GEMINI_PROVIDER_ID });
+  await ctx.session.hook("http.response", async (event) => {
+    const request = requests.get(event.request);
+    if (!request) return;
+    event.response = await transformGeminiResponse(
+      event.response,
+      request.streaming,
+      null,
+      request.requestedModel
+    );
+  }, { providerID: GEMINI_PROVIDER_ID });
+}
+async function resolveV2ConfiguredProjectId(ctx) {
+  const override = process.env.OPENCODE_GEMINI_PROJECT_ID?.trim();
+  if (override) return override;
+  const provider = await ctx.provider.get({ providerID: GEMINI_PROVIDER_ID });
+  return resolveConfiguredProjectId({
+    provider: { options: provider.data.settings }
+  });
+}
+function toV2Credential(result) {
+  if (result.type !== "success") throw new Error(result.error);
   return {
-    provider: providerThinkingConfig,
-    models: modelThinkingConfigByModel
+    type: "oauth",
+    methodID: GEMINI_OAUTH_METHOD_ID,
+    refresh: result.refresh,
+    access: result.access,
+    expires: result.expires,
+    metadata: result.email ? { email: result.email } : void 0
   };
 }
-async function ensureProjectContextOrThrow(authRecord, client, configuredProjectId, userAgentModel) {
-  try {
-    return await ensureProjectContext(authRecord, client, configuredProjectId, userAgentModel);
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error(error.message);
-    }
-    throw error;
-  }
+function isV2Credential(value) {
+  return !!value && typeof value === "object" && value.type === "oauth" && typeof value.methodID === "string";
 }
-function toUrlString(value) {
-  if (typeof value === "string") {
-    return value;
-  }
-  const candidate = value.url;
-  if (candidate) {
-    return candidate;
-  }
-  return value.toString();
-}
-async function maybeLogAvailableQuotaModels(accessToken, projectId, userAgentModel) {
-  if (!isGeminiDebugEnabled() || !projectId) {
-    return;
-  }
-  if (loggedQuotaModelsByProject.has(projectId)) {
-    return;
-  }
-  loggedQuotaModelsByProject.add(projectId);
-  const quota = await retrieveUserQuota(accessToken, projectId, userAgentModel);
-  if (!quota?.buckets) {
-    logGeminiDebugMessage(`Code Assist quota model lookup returned no buckets for project: ${projectId}`);
-    return;
-  }
-  const modelIds = [...new Set(quota.buckets.map((bucket) => bucket.modelId).filter(Boolean))];
-  if (modelIds.length === 0) {
-    logGeminiDebugMessage(`Code Assist quota buckets contained no model IDs for project: ${projectId}`);
-    return;
-  }
-  logGeminiDebugMessage(
-    `Code Assist models visible via quota buckets (${projectId}): ${modelIds.join(", ")}`
-  );
-}
+var plugin_v2_default = Plugin.define({
+  id: "opencode.provider.google-gemini-cli",
+  setup: setupV2
+});
 export {
-  GeminiCLIOAuthPlugin,
-  GoogleOAuthPlugin,
-  authorizeGemini,
-  exchangeGeminiWithVerifier
+  plugin_v2_default as default
 };
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=server.js.map

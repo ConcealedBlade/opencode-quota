@@ -6,10 +6,11 @@
  * Encapsulating this conversion in the SDK completely shields the OpenCode plugin app layer from non-standard API interaction complexities,
  * allowing the plugin to simply call and forward standard OpenAI formatted requests and response streams.
  */
+import type { ToolMapper } from "./tool-mapper";
 /**
  * Converts OpenAI's `tool_calls` into Gemini's `functionCall` sections.
  */
-export declare function transformOpenAIToolCalls(requestPayload: Record<string, unknown>): void;
+export declare function transformOpenAIToolCalls(requestPayload: Record<string, unknown>, toolMapper?: ToolMapper): void;
 /**
  * Adds synthesized thoughtSignature to function calls in the flattened and wrapped payload.
  */

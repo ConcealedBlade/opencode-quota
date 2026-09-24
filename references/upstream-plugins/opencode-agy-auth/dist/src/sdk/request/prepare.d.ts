@@ -12,3 +12,4 @@ export declare function prepareAgyRequest(input: RequestInfo, init: RequestInit 
     requestedModel?: string;
     sessionId?: string;
 };
+export declare function ensureTrailingUserTurn(contents: any[]): any[];
