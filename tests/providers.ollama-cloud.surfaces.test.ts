@@ -55,4 +55,35 @@ describe("Ollama Cloud four-surface formatting", () => {
       expect(output).not.toContain("requests");
     }
   });
+
+  it("shows the Ollama Cloud monthly usage pool on command, toast, sidebar, and compact output", () => {
+    const monthlyData: QuotaRenderData = {
+      entries: [
+        {
+          accounting: { resultType: "quota", ...accounting },
+          name: "Ollama Cloud Monthly",
+          group: "Ollama Cloud",
+          label: "Monthly:",
+          percentRemaining: 96,
+        },
+      ],
+      errors: [],
+    };
+    const command = formatQuotaCommand({ ...monthlyData, generatedAtMs: 0 });
+    const toast = formatQuotaRowsGrouped(monthlyData);
+    const sidebar = buildSidebarQuotaPanelLines({
+      data: monthlyData,
+      config: { formatStyle: "allWindows", percentDisplayMode: "remaining" },
+    }).join("\n");
+    const compact = buildCompactQuotaStatusLine({
+      data: monthlyData,
+      percentDisplayMode: "remaining",
+      maxWidth: 200,
+    });
+
+    for (const output of [command, toast, sidebar, compact]) {
+      expect(output).toContain("Ollama Cloud");
+      expect(output).toContain("96%");
+    }
+  });
 });

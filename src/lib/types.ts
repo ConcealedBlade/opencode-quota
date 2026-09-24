@@ -888,6 +888,8 @@ export type OllamaCloudResult =
       session?: OllamaCloudWindow;
       /** Weekly usage window, when present */
       weekly?: OllamaCloudWindow;
+      /** Monthly usage-pool window, when present */
+      monthly?: OllamaCloudWindow;
       /** Independent response fields that could not be used */
       rowErrors?: string[];
     }

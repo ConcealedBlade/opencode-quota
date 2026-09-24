@@ -1,8 +1,8 @@
 /**
  * Ollama Cloud usage API client.
  *
- * Fetches session and weekly usage fractions from the authenticated Ollama
- * Cloud usage endpoint.
+ * Fetches session, weekly, and monthly usage fractions from the authenticated
+ * Ollama Cloud usage endpoint.
  */
 
 import { sanitizeSingleLineDisplayText } from "./display-sanitize.js";
@@ -92,6 +92,7 @@ function parseOllamaCloudUsage(payload: unknown): OllamaCloudResult {
   const limits = isRecord(payload.limits) ? payload.limits : undefined;
   const session = parseWindow(limits?.session);
   const weekly = parseWindow(limits?.weekly);
+  const monthly = parseWindow(limits?.monthly);
 
   if (limits?.session !== undefined && !session) {
     rowErrors.push("Session: ignored invalid usage fraction");
@@ -99,11 +100,14 @@ function parseOllamaCloudUsage(payload: unknown): OllamaCloudResult {
   if (limits?.weekly !== undefined && !weekly) {
     rowErrors.push("Weekly: ignored invalid usage fraction");
   }
+  if (limits?.monthly !== undefined && !monthly) {
+    rowErrors.push("Monthly: ignored invalid usage fraction");
+  }
   if (!limits) {
     rowErrors.push("Limits: expected an object");
   }
 
-  if (!session && !weekly) {
+  if (!session && !weekly && !monthly) {
     return {
       success: false,
       error: "Ollama Cloud usage API returned no usable usage data",
@@ -114,6 +118,7 @@ function parseOllamaCloudUsage(payload: unknown): OllamaCloudResult {
     success: true,
     ...(session ? { session } : {}),
     ...(weekly ? { weekly } : {}),
+    ...(monthly ? { monthly } : {}),
     ...(rowErrors.length > 0 ? { rowErrors } : {}),
   };
 }

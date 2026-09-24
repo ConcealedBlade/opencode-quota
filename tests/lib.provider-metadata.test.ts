@@ -212,7 +212,8 @@ describe("provider-metadata", () => {
         authentication: "opencode_auth_api_key",
         authFallbacks: ["env_api_key", "global_opencode_config"],
         quota: "remote_api",
-        notes: "Queries the Ollama Cloud usage API; reports session and weekly usage fractions",
+        notes:
+          "Queries the Ollama Cloud usage API; reports session, weekly, or monthly usage fractions",
       },
       {
         id: "quota-providers",

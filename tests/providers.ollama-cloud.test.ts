@@ -103,6 +103,40 @@ describe("ollama-cloud provider", () => {
     );
   });
 
+  it("maps a monthly-only usage pool entry", async () => {
+    mocks.queryOllamaCloudQuota.mockResolvedValueOnce({
+      success: true,
+      monthly: {
+        usageFraction: 0.043,
+        usagePercent: 4.3,
+        percentRemaining: 95.7,
+      },
+    });
+
+    const out = await runProviderFetch();
+
+    expectAttemptedWithNoErrors(out);
+    expect(visibleEntries(out.entries, "ollama-cloud")).toEqual([
+      {
+        name: "Ollama Cloud Monthly",
+        group: "Ollama Cloud",
+        label: "Monthly:",
+        percentRemaining: 95.7,
+      },
+    ]);
+    expect(out.entries.map((entry) => entry.accounting)).toEqual([
+      {
+        resultType: "quota",
+        acquisitionMethod: "remote_api",
+        ownership: "maintained",
+        authority: "provider_reported",
+      },
+    ]);
+    expect(out.statusDetails).toContainEqual({ key: "monthly_usage_fraction", value: "0.043" });
+    expect(out.statusDetails?.map((detail) => detail.key)).not.toContain("session_usage_fraction");
+    expect(out.statusDetails?.map((detail) => detail.key)).not.toContain("weekly_usage_fraction");
+  });
+
   it("keeps valid entries and exposes row-level response errors", async () => {
     mocks.queryOllamaCloudQuota.mockResolvedValueOnce({
       success: true,

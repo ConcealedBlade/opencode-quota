@@ -59,6 +59,24 @@ const usagePayload = {
   },
 };
 
+// Monthly-pool plan response from issue #289.
+const monthlyUsagePayload = {
+  activity: {
+    cost: "0.00000",
+    period: { type: "last_4_weeks", starting_at: "...", ending_at: "..." },
+    models: [],
+  },
+  limits: {
+    monthly: {
+      usage: 0.043,
+      models: [
+        { name: "gpt-oss:120b", request_count: 32 },
+        { name: "gemma4:31b", request_count: 1 },
+      ],
+    },
+  },
+};
+
 describe("queryOllamaCloudQuota", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,6 +148,20 @@ describe("queryOllamaCloudQuota", () => {
     expect(out?.success ? out.rowErrors : undefined).toBeUndefined();
   });
 
+  it("maps the monthly usage pool from a monthly-only plan response", async () => {
+    mockResponse({ ok: true, status: 200, json: monthlyUsagePayload });
+
+    const out = await queryOllamaCloudQuota();
+    expect(out).toEqual({
+      success: true,
+      monthly: {
+        usageFraction: 0.043,
+        usagePercent: 4.3,
+        percentRemaining: 95.7,
+      },
+    });
+  });
+
   it("preserves zero and fully-used fraction boundaries", () => {
     expect(
       _parseOllamaCloudUsage({
@@ -160,6 +192,22 @@ describe("queryOllamaCloudQuota", () => {
     expect(out?.success ? out.rowErrors : []).toEqual(["Weekly: ignored invalid usage fraction"]);
   });
 
+  it("reports an invalid monthly usage window", () => {
+    const out = _parseOllamaCloudUsage({
+      limits: {
+        weekly: { usage: 0.3 },
+        monthly: { usage: "0.5" },
+      },
+    });
+
+    expect(out).toMatchObject({
+      success: true,
+      weekly: { usageFraction: 0.3, usagePercent: 30, percentRemaining: 70 },
+    });
+    expect(out?.success ? out.monthly : undefined).toBeUndefined();
+    expect(out?.success ? out.rowErrors : []).toEqual(["Monthly: ignored invalid usage fraction"]);
+  });
+
   it.each([null, [], "invalid"])("rejects an invalid root payload: %j", (payload) => {
     expect(_parseOllamaCloudUsage(payload)).toEqual({
       success: false,
@@ -170,7 +218,11 @@ describe("queryOllamaCloudQuota", () => {
   it("rejects an object with no usable usage data", () => {
     expect(
       _parseOllamaCloudUsage({
-        limits: { session: { usage: -1 }, weekly: { usage: Number.NaN } },
+        limits: {
+          session: { usage: -1 },
+          weekly: { usage: Number.NaN },
+          monthly: { usage: 2 },
+        },
       }),
     ).toEqual({
       success: false,

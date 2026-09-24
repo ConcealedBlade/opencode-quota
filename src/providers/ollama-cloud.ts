@@ -1,7 +1,7 @@
 /**
  * Ollama Cloud provider wrapper.
  *
- * Queries the Ollama Cloud usage API and reports session/weekly quota.
+ * Queries the Ollama Cloud usage API and reports session/weekly/monthly quota.
  */
 
 import type {
@@ -60,6 +60,19 @@ function mapOllamaCloudSuccess(result: OllamaCloudSuccess): QuotaProviderResult 
     });
   }
 
+  if (result.monthly) {
+    entries.push({
+      accounting: {
+        resultType: "quota",
+        ...REMOTE_API_ACCOUNTING,
+      },
+      name: `${OLLAMA_CLOUD_PROVIDER_LABEL} Monthly`,
+      group: OLLAMA_CLOUD_PROVIDER_LABEL,
+      label: "Monthly:",
+      percentRemaining: result.monthly.percentRemaining,
+    });
+  }
+
   const errors = (result.rowErrors ?? []).map((message) => ({
     label: OLLAMA_CLOUD_PROVIDER_LABEL,
     message,
@@ -75,6 +88,7 @@ function mapOllamaCloudSuccess(result: OllamaCloudSuccess): QuotaProviderResult 
     ...statusDetailsFromRecord({
       session_usage_fraction: result.session?.usageFraction.toString(),
       weekly_usage_fraction: result.weekly?.usageFraction.toString(),
+      monthly_usage_fraction: result.monthly?.usageFraction.toString(),
     }),
     ...(result.rowErrors ?? []).map((message, index) => ({
       key: `live_error_${index + 1}`,
