@@ -10,7 +10,6 @@ import { CURSOR_CANONICAL_PLUGIN_PACKAGE } from "../src/lib/cursor-detection.js"
 describe("upstream-plugin-specs", () => {
   it("tracks the expected upstream plugin ids", () => {
     expect(UPSTREAM_PLUGIN_SPECS.map((spec) => spec.pluginId)).toEqual([
-      "opencode-antigravity-auth",
       "opencode-cursor-oauth",
       "opencode-gemini-auth",
       "opencode-agy-auth",

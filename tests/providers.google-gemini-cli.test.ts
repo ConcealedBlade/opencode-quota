@@ -182,5 +182,8 @@ describe("google gemini cli provider", () => {
     expect(googleGeminiCliProvider.matchesCurrentModel?.("gemini-cli/gemini-3-flash")).toBe(true);
     expect(googleGeminiCliProvider.matchesCurrentModel?.("google/gemini-2.5-pro")).toBe(true);
     expect(googleGeminiCliProvider.matchesCurrentModel?.("google/claude-opus")).toBe(false);
+    expect(googleGeminiCliProvider.matchesCurrentModel?.("google/antigravity-gemini-3-pro")).toBe(
+      false,
+    );
   });
 });

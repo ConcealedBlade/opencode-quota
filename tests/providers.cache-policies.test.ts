@@ -58,14 +58,7 @@ describe("provider cache policies", () => {
     expect(PROVIDER_CACHE_POLICIES["kimi-code-plan-cn"].kind).toBe("resolved-auth");
     expect(PROVIDER_CACHE_POLICIES).not.toHaveProperty("kimi-for-coding");
 
-    for (const id of [
-      "anthropic",
-      "copilot",
-      "google-antigravity",
-      "google-gemini-cli",
-      "openrouter",
-      "xai",
-    ] as const) {
+    for (const id of ["anthropic", "copilot", "google-gemini-cli", "openrouter", "xai"] as const) {
       expect(PROVIDER_CACHE_POLICIES[id].kind).toBe("resolved-auth");
     }
   });

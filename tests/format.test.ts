@@ -613,15 +613,15 @@ describe("formatQuotaRows", () => {
       layout: { maxWidth: 80, narrowAt: 42, tinyAt: 32 },
       entries: [
         {
-          name: "Antigravity (ali…)",
-          group: "[Antigravity (ali…)]",
+          name: "Example (ali…)",
+          group: "[Example (ali…)]",
           metricLabel: "Quota",
           percentRemaining: 75,
         },
       ],
     });
 
-    expect(out).toContain("[Antigravity (ali…)]");
+    expect(out).toContain("[Example (ali…)]");
     expect(out).toContain("\nQuota ");
     expect(out).not.toContain("Quota window");
   });
@@ -892,36 +892,6 @@ describe("formatQuotaRows", () => {
 
     expect(out.indexOf("RPM")).toBeLessThan(out.indexOf("Daily"));
     expect(out.indexOf("Five-hour")).toBeLessThan(out.indexOf("Weekly"));
-  });
-
-  it("preserves explicit legacy Google-style labels and only falls back for unlabeled rows", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
-
-    const out = formatQuotaRows({
-      version: "1.0.0",
-      style: "allWindows",
-      layout: { maxWidth: 50, narrowAt: 42, tinyAt: 32 },
-      entries: [
-        {
-          name: "Claude (acct)",
-          label: "Claude:",
-          percentRemaining: 67,
-          resetTimeIso: "2026-01-15T15:00:00.000Z",
-        },
-        {
-          name: "G3Pro (acct)",
-          percentRemaining: 67,
-          resetTimeIso: "2026-01-15T15:00:00.000Z",
-        },
-      ],
-    });
-
-    expect(out).toContain("[Antigravity (acct)]");
-    expect(out).toContain("\nClaude ");
-    expect(out.match(/\[Antigravity \(acct\)\]/gu)).toHaveLength(2);
-    expect(out).not.toContain("[Claude] (acct)");
-    expect(out).not.toContain("[G3Pro] (acct)");
   });
 
   it("renders single-window session tokens as a one-line total summary", () => {

@@ -4,7 +4,6 @@ This directory stores committed local copies of the published npm packages track
 
 Tracked packages:
 
-- `opencode-antigravity-auth`
 - `@playwo/opencode-cursor-oauth` (tracked internally under `references/upstream-plugins/opencode-cursor-oauth/`)
 - `opencode-gemini-auth`
 - `@anthonyhaussman/opencode-agy-auth` (tracked internally under `references/upstream-plugins/opencode-agy-auth/`)

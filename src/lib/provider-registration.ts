@@ -164,18 +164,6 @@ export const QUOTA_PROVIDER_REGISTRATION_SOURCE = [
     },
   },
   {
-    id: "google-antigravity",
-    label: "Google",
-    runtimeIds: ["google-antigravity", "google", "antigravity"],
-    synonyms: [],
-    shape: {
-      autoSetup: "needs_quick_setup",
-      authentication: "companion_auth_oauth_token",
-      quota: "remote_api",
-      quickSetupAnchor: "google-antigravity",
-    },
-  },
-  {
     id: "google-gemini-cli",
     label: "Gemini CLI",
     runtimeIds: ["google-gemini-cli", "gemini-cli", "gemini", "opencode-gemini-auth", "google"],

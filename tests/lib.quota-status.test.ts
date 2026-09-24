@@ -228,56 +228,6 @@ describe("buildQuotaStatusReport", () => {
     );
   });
 
-  it("reports effective googleModels and whether they came from defaults or a config file", async () => {
-    const defaultsReport = await buildQuotaStatusReportForTest({
-      configSource: "defaults",
-      googleModels: ["CLAUDE"],
-    });
-    expect(defaultsReport).toContain("- googleModels: CLAUDE");
-    expect(defaultsReport).toContain("- googleModels_source: default");
-
-    const configPath =
-      "/tmp/config/opencode-quota/quota-toast.json (opencode-quota/quota-toast.json)";
-    const configuredReport = await buildQuotaStatusReportForTest({
-      configSource: "files",
-      googleModels: ["CLAUDE", "G3PRO"],
-      settingSources: { googleModels: configPath },
-    });
-    expect(configuredReport).toContain("- googleModels: CLAUDE,G3PRO");
-    expect(configuredReport).toContain(`- googleModels_source: configuration file (${configPath})`);
-  });
-
-  it("keeps the raw Antigravity family in live quota diagnostics", async () => {
-    const report = await buildProviderStatusReport("google-antigravity", {
-      providerLiveProbes: [
-        makeProviderSuccessProbe(
-          "google-antigravity",
-          {},
-          {
-            entries: [
-              {
-                accounting: QUOTA_ACCOUNTING,
-                name: "Antigravity (ali…): Claude",
-                group: "[Antigravity (ali…)]",
-                label: "Claude:",
-                metricLabel: "Claude",
-                percentRemaining: 64,
-              },
-            ],
-            presentation: {
-              classicStrategy: "preserve",
-              redundantQuotaFamily: "Claude",
-            },
-          },
-        ),
-      ],
-    });
-
-    const section = getReportSection(report, "google_antigravity:");
-    expect(section).toContain("- live_entry_1: Claude: percent_remaining=64");
-    expect(section).not.toContain("- live_entry_1: Quota:");
-  });
-
   it("renders only safe quota-provider identity and diagnostic fields", async () => {
     const report = await buildQuotaStatusReportForTest({
       enabledProviders: ["quota-providers"],
@@ -735,7 +685,6 @@ describe("buildQuotaStatusReport", () => {
         "alibaba-token-plan",
         "minimax-coding-plan",
         "copilot",
-        "google-antigravity",
         "google-gemini-cli",
         "chutes",
       ],
@@ -782,7 +731,6 @@ describe("buildQuotaStatusReport", () => {
           },
         ),
         makeProviderSafeFailureProbe("copilot", {}, "Billing endpoint unavailable"),
-        makeProviderProbe("google-antigravity"),
         makeProviderSuccessProbe(
           "google-gemini-cli",
           { auth_state: "missing", companion_package_state: "missing" },
@@ -833,8 +781,7 @@ describe("buildQuotaStatusReport", () => {
     expect(copilotSection).toContain("- live_probe: error");
     expect(copilotSection).toContain("- live_error_1: Billing endpoint unavailable");
 
-    const googleSection = getReportSection(report, "google_antigravity:");
-    expect(googleSection).toContain("- live_probe: no_data");
+    expect(report).not.toContain("google_antigravity:");
 
     const geminiCliSection = getReportSection(report, "google_gemini_cli:");
     expect(geminiCliSection).toContain("- auth_state: missing");
@@ -1547,7 +1494,7 @@ describe("buildQuotaStatusReport", () => {
     );
     expect(blank).toBe("");
 
-    const excerpt = body.slice(0, 48).join("\n");
+    const excerpt = body.slice(0, 47).join("\n");
     expect(excerpt).toMatchInlineSnapshot(`
       "toast:
       - configSource: defaults
@@ -1557,8 +1504,6 @@ describe("buildQuotaStatusReport", () => {
       - workspace_config_paths: (none)
       - setting_sources: (none)
       - enabledProviders: copilot
-      - googleModels: CLAUDE
-      - googleModels_source: default
       - onlyCurrentModel: false
       - currentModel: (unknown)
       - providers:
@@ -1567,6 +1512,7 @@ describe("buildQuotaStatusReport", () => {
       paths:
       - opencode_dirs: data=/tmp/data config=/tmp/config cache=/tmp/cache state=/tmp/state
       - auth.json: preferred=/tmp/auth.json present=(none) candidates=/tmp/auth.json
+      - opencode db: preferred=/tmp/opencode.db present=(none) candidates=/tmp/opencode.db
       - alibaba auth configured: false
       - alibaba_api_key_source: (none)
       - alibaba_api_key_checked_paths: (none)
@@ -1625,7 +1571,6 @@ xai:
 nanogpt:
 openrouter:
 copilot_quota_auth:
-google_antigravity:
 google_gemini_cli:
 google_agy:
 storage:

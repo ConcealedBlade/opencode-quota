@@ -88,10 +88,10 @@ describe("prompt-bar identity format", () => {
     ).toBe("OpenAI (personal) 5h");
     expect(
       formatPromptBarIdentityLabel({
-        name: "[Google Antigravity] (abc…) 5h",
+        name: "[Google AGY] (abc…) 5h",
         label: "5h:",
       }),
-    ).toBe("Google Antigravity (abc…) 5h");
+    ).toBe("Google AGY (abc…) 5h");
   });
 
   it("truncates long labels with an ellipsis instead of dropping the provider", () => {

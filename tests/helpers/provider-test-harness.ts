@@ -31,7 +31,6 @@ export function createProviderAvailabilityContext(
     client,
     resolveRuntimeProviderIds: createRuntimeProviderIdResolver(client),
     config: {
-      googleModels: [],
       ...configOverrides,
     },
   } as any;

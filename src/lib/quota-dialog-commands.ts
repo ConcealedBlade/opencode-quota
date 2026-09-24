@@ -1,6 +1,5 @@
 import {
   formatYmd,
-  parseOptionalJsonArgs,
   parseQuotaBetweenArgs,
   startOfLocalDayMs,
   startOfNextLocalDayMs,
@@ -9,7 +8,6 @@ import {
 import type { RuntimeContextRootHints } from "./config-file-utils.js";
 import { isCursorProviderId } from "./cursor-pricing.js";
 import { renderCommandHeading } from "./format-utils.js";
-import { refreshGoogleTokensForAllAccounts } from "./google.js";
 import {
   BUNDLED_MAINTAINER_ANNOUNCEMENTS,
   getMaintainerAnnouncementsSummary,
@@ -221,7 +219,6 @@ export const QUOTA_DIALOG_COMMANDS: readonly QuotaDialogCommandSpec[] = [
     description: "Diagnostics for quota, TUI, pricing, and local storage.",
     dialogSize: "xlarge",
     requiresSession: true,
-    acceptsArguments: true,
   },
   {
     id: "quota_announcements",
@@ -469,9 +466,6 @@ export function summarizeQuotaStatusLiveProbes(
 
 export async function buildStatusReportData(params: {
   runtime: QuotaRuntimeContext;
-  refreshGoogleTokens?: boolean;
-  skewMs?: number;
-  force?: boolean;
   sessionID?: string;
   generatedAtMs: number;
   lastSessionTokenError?: SessionTokenError;
@@ -561,10 +555,6 @@ export async function buildStatusReportData(params: {
     }
   }
 
-  const refresh = params.refreshGoogleTokens
-    ? await refreshGoogleTokensForAllAccounts({ skewMs: params.skewMs, force: params.force })
-    : null;
-
   const tuiDiagnostics = await inspectTuiConfig({ roots: params.runtime.roots });
   const announcementProviderIds = availability
     .filter((item) => item.enabled && item.available)
@@ -582,7 +572,6 @@ export async function buildStatusReportData(params: {
     settingSources: params.runtime.configMeta.settingSources,
     configIssues: params.runtime.configMeta.configIssues,
     enabledProviders: runtimeConfig.enabledProviders,
-    googleModels: runtimeConfig.googleModels,
     anthropicBinaryPath: runtimeConfig.anthropicBinaryPath,
     cursorPlan: runtimeConfig.cursorPlan,
     cursorIncludedApiUsd: runtimeConfig.cursorIncludedApiUsd,
@@ -595,14 +584,6 @@ export async function buildStatusReportData(params: {
     providerAvailability: availability,
     providerLiveProbes,
     quotaProviders: runtimeConfig.quotaProviders,
-    googleRefresh: refresh
-      ? {
-          attempted: true,
-          total: refresh.total,
-          successCount: refresh.successCount,
-          failures: refresh.failures,
-        }
-      : { attempted: false },
     sessionTokenError: params.lastSessionTokenError,
     maintainerAnnouncements: {
       config: runtimeConfig.maintainerAnnouncements,
@@ -651,9 +632,6 @@ export async function buildStatusReportData(params: {
 
 async function buildStatusReport(params: {
   runtime: QuotaRuntimeContext;
-  refreshGoogleTokens?: boolean;
-  skewMs?: number;
-  force?: boolean;
   sessionID?: string;
   generatedAtMs: number;
   lastSessionTokenError?: SessionTokenError;
@@ -952,20 +930,8 @@ export async function buildQuotaDialogCommandOutput(params: {
   }
 
   if (params.command === "quota_status") {
-    const parsed = parseOptionalJsonArgs(params.arguments);
-    if (!parsed.ok) {
-      return outputResult({
-        command: params.command,
-        output: `Invalid arguments for /quota_status\n\n${parsed.error}\n\nExample:\n/quota_status {"refreshGoogleTokens": true}`,
-      });
-    }
-
     const output = await buildStatusReport({
       runtime,
-      refreshGoogleTokens: parsed.value["refreshGoogleTokens"] === true,
-      skewMs:
-        typeof parsed.value["skewMs"] === "number" ? (parsed.value["skewMs"] as number) : undefined,
-      force: parsed.value["force"] === true,
       sessionID: params.sessionID,
       generatedAtMs,
       lastSessionTokenError: params.lastSessionTokenError,

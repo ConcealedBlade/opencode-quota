@@ -1070,7 +1070,6 @@ describe("loadConfig", () => {
       enabledProviders: ["nano-gpt"],
       pricingSnapshot: { source: "remote", autoRefresh: 2 },
       layout: { tinyAt: 28, maxWidth: 0 },
-      googleModels: [],
       toastStyle: "grouped",
     });
 
@@ -1092,7 +1091,6 @@ describe("loadConfig", () => {
       "layout.tinyAt": "client.config.get",
     });
     expect(meta.settingSources).not.toHaveProperty("pricingSnapshot.source");
-    expect(meta.settingSources).not.toHaveProperty("googleModels");
     expect(meta.networkSettingSources).toEqual({
       enabledProviders: "client.config.get",
       "pricingSnapshot.autoRefresh": "client.config.get",

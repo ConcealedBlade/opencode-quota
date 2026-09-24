@@ -29,31 +29,6 @@ function normalizeDurationText(value?: string): string | undefined {
   return trimmed?.replace(/:+$/u, "").trim().toLowerCase();
 }
 
-function looksLikeGoogleModel(name: string): boolean {
-  const lower = name.toLowerCase();
-  return (
-    lower === "claude" ||
-    lower === "g3pro" ||
-    lower === "g3flash" ||
-    lower === "g3image" ||
-    lower === "gpt-oss"
-  );
-}
-
-function getGoogleFallbackMeta(name: string): { group: string; label: string } | undefined {
-  const match = name.match(/^(.+?)\s*\((.+)\)\s*$/);
-  if (!match) return undefined;
-
-  const model = match[1]!.trim();
-  const account = match[2]!.trim();
-  if (!looksLikeGoogleModel(model) || !account) return undefined;
-
-  return {
-    group: `[Antigravity (${account})]`,
-    label: `${model}:`,
-  };
-}
-
 function getDurationRankFromText(value?: string): number | null {
   const text = normalizeDurationText(value);
   if (!text) return null;
@@ -98,15 +73,6 @@ function normalizeGroupedQuotaEntry(
 
   if (group) {
     return { ...normalized, group };
-  }
-
-  const googleFallback = getGoogleFallbackMeta(owned.name);
-  if (googleFallback) {
-    return {
-      ...normalized,
-      group: googleFallback.group,
-      ...(label || target === "quota" ? { label: label ?? googleFallback.label } : {}),
-    };
   }
 
   return {

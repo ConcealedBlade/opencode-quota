@@ -59,7 +59,6 @@ function createContext(token) {
     },
     resolveRuntimeProviderIds: async () => new Set(),
     config: {
-      googleModels: [],
       cursorPlan: "auto",
       enabledProviders: "auto",
       quotaProviders: [],

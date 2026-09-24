@@ -77,7 +77,6 @@ function createMockContext(): any {
       },
     },
     config: {
-      googleModels: ["CLAUDE"],
       anthropicBinaryPath: "claude",
       cursorPlan: "none",
       onlyCurrentModel: false,
@@ -352,7 +351,7 @@ describe("buildQuotaExport", () => {
     }
   });
 
-  it("preserves raw Antigravity family names when display projections suppress them", async () => {
+  it("preserves raw family names when display projections suppress them", async () => {
     mockReadCachedProviderResult.mockResolvedValue({
       hit: true,
       result: {
@@ -360,7 +359,7 @@ describe("buildQuotaExport", () => {
         entries: [
           {
             accounting: { ...QUOTA_ACCOUNTING, sourceId: "alice@example.com" },
-            name: "Antigravity (ali…): Claude",
+            name: "Example (ali…): Claude",
             percentRemaining: 0,
           },
           {
@@ -380,17 +379,17 @@ describe("buildQuotaExport", () => {
     });
 
     const actual = await buildQuotaExport({
-      providers: [createMockProvider("google-antigravity")],
+      providers: [createMockProvider("example-family")],
       ctx: createMockContext(),
       ttlMs: 60_000,
       fromCache: true,
     });
-    const provider = actual.providers["google-antigravity"];
+    const provider = actual.providers["example-family"];
     expect(provider).toMatchObject({
       status: "partial",
       entries: [
         {
-          name: "Antigravity (ali…): Claude",
+          name: "Example (ali…): Claude",
           sourceId: "alice@example.com",
           renderType: "percent",
           percentRemaining: 0,

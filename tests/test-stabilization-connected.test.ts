@@ -98,7 +98,7 @@ async function writeConfigTree(root: string) {
   "$schema": "https://opencode.ai/config.json",
   "model": "test-model",
   "plugin": [
-    "opencode-antigravity-auth",
+    "opencode-gemini-auth",
     ["@slkiser/opencode-quota", { "enabled": true }],
     "opencode-agy-auth"
   ]
@@ -332,10 +332,10 @@ describe("test-stabilization-connected", () => {
     const url = "file:///tmp/dist/index.js";
     expect(
       rewritePluginList(
-        ["opencode-antigravity-auth", "@slkiser/opencode-quota", "opencode-agy-auth"],
+        ["opencode-gemini-auth", "@slkiser/opencode-quota", "opencode-agy-auth"],
         url,
       ),
-    ).toEqual(["opencode-antigravity-auth", url, "opencode-agy-auth"]);
+    ).toEqual(["opencode-gemini-auth", url, "opencode-agy-auth"]);
     expect(rewritePluginList([["@slkiser/opencode-quota", { enabled: true }]], url)).toEqual([
       [url, { enabled: true }],
     ]);
@@ -401,7 +401,7 @@ describe("test-stabilization-connected", () => {
     const copiedMain = await readFile(workspace.mainPath, "utf8");
     const urls = pluginFileUrls(repoRoot);
     expect(copiedMain).toContain("// companion plugins stay first");
-    expect(copiedMain).toContain("opencode-antigravity-auth");
+    expect(copiedMain).toContain("opencode-gemini-auth");
     expect(copiedMain).toContain("opencode-agy-auth");
     expect(copiedMain).toContain(urls.server);
     expect(copiedMain).not.toContain("@slkiser/opencode-quota");
@@ -784,7 +784,7 @@ setInterval(() => {}, 1000);
       path.join(source, "opencode.jsonc"),
       `{
   "model": "github-copilot/gpt-4.1",
-  "plugin": ["opencode-antigravity-auth", "@slkiser/opencode-quota", "opencode-agy-auth"]
+  "plugin": ["opencode-gemini-auth", "@slkiser/opencode-quota", "opencode-agy-auth"]
 }
 `,
       "utf8",
@@ -841,7 +841,7 @@ setInterval(() => {}, 1000);
       path.join(source, "opencode.jsonc"),
       `{
   "model": "github-copilot/claude-sonnet-4.6",
-  "plugin": ["opencode-antigravity-auth", "@slkiser/opencode-quota", "opencode-agy-auth"]
+  "plugin": ["opencode-gemini-auth", "@slkiser/opencode-quota", "opencode-agy-auth"]
 }
 `,
       "utf8",
@@ -890,7 +890,7 @@ setInterval(() => {}, 1000);
     const copied = await readFile(workspace.mainPath, "utf8");
     expect(copied).toContain('"model": "github-copilot/gpt-4.1"');
     expect(copied).not.toContain("claude-sonnet-4.6");
-    expect(copied).toContain("opencode-antigravity-auth");
+    expect(copied).toContain("opencode-gemini-auth");
     expect(copied).toContain("opencode-agy-auth");
     expect(formatWebModelChoice(result)).toContain(
       "Copied default model: github-copilot/claude-sonnet-4.6",

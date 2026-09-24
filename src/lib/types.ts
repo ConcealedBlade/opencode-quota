@@ -10,8 +10,6 @@ import type { QuotaProviderDefinition } from "./quota-providers.js";
 // Configuration Types
 // =============================================================================
 
-/** Google model identifiers */
-export type GoogleModelId = "G3PRO" | "G3FLASH" | "CLAUDE" | "G3IMAGE" | "GPTOSS";
 export type GeminiCliAuthSourceKey =
   | "google-gemini-cli"
   | "gemini-cli"
@@ -144,7 +142,7 @@ export interface QuotaToastConfig {
    * Provider ids to query.
    *
    * Keep this list short and user-friendly; each provider advertises a stable id.
-   * Example: ["copilot", "google-antigravity"].
+   * Example: ["copilot", "google-agy"].
    *
    * When set to "auto" (or left unconfigured), the plugin will auto-enable
    * all providers whose `isAvailable()` returns true at runtime.
@@ -160,7 +158,6 @@ export interface QuotaToastConfig {
   /** Path or command name for the local Claude CLI used by Anthropic probing. */
   anthropicBinaryPath: string;
 
-  googleModels: GoogleModelId[];
   cursorPlan: CursorQuotaPlan;
   /**
    * Which OpenCode Go usage windows to display.
@@ -247,8 +244,6 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
 
   anthropicBinaryPath: "claude",
 
-  // If Google Antigravity is enabled, default to Claude only.
-  googleModels: ["CLAUDE"],
   cursorPlan: "none",
   opencodeGoWindows: ["rolling", "weekly", "monthly"],
   opencodeMonthlyLimit: undefined,
@@ -500,51 +495,6 @@ export interface AuthData {
 }
 
 // =============================================================================
-// Antigravity Account Types (from ~/.config/opencode/antigravity-accounts.json)
-// =============================================================================
-
-/** Single Antigravity account from opencode-antigravity-auth storage */
-export interface AntigravityAccount {
-  email?: string;
-  refreshToken: string;
-  projectId?: string;
-  /** Legacy spelling used by some plugin versions */
-  projectID?: string;
-  managedProjectId?: string;
-  addedAt: number;
-  lastUsed: number;
-  rateLimitResetTimes?: Record<string, number>;
-}
-
-/** Antigravity accounts file structure */
-export interface AntigravityAccountsFile {
-  version: number;
-  accounts: AntigravityAccount[];
-  activeIndex?: number;
-  activeIndexByFamily?: {
-    claude?: number;
-    gemini?: number;
-  };
-}
-
-// =============================================================================
-// Google Antigravity Types
-// =============================================================================
-
-/** Google quota API response */
-export interface GoogleQuotaResponse {
-  models: Record<
-    string,
-    {
-      quotaInfo?: {
-        remainingFraction?: number;
-        resetTime?: string;
-      };
-    }
-  >;
-}
-
-// =============================================================================
 // Kimi Types
 // =============================================================================
 
@@ -709,15 +659,6 @@ export interface CopilotEnterpriseUsageResult {
   resetTimeIso?: string;
 }
 
-/** Result from fetching Google quota for a single model */
-export interface GoogleModelQuota {
-  modelId: GoogleModelId;
-  displayName: string;
-  percentRemaining: number;
-  resetTimeIso?: string;
-  accountEmail?: string;
-}
-
 /** Error for a single account */
 export interface GoogleAccountError {
   email: string;
@@ -788,13 +729,6 @@ export interface GoogleAgyQuotaResult {
 
 export type GoogleAgyResult = GoogleAgyQuotaResult | QuotaError | null;
 
-/** Result from fetching Google quota */
-export interface GoogleQuotaResult {
-  success: true;
-  models: GoogleModelQuota[];
-  errors?: GoogleAccountError[];
-}
-
 /** Error result */
 export interface QuotaError {
   success: false;
@@ -811,7 +745,6 @@ export type CopilotResult =
   | CopilotEnterpriseUsageResult
   | QuotaError
   | null;
-export type GoogleResult = GoogleQuotaResult | QuotaError | null;
 export type GeminiCliResult = GeminiCliQuotaResult | QuotaError | null;
 export type ZaiResult = ZaiQuotaResult | QuotaError | null;
 /** Single entry in a MiniMax quota result */
@@ -909,38 +842,3 @@ export interface CachedToast {
   message: string;
   timestamp: number;
 }
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-/** Model key mapping for Google API */
-export const GOOGLE_MODEL_KEYS: Record<
-  GoogleModelId,
-  { key: string; altKey?: string; display: string }
-> = {
-  G3PRO: {
-    key: "gemini-3.1-pro",
-    altKey:
-      "gemini-3.1-pro-high|gemini-3.1-pro-low|gemini-3-pro-high|gemini-3-pro-low|gemini-3.5-pro-high|gemini-3.5-pro-low",
-    display: "G3Pro",
-  },
-  G3FLASH: {
-    key: "gemini-3-flash",
-    altKey:
-      "gemini-3-flash-medium|gemini-3-flash-high|gemini-3-flash-low|gemini-3-5-flash-medium|gemini-3-5-flash-high|gemini-3-5-flash-low|gemini-3.5-flash-medium|gemini-3.5-flash-high|gemini-3.5-flash-low",
-    display: "G3Flash",
-  },
-  CLAUDE: {
-    key: "claude-opus-4-6-thinking",
-    altKey:
-      "claude-opus-4-5-thinking|claude-opus-4-5|claude-sonnet-4-6|claude-sonnet-4-6-thinking|claude-opus-4-6|gemini-claude-sonnet-4-6|gemini-claude-opus-4-6-thinking",
-    display: "Claude",
-  },
-  G3IMAGE: { key: "gemini-3-pro-image", display: "G3Image" },
-  GPTOSS: {
-    key: "gpt-oss-120b-medium",
-    altKey: "gpt-oss-120b-high|gpt-oss-120b-low|gpt-oss-120b",
-    display: "GPT-OSS",
-  },
-};

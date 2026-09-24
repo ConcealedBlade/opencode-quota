@@ -78,14 +78,6 @@ async function seedReferenceRoot(repoRoot: string) {
     `${JSON.stringify(
       {
         plugins: {
-          "opencode-antigravity-auth": {
-            npmUrl: "https://www.npmjs.com/package/opencode-antigravity-auth/v/1.0.0",
-            packageName: "opencode-antigravity-auth",
-            publishedAt: "2026-03-01T00:00:00.000Z",
-            referenceDir: "references/upstream-plugins/opencode-antigravity-auth",
-            repo: "NoeFabris/opencode-antigravity-auth",
-            version: "1.0.0",
-          },
           "opencode-cursor-oauth": {
             npmUrl: "https://www.npmjs.com/package/%40playwo/opencode-cursor-oauth/v/1.0.0",
             packageName: "@playwo/opencode-cursor-oauth",
@@ -118,12 +110,7 @@ async function seedReferenceRoot(repoRoot: string) {
     "utf8",
   );
 
-  for (const pluginId of [
-    "opencode-antigravity-auth",
-    "opencode-cursor-oauth",
-    "opencode-gemini-auth",
-    "opencode-agy-auth",
-  ]) {
+  for (const pluginId of ["opencode-cursor-oauth", "opencode-gemini-auth", "opencode-agy-auth"]) {
     const pluginDir = path.join(referenceRoot, pluginId);
     await mkdir(pluginDir, { recursive: true });
     await writeFile(
@@ -143,19 +130,6 @@ describe("upstream-plugin-sync", () => {
     testState.repoRoot = await mkdtemp(path.join(os.tmpdir(), "opencode-quota-sync-test-"));
     testState.failPluginId = null;
     testState.latestByPluginId = new Map([
-      [
-        "opencode-antigravity-auth",
-        {
-          npmUrl: "https://www.npmjs.com/package/opencode-antigravity-auth/v/2.0.0",
-          packageName: "opencode-antigravity-auth",
-          pluginId: "opencode-antigravity-auth",
-          publishedAt: "2026-03-20T00:00:00.000Z",
-          referenceDir: "references/upstream-plugins/opencode-antigravity-auth",
-          repo: "NoeFabris/opencode-antigravity-auth",
-          tarballUrl: "https://example.test/opencode-antigravity-auth-2.0.0.tgz",
-          version: "2.0.0",
-        },
-      ],
       [
         "opencode-cursor-oauth",
         {
@@ -219,19 +193,13 @@ describe("upstream-plugin-sync", () => {
     const result = await syncUpstreamPluginReferences();
     const referenceRoot = path.join(testState.repoRoot, "references", "upstream-plugins");
 
-    expect(result.syncedPlugins).toHaveLength(4);
+    expect(result.syncedPlugins).toHaveLength(3);
     await expect(readFile(path.join(referenceRoot, "README.md"), "utf8")).resolves.toBe(
       "reference readme\n",
     );
     await expect(
       readFile(path.join(referenceRoot, "stale-plugin", "package.json"), "utf8"),
     ).rejects.toThrow();
-    await expect(
-      readFile(
-        path.join(referenceRoot, "opencode-antigravity-auth", "dist", "src", "constants.js"),
-        "utf8",
-      ),
-    ).resolves.toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
     await expect(
       readFile(path.join(referenceRoot, "opencode-cursor-oauth", "package.json"), "utf8"),
     ).resolves.toContain('"name": "@playwo/opencode-cursor-oauth"');

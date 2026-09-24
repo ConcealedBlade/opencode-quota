@@ -763,12 +763,6 @@ function getCommandPromptCopy(spec: QuotaDialogCommandSpec): {
         placeholder: "YYYY-MM-DD YYYY-MM-DD",
         description: "Enter start and end dates, for example: 2026-01-01 2026-01-15",
       };
-    case "quota_status":
-      return {
-        title: "OpenCode Quota Status Options",
-        placeholder: 'Optional JSON, e.g. {"refreshGoogleTokens":true}',
-        description: "Leave blank for normal diagnostics, or enter one JSON options object.",
-      };
     default:
       return {
         title: spec.title,

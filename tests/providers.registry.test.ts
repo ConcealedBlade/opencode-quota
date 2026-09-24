@@ -15,7 +15,6 @@ const EXPECTED_PROVIDER_ORDER = [
   "alibaba-token-plan",
   "synthetic",
   "chutes",
-  "google-antigravity",
   "google-gemini-cli",
   "google-agy",
   "zai",

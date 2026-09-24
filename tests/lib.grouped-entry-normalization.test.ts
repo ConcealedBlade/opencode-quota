@@ -61,29 +61,6 @@ describe("normalizeGroupedQuotaEntries", () => {
     expect((normalized[1] as any).quantity).not.toBe(entries[1]!.quantity);
   });
 
-  it("applies the Google fallback label only for /quota rendering", () => {
-    const entry = {
-      name: "Claude (acct)",
-      percentRemaining: 67,
-      resetTimeIso: "2026-01-15T15:00:00.000Z",
-    } as const;
-
-    expect(normalizeGroupedQuotaEntries([entry], "quota")).toEqual([
-      {
-        ...entry,
-        group: "[Antigravity (acct)]",
-        label: "Claude:",
-      },
-    ]);
-
-    expect(normalizeGroupedQuotaEntries([entry], "toast")).toEqual([
-      {
-        ...entry,
-        group: "[Antigravity (acct)]",
-      },
-    ]);
-  });
-
   it("sorts recognized grouped duration rows from shortest to longest for toast output", () => {
     const entries = [
       {

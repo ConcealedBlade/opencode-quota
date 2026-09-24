@@ -98,7 +98,6 @@ function context(
     client,
     resolveRuntimeProviderIds: createRuntimeProviderIdResolver(client),
     config: {
-      googleModels: [],
       anthropicBinaryPath: "claude",
       cursorPlan: "none",
       opencodeGoWindows: ["rolling", "weekly", "monthly"],

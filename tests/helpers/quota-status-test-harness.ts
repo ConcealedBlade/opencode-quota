@@ -94,7 +94,6 @@ export function makeQuotaStatusReportParams(
     configSource: "test",
     configPaths: [],
     enabledProviders,
-    googleModels: ["CLAUDE"],
     cursorPlan: "none",
     pricingSnapshotSource: "auto",
     onlyCurrentModel: false,

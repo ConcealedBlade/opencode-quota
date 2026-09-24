@@ -191,20 +191,6 @@ For security, repo-local `opencode.json` / `opencode.jsonc` is ignored for provi
 </details>
 
 <details>
-<summary><strong>Google Antigravity</strong></summary>
-
-Run `/quota_status` and check the `google_antigravity` section. The toast diagnostics also show the effective `googleModels` value and `googleModels_source` (`default` or the configuration file path).
-
-| Symptom                  | Fix                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------ |
-| Companion missing        | Put `opencode-antigravity-auth` before `@slkiser/opencode-quota` in `opencode.json`. |
-| Accounts not found       | Check the selected `antigravity-accounts.json` path shown by `/quota_status`.        |
-| Refresh tokens invalid   | Re-authenticate with the companion plugin.                                           |
-| Provider returns no rows | Check `live_probe`, `live_entry_*`, and `live_error_*` in `/quota_status`.           |
-
-</details>
-
-<details>
 <summary><strong>Google AGY</strong></summary>
 
 Run `/quota_status` and check the `google_agy` section.

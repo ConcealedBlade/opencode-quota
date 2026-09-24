@@ -60,8 +60,9 @@ describe("formatQuotaCommand", () => {
         },
         {
           accounting: accounting("quota"),
-          name: "Claude (acct)",
-          metricLabel: "Claude",
+          name: "Gemini (acct)",
+          group: "AGY (acct): Gemini",
+          label: "Weekly:",
           percentRemaining: 67,
           resetTimeIso: "2026-01-15T15:00:00.000Z",
         },
@@ -102,8 +103,8 @@ describe("formatQuotaCommand", () => {
         5h quota      ████░░░░░░   42% left | reset 2h0m
         Week quota    ████████░░   81% left | reset 3d0h0m
 
-      → [Antigravity (acct)]
-        Claude        ███████░░░   67% left | reset 3h0m
+      → [AGY (acct): Gemini]
+        Week quota    ███████░░░   67% left | reset 3h0m
 
       Session input/output tokens
         openai/gpt-5: 1.2K in | 456 cached | 567 out

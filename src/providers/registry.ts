@@ -19,7 +19,6 @@ import { copilotProvider } from "./copilot.js";
 import { cursorProvider } from "./cursor.js";
 import { deepseekProvider } from "./deepseek.js";
 import { googleAgyProvider } from "./google-agy.js";
-import { googleAntigravityProvider } from "./google-antigravity.js";
 import { googleGeminiCliProvider } from "./google-gemini-cli.js";
 import { kiloProvider } from "./kilo.js";
 import { kimiCodePlanCnProvider, kimiCodePlanGlobalProvider } from "./kimi-code.js";
@@ -51,7 +50,6 @@ const PROVIDERS_BY_ID = {
   "alibaba-token-plan": alibabaTokenPlanProvider,
   synthetic: syntheticProvider,
   chutes: chutesProvider,
-  "google-antigravity": googleAntigravityProvider,
   "google-gemini-cli": googleGeminiCliProvider,
   "google-agy": googleAgyProvider,
   zai: zaiProvider,

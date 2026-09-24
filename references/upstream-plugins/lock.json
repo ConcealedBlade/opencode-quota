@@ -8,14 +8,6 @@
       "repo": "anthonyhaussman/opencode-agy-auth",
       "version": "1.1.11"
     },
-    "opencode-antigravity-auth": {
-      "npmUrl": "https://www.npmjs.com/package/opencode-antigravity-auth/v/1.6.0",
-      "packageName": "opencode-antigravity-auth",
-      "publishedAt": "2026-02-20T18:58:53.562Z",
-      "referenceDir": "references/upstream-plugins/opencode-antigravity-auth",
-      "repo": "NoeFabris/opencode-antigravity-auth",
-      "version": "1.6.0"
-    },
     "opencode-cursor-oauth": {
       "npmUrl": "https://www.npmjs.com/package/%40playwo/opencode-cursor-oauth/v/0.4.3",
       "packageName": "@playwo/opencode-cursor-oauth",

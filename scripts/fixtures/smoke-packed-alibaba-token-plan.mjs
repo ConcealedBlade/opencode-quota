@@ -97,7 +97,6 @@ try {
       },
     },
     config: {
-      googleModels: [],
       cursorPlan: "auto",
       enabledProviders: "auto",
       quotaProviders: [],

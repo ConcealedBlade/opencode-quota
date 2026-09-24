@@ -935,27 +935,12 @@ describe("tui plugin smoke", () => {
       (command) => command.slashName === "quota_status",
     )!;
     (status.run as (input?: unknown) => void)();
-
-    expect(buildQuotaDialogCommandOutput).not.toHaveBeenCalled();
-    const prompt = dialog.replace.mock.calls[0]![0]() as any;
-    expect(prompt).toEqual(
-      expect.objectContaining({
-        type: "DialogPrompt",
-        props: expect.objectContaining({
-          title: "OpenCode Quota Status Options",
-        }),
-      }),
-    );
-
-    prompt.props.onConfirm('  {"force":true}  ');
     await Promise.resolve();
     await Promise.resolve();
 
+    expect(dialog.replace).not.toHaveBeenCalled();
     expect(buildQuotaDialogCommandOutput).toHaveBeenCalledWith(
-      expect.objectContaining({
-        command: "quota_status",
-        arguments: '{"force":true}',
-      }),
+      expect.objectContaining({ command: "quota_status", arguments: undefined }),
     );
     expect(api.client.session.prompt).toHaveBeenCalledOnce();
     expect(api.client.session.prompt).toHaveBeenCalledWith({
@@ -971,21 +956,11 @@ describe("tui plugin smoke", () => {
     });
     expect(api.client.session.command).not.toHaveBeenCalled();
 
-    (status.run as (input?: unknown) => void)();
-    const blankPrompt = dialog.replace.mock.calls.at(-1)![0]() as any;
-    blankPrompt.props.onConfirm("   ");
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(buildQuotaDialogCommandOutput).toHaveBeenLastCalledWith(
-      expect.objectContaining({ command: "quota_status", arguments: undefined }),
-    );
-    expect(api.client.session.prompt).toHaveBeenCalledTimes(2);
-
     const announcements = keymapLayers[0]!.commands.find(
       (command) => command.slashName === "quota_announcements",
     )!;
     (announcements.run as (input?: unknown) => void)();
-    expect(buildQuotaDialogCommandOutput).toHaveBeenCalledTimes(2);
+    expect(buildQuotaDialogCommandOutput).toHaveBeenCalledOnce();
     const announcementsPrompt = dialog.replace.mock.calls.at(-1)![0]() as any;
     announcementsPrompt.props.onConfirm("   ");
     await Promise.resolve();
@@ -993,7 +968,7 @@ describe("tui plugin smoke", () => {
     expect(buildQuotaDialogCommandOutput).toHaveBeenLastCalledWith(
       expect.objectContaining({ command: "quota_announcements" }),
     );
-    expect(api.client.session.prompt).toHaveBeenCalledTimes(3);
+    expect(api.client.session.prompt).toHaveBeenCalledTimes(2);
     expect(api.client.session.command).not.toHaveBeenCalled();
   });
 

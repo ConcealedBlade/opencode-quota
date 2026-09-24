@@ -35,12 +35,12 @@ describe("upstream-plugin-lock", () => {
       `${JSON.stringify(
         {
           plugins: {
-            "opencode-antigravity-auth": {
-              npmUrl: "https://www.npmjs.com/package/opencode-antigravity-auth/v/1.0.0",
-              packageName: "opencode-antigravity-auth",
+            "opencode-gemini-auth": {
+              npmUrl: "https://www.npmjs.com/package/opencode-gemini-auth/v/1.0.0",
+              packageName: "opencode-gemini-auth",
               publishedAt: "2026-03-01T00:00:00.000Z",
-              referenceDir: "references/upstream-plugins/opencode-antigravity-auth",
-              repo: "NoeFabris/opencode-antigravity-auth",
+              referenceDir: "references/upstream-plugins/opencode-gemini-auth",
+              repo: "jenslys/opencode-gemini-auth",
               version: "1.0.0",
             },
           },
@@ -140,12 +140,12 @@ describe("upstream-plugin-lock", () => {
           repo: "PoolPirate/opencode-cursor",
           version: "2.0.0",
         },
-        "opencode-antigravity-auth": {
-          npmUrl: "https://www.npmjs.com/package/opencode-antigravity-auth/v/2.0.0",
-          packageName: "opencode-antigravity-auth",
+        "opencode-gemini-auth": {
+          npmUrl: "https://www.npmjs.com/package/opencode-gemini-auth/v/2.0.0",
+          packageName: "opencode-gemini-auth",
           publishedAt: "2026-03-20T00:00:00.000Z",
-          referenceDir: "references/upstream-plugins/opencode-antigravity-auth",
-          repo: "NoeFabris/opencode-antigravity-auth",
+          referenceDir: "references/upstream-plugins/opencode-gemini-auth",
+          repo: "jenslys/opencode-gemini-auth",
           version: "2.0.0",
         },
       },

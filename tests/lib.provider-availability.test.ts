@@ -103,13 +103,6 @@ describe("provider availability", () => {
         fallbackOnError: false,
       }),
     ).resolves.toBe(true);
-    await expect(
-      isCanonicalProviderAvailable({
-        ctx: makeCtx({ ids: ["antigravity"] }),
-        providerId: "google-antigravity",
-        fallbackOnError: false,
-      }),
-    ).resolves.toBe(true);
     for (const runtimeId of [
       "google-gemini-cli",
       "gemini-cli",

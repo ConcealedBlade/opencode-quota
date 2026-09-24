@@ -34,7 +34,7 @@ type LoadedCompanion = {
   clear: () => void;
 };
 type CompanionCase = {
-  id: "agy" | "antigravity" | "gemini";
+  id: "agy" | "gemini";
   packageName: string;
   sourceSpecifier: string;
   dynamicSpecifier: string;
@@ -74,36 +74,6 @@ const companions: readonly CompanionCase[] = [
         inspect: mod.inspectAgyCompanionPresence,
         resolve: mod.resolveAgyClientCredentials,
         clear: mod.clearAgyCompanionCacheForTests,
-      };
-    },
-  },
-  {
-    id: "antigravity",
-    packageName: "opencode-antigravity-auth",
-    sourceSpecifier: "opencode-antigravity-auth/src/constants.ts",
-    dynamicSpecifier: "opencode-antigravity-auth/dist/src/constants.js",
-    clientIdExport: "ANTIGRAVITY_CLIENT_ID",
-    clientSecretExport: "ANTIGRAVITY_CLIENT_SECRET",
-    runtimeCandidates: [
-      ["dist", "src", "constants.js"],
-      ["src", "constants.ts"],
-      ["src", "constants.js"],
-      ["dist", "index.js"],
-    ],
-    packageJsonCandidates: [
-      ["dist", "src", "constants.js"],
-      ["src", "constants.ts"],
-      ["src", "constants.js"],
-      ["dist", "index.js"],
-    ],
-    missingError: "Install opencode-antigravity-auth separately to enable Google Antigravity quota",
-    invalidError: "Installed opencode-antigravity-auth package is incompatible",
-    load: async () => {
-      const mod = await import("../src/lib/google-antigravity-companion.js");
-      return {
-        inspect: mod.inspectAntigravityCompanionPresence,
-        resolve: mod.resolveAntigravityClientCredentials,
-        clear: mod.clearAntigravityCompanionCacheForTests,
       };
     },
   },
@@ -323,9 +293,7 @@ describe("google companion credential resolution", () => {
         },
         [cacheDir],
       );
-      const expectedPath = companion.id === "antigravity" ? runtimePath : sourcePath;
-      const expectedSuffix = companion.id === "antigravity" ? "-runtime" : "-source";
-      await expectConfigured(loaded, expectedPath, expectedSuffix);
+      await expectConfigured(loaded, sourcePath, "-source");
     }
   });
 
@@ -340,15 +308,7 @@ describe("google companion credential resolution", () => {
       const loaded = await loadWith(companion, () => {
         throw moduleNotFound();
       }, [cacheDir]);
-      if (companion.id === "antigravity") {
-        await expect(loaded.inspect()).resolves.toMatchObject({
-          state: "invalid",
-          resolvedPath: unreadablePath,
-          error: companion.invalidError,
-        });
-      } else {
-        await expectConfigured(loaded, fallbackPath);
-      }
+      await expectConfigured(loaded, fallbackPath);
     }
   });
 
@@ -387,32 +347,8 @@ describe("google companion credential resolution", () => {
     }
   });
 
-  it("probes all Antigravity runtime candidates and keeps their priority", async () => {
-    const companion = companions[1]!;
-    for (const [index, parts] of companion.runtimeCandidates.entries()) {
-      const cacheDir = join(tempDir, `antigravity-runtime-${index}`);
-      const candidatePath = join(cacheDir, "node_modules", companion.packageName, ...parts);
-      writeCredentials(candidatePath, companion, "var");
-      const loaded = await loadWith(companion, () => {
-        throw moduleNotFound();
-      }, [cacheDir]);
-      await expectConfigured(loaded, candidatePath);
-    }
-
-    const cacheDir = join(tempDir, "antigravity-runtime-priority");
-    const paths = companion.runtimeCandidates.map((parts, index) => {
-      const path = join(cacheDir, "node_modules", companion.packageName, ...parts);
-      writeCredentials(path, companion, "var", `-${index}`);
-      return path;
-    });
-    const loaded = await loadWith(companion, () => {
-      throw moduleNotFound();
-    }, [cacheDir]);
-    await expectConfigured(loaded, paths[0]!, "-0");
-  });
-
   it("supports Gemini root-only bundles and runtime-path package resolution", async () => {
-    const companion = companions[2]!;
+    const companion = companions[1]!;
     const cacheDir = join(tempDir, "gemini-runtime-cache");
     const rootBundle = join(cacheDir, "node_modules", companion.packageName, "dist", "index.js");
     writeCredentials(rootBundle, companion, "var", "-root");

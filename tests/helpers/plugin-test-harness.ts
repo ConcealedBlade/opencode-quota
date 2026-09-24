@@ -209,7 +209,6 @@ export function makeQuotaToastTestConfig(
         : Array.isArray(DEFAULT_CONFIG.enabledProviders)
           ? [...DEFAULT_CONFIG.enabledProviders]
           : DEFAULT_CONFIG.enabledProviders,
-    googleModels: [...(overrides.googleModels ?? DEFAULT_CONFIG.googleModels)],
     opencodeGoWindows: [...(overrides.opencodeGoWindows ?? DEFAULT_CONFIG.opencodeGoWindows)],
     resetNotifications: {
       ...DEFAULT_CONFIG.resetNotifications,

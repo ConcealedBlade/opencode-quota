@@ -7,7 +7,6 @@ import { resolveChutesApiKey } from "../lib/chutes-config.js";
 import { resolveCopilotAuthIdentity } from "../lib/copilot.js";
 import { resolveDeepSeekApiKey } from "../lib/deepseek-auth.js";
 import type { QuotaProviderCachePolicy } from "../lib/entries.js";
-import { resolveGoogleAntigravityAuthIdentity } from "../lib/google.js";
 import { resolveGoogleAgyAuthIdentity } from "../lib/google-agy.js";
 import { resolveGeminiCliAuthIdentity } from "../lib/google-gemini-cli.js";
 import { resolveKiloApiKey } from "../lib/kilo-config.js";
@@ -160,10 +159,6 @@ export const PROVIDER_CACHE_POLICIES = {
     const resolved = await resolveChutesApiKey();
     return resolved ? { credential: resolved.key } : null;
   }),
-  "google-antigravity": {
-    kind: "resolved-auth",
-    resolveIdentity: () => resolveGoogleAntigravityAuthIdentity(),
-  },
   "google-gemini-cli": {
     kind: "resolved-auth",
     resolveIdentity: (ctx) => resolveGeminiCliAuthIdentity(ctx.client),

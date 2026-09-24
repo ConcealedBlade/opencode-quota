@@ -34,8 +34,6 @@ import {
 } from "../src/lib/quota-render-data.js";
 import { __resetQuotaStateForTests } from "../src/lib/quota-state.js";
 import { DEFAULT_CONFIG, type QuotaToastConfig } from "../src/lib/types.js";
-import { googleAntigravityProvider } from "../src/providers/google-antigravity.js";
-import { googleGeminiCliProvider } from "../src/providers/google-gemini-cli.js";
 import { kimiCodePlanCnProvider, kimiCodePlanGlobalProvider } from "../src/providers/kimi-code.js";
 
 function renderConfig(overrides: Partial<QuotaToastConfig> = {}): QuotaToastConfig {
@@ -479,46 +477,14 @@ describe("collectQuotaRenderData shared quota state", () => {
     ).toBe(false);
   });
 
-  it.each([
-    ["gemini-2.5-pro", "google-gemini-cli"],
-    ["antigravity-claude-sonnet", "google-antigravity"],
-  ])("uses model matching to disambiguate the shared google runtime ID for %s", (currentModel, selectedProviderId) => {
-    const antigravityProvider = {
-      ...testProvider("google-antigravity"),
-      matchesCurrentModel: vi.fn((model: string) => model === "google/antigravity-claude-sonnet"),
-    };
-    const geminiProvider = {
-      ...testProvider("google-gemini-cli"),
-      matchesCurrentModel: vi.fn((model: string) => model === "google/gemini-2.5-pro"),
-    };
-
-    for (const provider of [antigravityProvider, geminiProvider]) {
-      expect(
-        matchesQuotaProviderCurrentSelection({
-          provider,
-          currentProviderID: "google",
-          currentModel,
-        }),
-      ).toBe(provider.id === selectedProviderId);
-      expect(provider.matchesCurrentModel).toHaveBeenCalledWith(`google/${currentModel}`, {
-        enabledProviders: "auto",
+  it("resolves the google runtime ID to Gemini CLI", () => {
+    expect(
+      matchesQuotaProviderCurrentSelection({
+        provider: testProvider("google-gemini-cli"),
         currentProviderID: "google",
-      });
-    }
-  });
-
-  it("does not let Gemini CLI claim an Antigravity model containing gemini", () => {
-    const selection = {
-      currentProviderID: "google",
-      currentModel: "antigravity-gemini-3-pro",
-    };
-
-    expect(
-      matchesQuotaProviderCurrentSelection({ provider: googleAntigravityProvider, ...selection }),
+        currentModel: "gemini-2.5-pro",
+      }),
     ).toBe(true);
-    expect(
-      matchesQuotaProviderCurrentSelection({ provider: googleGeminiCliProvider, ...selection }),
-    ).toBe(false);
   });
 
   it("fails closed for an unknown explicit provider ID instead of broad model matching", () => {
@@ -1058,15 +1024,15 @@ describe("collectQuotaRenderData shared quota state", () => {
     expect(provider.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("suppresses a redundant Antigravity family only in render projections", async () => {
+  it("suppresses a redundant quota family only in render projections", async () => {
     const aliceAccounting = { ...TEST_ACCOUNTING, sourceId: "alice@example.com" };
     const bobAccounting = { ...TEST_ACCOUNTING, sourceId: "bob@example.com" };
-    const googleProvider = testProvider("google-antigravity", {
+    const familyProvider = testProvider("example-family", {
       entries: [
         {
           accounting: aliceAccounting,
-          name: "Antigravity (ali…): Claude",
-          group: "[Antigravity (ali…)]",
+          name: "Example (ali…): Claude",
+          group: "[Example (ali…)]",
           label: "Claude:",
           metricLabel: "Claude:",
           percentRemaining: 12,
@@ -1074,8 +1040,8 @@ describe("collectQuotaRenderData shared quota state", () => {
         },
         {
           accounting: bobAccounting,
-          name: "Antigravity (bob…): Claude",
-          group: "[Antigravity (bob…)]",
+          name: "Example (bob…): Claude",
+          group: "[Example (bob…)]",
           label: "Claude:",
           metricLabel: "Claude:",
           percentRemaining: 83,
@@ -1085,11 +1051,11 @@ describe("collectQuotaRenderData shared quota state", () => {
       presentation: { classicStrategy: "preserve", redundantQuotaFamily: "Claude" },
     });
 
-    mockProviders.push(googleProvider);
+    mockProviders.push(familyProvider);
     const baseParams = {
       client: TEST_CLIENT,
       config: renderConfig({
-        enabledProviders: ["google-antigravity"],
+        enabledProviders: ["example-family"],
         minIntervalMs: 60_000,
       }),
       surfaceExplicitProviderIssues: true,
@@ -1102,13 +1068,13 @@ describe("collectQuotaRenderData shared quota state", () => {
     expect(singleWindow.data?.entries).toEqual([
       {
         accounting: aliceAccounting,
-        name: "[Antigravity (ali…)]",
+        name: "[Example (ali…)]",
         percentRemaining: 12,
         resetTimeIso: "2026-01-01T12:00:00.000Z",
       },
       {
         accounting: bobAccounting,
-        name: "[Antigravity (bob…)]",
+        name: "[Example (bob…)]",
         percentRemaining: 83,
         resetTimeIso: "2026-01-01T08:00:00.000Z",
       },
@@ -1121,8 +1087,8 @@ describe("collectQuotaRenderData shared quota state", () => {
     expect(allWindows.data?.entries).toEqual([
       {
         accounting: aliceAccounting,
-        name: "Antigravity (ali…)",
-        group: "[Antigravity (ali…)]",
+        name: "Example (ali…)",
+        group: "[Example (ali…)]",
         label: undefined,
         metricLabel: "Quota",
         percentRemaining: 12,
@@ -1130,15 +1096,15 @@ describe("collectQuotaRenderData shared quota state", () => {
       },
       {
         accounting: bobAccounting,
-        name: "Antigravity (bob…)",
-        group: "[Antigravity (bob…)]",
+        name: "Example (bob…)",
+        group: "[Example (bob…)]",
         label: undefined,
         metricLabel: "Quota",
         percentRemaining: 83,
         resetTimeIso: "2026-01-01T08:00:00.000Z",
       },
     ]);
-    expect(googleProvider.fetch).toHaveBeenCalledTimes(1);
+    expect(familyProvider.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("projects Gemini quality tiers as bottleneck-only in single-window and all rows in all-windows", async () => {
@@ -1411,12 +1377,12 @@ describe("collectQuotaRenderData shared quota state", () => {
 
   it("keeps raw family metadata in quota status live probes", async () => {
     const accounting = { ...TEST_ACCOUNTING, sourceId: "alice@example.com" };
-    const provider = testProvider("google-antigravity", {
+    const provider = testProvider("example-family", {
       entries: [
         {
           accounting,
-          name: "Antigravity (ali…): Claude",
-          group: "[Antigravity (ali…)]",
+          name: "Example (ali…): Claude",
+          group: "[Example (ali…)]",
           label: "Claude:",
           metricLabel: "Claude",
           percentRemaining: 64,
@@ -1430,15 +1396,15 @@ describe("collectQuotaRenderData shared quota state", () => {
 
     const probes = await collectQuotaStatusLiveProbes({
       client: TEST_CLIENT,
-      config: renderConfig({ enabledProviders: ["google-antigravity"] }),
+      config: renderConfig({ enabledProviders: ["example-family"] }),
       providers: [provider],
     });
 
     expect(probes[0]?.result.entries).toEqual([
       {
         accounting,
-        name: "Antigravity (ali…): Claude",
-        group: "[Antigravity (ali…)]",
+        name: "Example (ali…): Claude",
+        group: "[Example (ali…)]",
         label: "Claude:",
         metricLabel: "Claude",
         percentRemaining: 64,

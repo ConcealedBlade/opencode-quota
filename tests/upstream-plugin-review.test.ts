@@ -22,7 +22,7 @@ describe("upstream-plugin-review", () => {
         },
         {
           plugins: {
-            "opencode-antigravity-auth": { version: "1.6.0" },
+            "opencode-agy-auth": { version: "1.6.0" },
             "opencode-gemini-auth": { version: "1.3.0" },
           },
         },
@@ -32,7 +32,7 @@ describe("upstream-plugin-review", () => {
         changeKind: "added",
         changedFields: ["version"],
         currentVersion: "1.6.0",
-        pluginId: "opencode-antigravity-auth",
+        pluginId: "opencode-agy-auth",
         previousVersion: null,
       },
       {
@@ -141,7 +141,7 @@ describe("upstream-plugin-review", () => {
     const grouped = groupReferenceChangesByPlugin([
       "references/upstream-plugins/opencode-gemini-auth/package.json",
       "references/upstream-plugins/opencode-gemini-auth/src/index.ts",
-      "references/upstream-plugins/opencode-antigravity-auth/dist/index.js",
+      "references/upstream-plugins/opencode-agy-auth/dist/index.js",
       "references/upstream-plugins/lock.json",
     ]);
 
@@ -149,8 +149,8 @@ describe("upstream-plugin-review", () => {
       "references/upstream-plugins/opencode-gemini-auth/package.json",
       "references/upstream-plugins/opencode-gemini-auth/src/index.ts",
     ]);
-    expect(grouped.get("opencode-antigravity-auth")).toEqual([
-      "references/upstream-plugins/opencode-antigravity-auth/dist/index.js",
+    expect(grouped.get("opencode-agy-auth")).toEqual([
+      "references/upstream-plugins/opencode-agy-auth/dist/index.js",
     ]);
   });
 

@@ -127,19 +127,19 @@ describe("buildCompactQuotaStatusLine", () => {
     expect(line).toBe("Copilot 18%");
   });
 
-  it("keeps a lone Antigravity model label in all-window compact output", () => {
+  it("keeps a lone model label in all-window compact output", () => {
     const line = buildCompactQuotaStatusLine({
       data: {
         entries: [
           {
-            name: "Antigravity (ali…): Claude",
-            group: "[Antigravity (ali…)]",
+            name: "Example (ali…): Claude",
+            group: "[Example (ali…)]",
             label: "Claude:",
             percentRemaining: 64,
           },
           {
-            name: "Antigravity (bob…): Claude",
-            group: "[Antigravity (bob…)]",
+            name: "Example (bob…): Claude",
+            group: "[Example (bob…)]",
             label: "Claude:",
             percentRemaining: 37,
           },
@@ -149,7 +149,7 @@ describe("buildCompactQuotaStatusLine", () => {
       maxWidth: 160,
     });
 
-    expect(line).toBe("Antigravity (ali…): Claude 64% | Antigravity (bob…): Claude 37%");
+    expect(line).toBe("Example (ali…): Claude 64% | Example (bob…): Claude 37%");
   });
 
   it("preserves Gemini CLI model tiers in grouped compact status", () => {

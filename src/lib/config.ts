@@ -21,7 +21,6 @@ import { isQuotaFormatStyle, resolveQuotaFormatStyle } from "./quota-format-styl
 import { cloneQuotaProviders, validateQuotaProviders } from "./quota-providers.js";
 import type {
   CursorQuotaPlan,
-  GoogleModelId,
   PercentDisplayMode,
   PercentLabelStyle,
   PricingSnapshotSource,
@@ -57,7 +56,6 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "enabledProviders",
   "quotaProviders",
   "anthropicBinaryPath",
-  "googleModels",
   "cursorPlan",
   "cursorIncludedApiUsd",
   "cursorBillingCycleStartDay",
@@ -172,7 +170,6 @@ type ValidatedQuotaToastPatch = {
   enabledProviders?: string[] | "auto";
   enabledProvidersInvalidEmpty?: boolean;
   anthropicBinaryPath?: string;
-  googleModels?: GoogleModelId[];
   cursorPlan?: CursorQuotaPlan;
   cursorIncludedApiUsd?: number;
   cursorBillingCycleStartDay?: number;
@@ -227,13 +224,6 @@ function hasOwnKey<T extends object>(value: T, key: PropertyKey): boolean {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-/**
- * Validates and normalizes a Google model ID
- */
-function isValidGoogleModelId(id: unknown): id is GoogleModelId {
-  return typeof id === "string" && ["G3PRO", "G3FLASH", "CLAUDE", "G3IMAGE", "GPTOSS"].includes(id);
 }
 
 function isValidCursorQuotaPlan(plan: unknown): plan is CursorQuotaPlan {
@@ -353,7 +343,6 @@ function cloneConfig(config: QuotaToastConfig): QuotaToastConfig {
       ...config.resetNotifications,
       windows: [...config.resetNotifications.windows],
     },
-    googleModels: [...config.googleModels],
     opencodeGoWindows: [...config.opencodeGoWindows],
     opencodeMonthlyLimit: config.opencodeMonthlyLimit,
     pricingSnapshot: { ...config.pricingSnapshot },
@@ -462,15 +451,6 @@ function normalizeEnabledProviders(value: unknown): NormalizedEnabledProviders {
     issues,
     invalidEmpty: normalizedProviders.length === 0 && invalidProviders.length > 0,
   };
-}
-
-function normalizeGoogleModels(value: unknown): GoogleModelId[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const models = value.filter(isValidGoogleModelId);
-  return models.length > 0 ? models : undefined;
 }
 
 function extractPricingSnapshotPatch(value: unknown): PricingSnapshotPatch | undefined {
@@ -763,13 +743,6 @@ function extractValidatedQuotaToastPatch(
     }
   }
 
-  if (hasOwnKey(quotaToastConfig, "googleModels")) {
-    const googleModels = normalizeGoogleModels(quotaToastConfig.googleModels);
-    if (googleModels !== undefined) {
-      patch.googleModels = googleModels;
-    }
-  }
-
   if (
     hasOwnKey(quotaToastConfig, "cursorPlan") &&
     isValidCursorQuotaPlan(quotaToastConfig.cursorPlan)
@@ -1031,11 +1004,6 @@ function applyValidatedQuotaToastPatch(
   if (hasOwnKey(patch, "anthropicBinaryPath")) {
     config.anthropicBinaryPath = patch.anthropicBinaryPath!;
     applySettingSource(settingSources, "anthropicBinaryPath", sourcePath);
-  }
-
-  if (hasOwnKey(patch, "googleModels")) {
-    config.googleModels = [...patch.googleModels!];
-    applySettingSource(settingSources, "googleModels", sourcePath);
   }
 
   if (hasOwnKey(patch, "cursorPlan")) {

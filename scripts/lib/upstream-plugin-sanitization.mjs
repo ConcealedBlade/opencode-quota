@@ -50,38 +50,6 @@ function deriveConversationKey(messages) {
 }`;
 
 const SNAPSHOT_SANITIZERS = Object.freeze({
-  "opencode-antigravity-auth": Object.freeze([
-    {
-      relativePath: "dist/src/constants.d.ts",
-      replacements: [
-        {
-          label: "ANTIGRAVITY_CLIENT_ID",
-          pattern: /(export declare const ANTIGRAVITY_CLIENT_ID = )"[^"]+";/,
-          replacement: `$1"${REDACTED_GOOGLE_OAUTH_CLIENT_ID}";`,
-        },
-        {
-          label: "ANTIGRAVITY_CLIENT_SECRET",
-          pattern: /(export declare const ANTIGRAVITY_CLIENT_SECRET = )"[^"]+";/,
-          replacement: `$1"${REDACTED_GOOGLE_OAUTH_CLIENT_SECRET}";`,
-        },
-      ],
-    },
-    {
-      relativePath: "dist/src/constants.js",
-      replacements: [
-        {
-          label: "ANTIGRAVITY_CLIENT_ID",
-          pattern: /(export const ANTIGRAVITY_CLIENT_ID = )"[^"]+";/,
-          replacement: `$1"${REDACTED_GOOGLE_OAUTH_CLIENT_ID}";`,
-        },
-        {
-          label: "ANTIGRAVITY_CLIENT_SECRET",
-          pattern: /(export const ANTIGRAVITY_CLIENT_SECRET = )"[^"]+";/,
-          replacement: `$1"${REDACTED_GOOGLE_OAUTH_CLIENT_SECRET}";`,
-        },
-      ],
-    },
-  ]),
   "opencode-agy-auth": Object.freeze([
     {
       relativePath: "dist/src/constants.d.ts",

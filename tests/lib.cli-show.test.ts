@@ -288,63 +288,6 @@ describe("runCliShowCommand", () => {
     expect(await run("runway")).toContain("Runs out  ≈ 49m");
   });
 
-  it("renders two Antigravity account labels in human-readable CLI output", async () => {
-    const provider = {
-      id: "google-antigravity",
-      isAvailable: vi.fn().mockResolvedValue(true),
-      fetch: vi.fn().mockResolvedValue({
-        attempted: true,
-        entries: [
-          {
-            accounting: { ...TEST_ACCOUNTING, sourceId: "alice@example.com" },
-            name: "Antigravity (ali…): Claude",
-            group: "[Antigravity (ali…)]",
-            label: "Claude:",
-            percentRemaining: 0,
-          },
-          {
-            accounting: { ...TEST_ACCOUNTING, sourceId: "bob@example.com" },
-            name: "Antigravity (bob…): Claude",
-            group: "[Antigravity (bob…)]",
-            label: "Claude:",
-            percentRemaining: 0,
-          },
-        ],
-        errors: [],
-        presentation: { classicStrategy: "preserve" },
-      }),
-    };
-    mockProviders.push(provider);
-    writeFileSync(
-      join(workspaceDir, "opencode.json"),
-      JSON.stringify({
-        experimental: {
-          quotaToast: {
-            enabledProviders: ["google-antigravity"],
-            formatStyle: "allWindows",
-          },
-        },
-      }),
-      "utf8",
-    );
-
-    const stdout = createCaptureStream();
-    const stderr = createCaptureStream();
-    const code = await runCliShowCommand({
-      argv: [],
-      cwd: workspaceDir,
-      stdout: stdout.stream as any,
-      stderr: stderr.stream as any,
-    });
-
-    expect(code).toBe(0);
-    expect(stdout.output).toContain("[Antigravity (ali…)]");
-    expect(stdout.output).toContain("[Antigravity (bob…)]");
-    expect(stdout.output.match(/Claude/g)).toHaveLength(2);
-    expect(stdout.output).not.toContain("Google Antigravity");
-    expect(stderr.output).toBe("");
-  });
-
   it("normalizes --provider aliases and uses the provider as an invocation override", async () => {
     const copilotProvider = {
       id: "copilot",

@@ -434,7 +434,6 @@ describe("loadConfig layered precedence", () => {
           quotaToast: {
             enabledProviders: ["openai"],
             anthropicBinaryPath: "/usr/local/bin/claude",
-            googleModels: ["CLAUDE", "G3PRO"],
             cursorIncludedApiUsd: 42,
             cursorBillingCycleStartDay: 7,
             pricingSnapshot: { source: "bundled", autoRefresh: 30 },
@@ -453,7 +452,6 @@ describe("loadConfig layered precedence", () => {
           quotaToast: {
             enabledProviders: ["not-a-provider"],
             anthropicBinaryPath: "   ",
-            googleModels: [],
             cursorIncludedApiUsd: 0,
             cursorBillingCycleStartDay: 31,
             pricingSnapshot: { source: "remote", autoRefresh: 0 },
@@ -470,7 +468,6 @@ describe("loadConfig layered precedence", () => {
 
     expect(cfg.enabledProviders).toEqual(["openai"]);
     expect(cfg.anthropicBinaryPath).toBe("/usr/local/bin/claude");
-    expect(cfg.googleModels).toEqual(["CLAUDE", "G3PRO"]);
     expect(cfg.cursorIncludedApiUsd).toBe(42);
     expect(cfg.cursorBillingCycleStartDay).toBe(7);
     expect(cfg.pricingSnapshot).toEqual({ source: "bundled", autoRefresh: 30 });
@@ -479,7 +476,6 @@ describe("loadConfig layered precedence", () => {
     const globalQuotaConfigSource = quotaConfigSource(join(xdgConfigHome, "opencode"));
     expect(meta.settingSources.enabledProviders).toBe(globalQuotaConfigSource);
     expect(meta.settingSources.anthropicBinaryPath).toBe(globalQuotaConfigSource);
-    expect(meta.settingSources.googleModels).toBe(globalQuotaConfigSource);
     expect(meta.settingSources.cursorIncludedApiUsd).toBe(globalQuotaConfigSource);
     expect(meta.settingSources.cursorBillingCycleStartDay).toBe(globalQuotaConfigSource);
     expect(meta.settingSources["pricingSnapshot.source"]).toBe(globalQuotaConfigSource);

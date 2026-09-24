@@ -174,30 +174,6 @@ describe("buildSidebarQuotaPanelLines", () => {
     expect(rendered).not.toContain("Quota window");
   });
 
-  it("preserves explicit Antigravity labels and falls back for unlabeled legacy rows", () => {
-    const lines = buildSidebarQuotaPanelLines({
-      config: {
-        formatStyle: "allWindows",
-        percentDisplayMode: "remaining",
-      },
-      data: {
-        entries: [
-          { name: "Claude (acct)", label: "Claude:", percentRemaining: 67 },
-          { name: "G3Pro (acct)", percentRemaining: 67 },
-        ],
-        errors: [],
-        sessionTokens: undefined,
-      },
-    });
-
-    const rendered = lines.join("\n");
-    expect(rendered).toContain("[Antigravity (acct)]");
-    expect(rendered).toContain("\nClaude ");
-    expect(rendered.match(/\[Antigravity \(acct\)\]/gu)).toHaveLength(2);
-    expect(rendered).not.toContain("[Claude] (acct)");
-    expect(rendered).not.toContain("[G3Pro] (acct)");
-  });
-
   it("renders Gemini CLI model tiers in grouped sidebar output", () => {
     const lines = buildSidebarQuotaPanelLines({
       config: {

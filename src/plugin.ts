@@ -3,7 +3,6 @@
  *
  * Shows a minimal quota status toast without LLM invocation.
  * Triggers on session.idle, session.compacted, and question tool completion.
- * Supports GitHub Copilot and Google (via opencode-antigravity-auth).
  */
 
 import { isMainThread } from "node:worker_threads";
@@ -373,30 +372,10 @@ export const QuotaToastPlugin: Plugin = async ({ client, directory }) => {
       quota_status: tool({
         description:
           "Diagnostics for toast + TUI + pricing + local storage (includes unknown pricing report).",
-        args: {
-          refreshGoogleTokens: tool.schema
-            .boolean()
-            .optional()
-            .describe("If true, refresh Google Antigravity access tokens before reporting"),
-          skewMs: tool.schema
-            .number()
-            .int()
-            .min(0)
-            .optional()
-            .describe("Refresh tokens expiring within this window (ms). Default: 120000"),
-          force: tool.schema
-            .boolean()
-            .optional()
-            .describe("If true, refresh even if cached token looks valid"),
-        },
-        async execute(args, context) {
+        args: {},
+        async execute(_args, context) {
           const result = await buildQuotaDialogCommandOutput({
             command: "quota_status",
-            arguments: JSON.stringify({
-              refreshGoogleTokens: args.refreshGoogleTokens,
-              skewMs: args.skewMs,
-              force: args.force,
-            }),
             client: typedClient,
             roots: getPluginRuntimeRootHints(),
             sessionID: context.sessionID,

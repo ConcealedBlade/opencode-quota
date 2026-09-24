@@ -132,7 +132,6 @@ function cloneCliConfig(config: QuotaToastConfig): QuotaToastConfig {
     enabledProviders: Array.isArray(config.enabledProviders)
       ? [...config.enabledProviders]
       : config.enabledProviders,
-    googleModels: [...config.googleModels],
     opencodeGoWindows: [...config.opencodeGoWindows],
     pricingSnapshot: { ...config.pricingSnapshot },
     layout: { ...config.layout },

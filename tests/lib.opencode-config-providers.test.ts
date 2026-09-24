@@ -85,7 +85,6 @@ describe("opencode config provider discovery", () => {
       join(workspaceDir, "opencode.json"),
       JSON.stringify({
         plugin: [
-          "opencode-antigravity-auth@latest",
           "opencode-gemini-auth",
           "@playwo/opencode-cursor-oauth",
           "@slkiser/opencode-quota",
@@ -95,7 +94,6 @@ describe("opencode config provider discovery", () => {
     );
 
     await expect(loadConfiguredProviderIds({ configRootDir: workspaceDir })).resolves.toEqual([
-      "google-antigravity",
       "google-gemini-cli",
       "cursor",
     ]);

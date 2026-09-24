@@ -127,7 +127,6 @@ export function createQuotaProviderRuntimeContext(runtime: {
     client: runtime.client,
     resolveRuntimeProviderIds: runtime.resolveRuntimeProviderIds,
     config: {
-      googleModels: runtime.config.googleModels,
       anthropicBinaryPath: runtime.config.anthropicBinaryPath,
       cursorPlan: runtime.config.cursorPlan,
       cursorIncludedApiUsd: runtime.config.cursorIncludedApiUsd,
@@ -164,7 +163,6 @@ function configureRuntimeTelemetry(runtime: {
           ? "auto"
           : [...runtime.config.enabledProviders].sort(),
         runtime.config.quotaProviders,
-        runtime.config.googleModels,
         runtime.config.anthropicBinaryPath,
         runtime.config.cursorPlan,
         runtime.config.cursorIncludedApiUsd,

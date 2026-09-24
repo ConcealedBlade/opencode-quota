@@ -189,7 +189,6 @@ describe("maintainer announcements", () => {
       "opencode-ecosystem-listing-support",
       "google-gemini-cli-deprecated",
     ]);
-    expect(getActiveIds(["google-antigravity"])).toEqual(["opencode-ecosystem-listing-support"]);
     expect(getActiveIds(["google-agy"])).toEqual(["opencode-ecosystem-listing-support"]);
   });
 

@@ -2,12 +2,6 @@ export const UPSTREAM_PLUGIN_REFERENCE_ROOT = "references/upstream-plugins";
 
 const RAW_UPSTREAM_PLUGIN_SPECS = [
   {
-    pluginId: "opencode-antigravity-auth",
-    packageName: "opencode-antigravity-auth",
-    repoOwner: "NoeFabris",
-    repoName: "opencode-antigravity-auth",
-  },
-  {
     pluginId: "opencode-cursor-oauth",
     packageName: "@playwo/opencode-cursor-oauth",
     repoOwner: "PoolPirate",

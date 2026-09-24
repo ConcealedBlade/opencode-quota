@@ -237,7 +237,6 @@ export function createQuotaToastRuntime(
     const formatStyle = resolveQuotaFormatStyle(config.formatStyle);
     const enabledProviders =
       config.enabledProviders === "auto" ? "auto" : config.enabledProviders.join(",");
-    const googleModels = config.googleModels.join(",");
     const currentModel =
       config.onlyCurrentModel && params.sessionID ? (params.sessionMeta?.modelID ?? "") : "";
     const currentProviderID =
@@ -266,7 +265,6 @@ export function createQuotaToastRuntime(
       `currentModel=${currentModel}`,
       `currentProviderID=${currentProviderID}`,
       `anthropicBinaryPath=${config.anthropicBinaryPath}`,
-      `googleModels=${googleModels}`,
       `cursorPlan=${config.cursorPlan}`,
       `cursorIncludedApiUsd=${config.cursorIncludedApiUsd ?? ""}`,
       `cursorBillingCycleStartDay=${config.cursorBillingCycleStartDay ?? ""}`,
@@ -318,7 +316,6 @@ export function createQuotaToastRuntime(
       configPaths: configMeta.paths,
       enabledProviders: config.enabledProviders,
       minIntervalMs: config.minIntervalMs,
-      googleModels: config.googleModels,
       cursorPlan: config.cursorPlan,
       cursorIncludedApiUsd: config.cursorIncludedApiUsd,
       cursorBillingCycleStartDay: config.cursorBillingCycleStartDay,

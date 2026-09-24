@@ -366,7 +366,6 @@ export interface QuotaProviderContext {
   };
   resolveRuntimeProviderIds: RuntimeProviderIdResolver;
   config: {
-    googleModels: string[];
     anthropicBinaryPath?: string;
     cursorPlan: CursorQuotaPlan;
     cursorIncludedApiUsd?: number;

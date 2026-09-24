@@ -87,7 +87,6 @@ function createConfig(params: {
     export: { ...DEFAULT_CONFIG.export, enabled: false },
     telemetry: { ...DEFAULT_CONFIG.telemetry, enabled: false },
     layout: { ...DEFAULT_CONFIG.layout },
-    googleModels: [...DEFAULT_CONFIG.googleModels],
     opencodeGoWindows: [...DEFAULT_CONFIG.opencodeGoWindows],
     quotaProviders: [],
   };

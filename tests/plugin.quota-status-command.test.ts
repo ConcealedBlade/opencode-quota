@@ -28,7 +28,6 @@ const mocks = vi.hoisted(() => ({
   collectQuotaStatusLiveProbes: vi.fn(),
   buildQuotaStatusReport: vi.fn(),
   inspectTuiConfig: vi.fn(),
-  refreshGoogleTokensForAllAccounts: vi.fn(),
 }));
 
 vi.mock("@opencode-ai/plugin", () => createPluginToolMockModule());
@@ -63,10 +62,6 @@ vi.mock("../src/lib/quota-status.js", () => ({
 
 vi.mock("../src/lib/tui-config-diagnostics.js", () => ({
   inspectTuiConfig: mocks.inspectTuiConfig,
-}));
-
-vi.mock("../src/lib/google.js", () => ({
-  refreshGoogleTokensForAllAccounts: mocks.refreshGoogleTokensForAllAccounts,
 }));
 
 async function buildQuotaStatusDialogOutput(params: {
@@ -115,7 +110,6 @@ describe("/quota_status command behavior", () => {
       resetPluginState: true,
     });
     mocks.inspectTuiConfig.mockResolvedValue(createPluginTuiConfigInspection(process.cwd()));
-    mocks.refreshGoogleTokensForAllAccounts.mockResolvedValue({ attempted: false });
     mocks.collectQuotaStatusLiveProbes.mockResolvedValue([
       {
         providerId: "openai",
@@ -291,7 +285,6 @@ describe("/quota_status command behavior", () => {
         workspaceConfigPaths: [],
         settingSources: {},
         configIssues: [],
-        googleModels: ["CLAUDE"],
         providerLiveProbes: [
           {
             providerId: "openai",

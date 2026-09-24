@@ -39,7 +39,6 @@ function createTestContext() {
       },
     },
     config: {
-      googleModels: ["CLAUDE"],
       anthropicBinaryPath: "claude",
       cursorPlan: "none",
       onlyCurrentModel: false,

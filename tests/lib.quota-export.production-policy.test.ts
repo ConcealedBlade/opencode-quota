@@ -6,7 +6,6 @@ const TEST_RUNTIME_ROOT = "/tmp/opencode-quota-export-production-policy-tests";
 const RESOLVED_AUTH_PROVIDER_IDS = [
   "anthropic",
   "copilot",
-  "google-antigravity",
   "google-gemini-cli",
   "openrouter",
   "xai",
@@ -37,7 +36,6 @@ function createTestContext() {
       },
     },
     config: {
-      googleModels: ["CLAUDE"],
       anthropicBinaryPath: "claude",
       cursorPlan: "none",
       onlyCurrentModel: false,
