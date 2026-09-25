@@ -50,6 +50,14 @@ export const BUNDLED_MAINTAINER_ANNOUNCEMENTS: readonly MaintainerAnnouncement[]
     endsAt: "2026-08-22T00:00:00.000Z",
   },
   {
+    id: "opencode-2-feedback",
+    message:
+      "OpenCode 2 support is coming in OpenCode Quota 5.0, and 4.10.3 is the last release for OpenCode 1. Tell us what you want from the OpenCode 2 version.",
+    url: "https://github.com/slkiser/opencode-quota/issues/293",
+    startsAt: "2026-09-25T00:00:00.000Z",
+    endsAt: "2026-11-25T00:00:00.000Z",
+  },
+  {
     id: "google-gemini-cli-org-only",
     message:
       "Gemini CLI quota support stays. It only works with Gemini Code Assist Standard or Enterprise (organization) accounts because Google ended personal accounts on 2026-06-18. Personal Google users should use Google AGY.",

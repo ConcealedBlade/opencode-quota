@@ -19,6 +19,28 @@ const BASE_ANNOUNCEMENT = {
   url: "https://github.blog/example",
 } satisfies MaintainerAnnouncement;
 
+const ecosystemAnnouncement = {
+  id: "opencode-ecosystem-listing-support",
+  message: "Support OpenCode Quota's ecosystem listing: review the issue and add a thumbs-up.",
+  url: "https://github.com/anomalyco/opencode/issues/38281",
+  startsAt: "2026-07-22T00:00:00.000Z",
+  endsAt: "2026-08-22T00:00:00.000Z",
+} satisfies MaintainerAnnouncement;
+const openCode2FeedbackAnnouncement = {
+  id: "opencode-2-feedback",
+  message:
+    "OpenCode 2 support is coming in OpenCode Quota 5.0, and 4.10.3 is the last release for OpenCode 1. Tell us what you want from the OpenCode 2 version.",
+  url: "https://github.com/slkiser/opencode-quota/issues/293",
+  startsAt: "2026-09-25T00:00:00.000Z",
+  endsAt: "2026-11-25T00:00:00.000Z",
+} satisfies MaintainerAnnouncement;
+const geminiAnnouncement = {
+  id: "google-gemini-cli-org-only",
+  message:
+    "Gemini CLI quota support stays. It only works with Gemini Code Assist Standard or Enterprise (organization) accounts because Google ended personal accounts on 2026-06-18. Personal Google users should use Google AGY.",
+  providerIds: ["google-gemini-cli"],
+} satisfies MaintainerAnnouncement;
+
 describe("maintainer announcements", () => {
   it("filters active announcements by date, validation, and provider ids", () => {
     const evaluations = evaluateMaintainerAnnouncements({
@@ -146,25 +168,16 @@ describe("maintainer announcements", () => {
   });
 
   it("preserves the global OpenCode ecosystem announcement beside the Gemini notice", () => {
-    const ecosystemAnnouncement = {
-      id: "opencode-ecosystem-listing-support",
-      message: "Support OpenCode Quota's ecosystem listing: review the issue and add a thumbs-up.",
-      url: "https://github.com/anomalyco/opencode/issues/38281",
-      startsAt: "2026-07-22T00:00:00.000Z",
-      endsAt: "2026-08-22T00:00:00.000Z",
-    } satisfies MaintainerAnnouncement;
-    const geminiAnnouncement = {
-      id: "google-gemini-cli-org-only",
-      message:
-        "Gemini CLI quota support stays. It only works with Gemini Code Assist Standard or Enterprise (organization) accounts because Google ended personal accounts on 2026-06-18. Personal Google users should use Google AGY.",
-      providerIds: ["google-gemini-cli"],
-    } satisfies MaintainerAnnouncement;
     const active = getActiveMaintainerAnnouncements({
       nowMs: BUNDLED_NOW_MS,
       enabledProviders: "auto",
     });
 
-    expect(BUNDLED_MAINTAINER_ANNOUNCEMENTS).toEqual([ecosystemAnnouncement, geminiAnnouncement]);
+    expect(BUNDLED_MAINTAINER_ANNOUNCEMENTS).toEqual([
+      ecosystemAnnouncement,
+      openCode2FeedbackAnnouncement,
+      geminiAnnouncement,
+    ]);
     expect(active).toEqual([
       {
         announcement: ecosystemAnnouncement,
@@ -190,6 +203,33 @@ describe("maintainer announcements", () => {
       "google-gemini-cli-org-only",
     ]);
     expect(getActiveIds(["google-agy"])).toEqual(["opencode-ecosystem-listing-support"]);
+  });
+
+  it("shows the OpenCode 2 feedback notice to everyone only during its two-month window", () => {
+    const evaluateAt = (iso: string, enabledProviders: string[] | "auto" = "auto") =>
+      evaluateMaintainerAnnouncements({ nowMs: Date.parse(iso), enabledProviders }).find(
+        (item) => item.announcement.id === "opencode-2-feedback",
+      );
+    const getActiveIds = (iso: string, enabledProviders: string[] | "auto") =>
+      getActiveMaintainerAnnouncements({ nowMs: Date.parse(iso), enabledProviders }).map(
+        (item) => item.announcement.id,
+      );
+
+    expect(evaluateAt("2026-09-24T23:59:59.999Z")?.reasons).toEqual(["not_started"]);
+    expect(evaluateAt("2026-09-25T00:00:00.000Z")).toEqual({
+      announcement: openCode2FeedbackAnnouncement,
+      active: true,
+      reasons: [],
+    });
+    expect(evaluateAt("2026-11-24T23:59:59.999Z", ["google-agy"])?.active).toBe(true);
+    expect(evaluateAt("2026-11-25T00:00:00.000Z")?.reasons).toEqual(["ended"]);
+
+    expect(getActiveIds("2026-10-15T12:00:00.000Z", "auto")).toEqual(["opencode-2-feedback"]);
+    expect(getActiveIds("2026-10-15T12:00:00.000Z", ["google-gemini-cli"])).toEqual([
+      "opencode-2-feedback",
+      "google-gemini-cli-org-only",
+    ]);
+    expect(getActiveIds("2026-11-25T00:00:00.000Z", "auto")).toEqual([]);
   });
 
   it("sorts active announcements before inactive, then by end date and id", () => {
