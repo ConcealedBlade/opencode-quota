@@ -172,19 +172,23 @@ export const opencodeZenProvider: QuotaProvider = {
       },
       quantity: { decimal: zenUsdDecimal(balanceUsd), unit: USD_UNIT },
     });
-    entries.push({
-      accounting: OPENCODE_ZEN_STATUS_ACCOUNTING,
-      kind: "boolean",
-      name: "zen-auto-reload",
-      group: OPENCODE_ZEN_GROUP,
-      semantic: {
-        metric: { kind: "component", component: "auto_reload" },
-        prominence: "supplementary",
-      },
-      value: result.data.reload,
-    });
+    if (result.data.reload !== null) {
+      entries.push({
+        accounting: OPENCODE_ZEN_STATUS_ACCOUNTING,
+        kind: "boolean",
+        name: "zen-auto-reload",
+        group: OPENCODE_ZEN_GROUP,
+        semantic: {
+          metric: { kind: "component", component: "auto_reload" },
+          prominence: "supplementary",
+        },
+        value: result.data.reload,
+      });
+    }
 
-    return withStatusDetails(attemptedResult(entries), [
+    const errors = result.errors.map((message) => ({ label: OPENCODE_PROVIDER_LABEL, message }));
+
+    return withStatusDetails(attemptedResult(entries, errors), [
       ...statusDetails,
       { key: "balance_usd", value: `USD ${zenUsdDecimal(balanceUsd)}` },
       {
@@ -201,7 +205,10 @@ export const opencodeZenProvider: QuotaProvider = {
             ? "(none)"
             : `USD ${zenUsdDecimal(result.data.lastPayment)}`,
       },
-      { key: "auto_reload", value: result.data.reload ? "true" : "false" },
+      {
+        key: "auto_reload",
+        value: result.data.reload === null ? "(unknown)" : String(result.data.reload),
+      },
       {
         key: "auto_reload_amount_raw",
         value: result.data.reloadAmount === null ? "(none)" : String(result.data.reloadAmount),
@@ -210,6 +217,9 @@ export const opencodeZenProvider: QuotaProvider = {
         key: "auto_reload_trigger_raw",
         value: result.data.reloadTrigger === null ? "(none)" : String(result.data.reloadTrigger),
       },
+      ...(result.errors.length > 0
+        ? [{ key: "live_fetch_error", value: result.errors.join(" | ") }]
+        : []),
     ]);
   },
 };

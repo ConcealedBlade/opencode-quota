@@ -129,9 +129,10 @@ function configured(): void {
   });
 }
 
-function success(overrides: Record<string, unknown> = {}): void {
+function success(overrides: Record<string, unknown> = {}, errors: string[] = []): void {
   mocks.queryOpenCodeZenQuota.mockResolvedValueOnce({
     success: true,
+    errors,
     data: {
       balance: 4_250_000_000,
       monthlyLimit: null,
@@ -310,6 +311,52 @@ describe("opencode Zen provider", () => {
       }),
       balanceEntry("supplementary"),
       autoReloadEntry(),
+    ]);
+  });
+
+  it("keeps the balance and reports failed optional Console routes", async () => {
+    configured();
+    success({ reload: null }, [
+      "OpenCode Console billing/auto-recharge error 500",
+      "OpenCode Console usage/cost-by-day error 500",
+    ]);
+
+    const result = await opencodeZenProvider.fetch(context());
+
+    expect(result.attempted).toBe(true);
+    expect(result.entries).toEqual([balanceEntry("primary")]);
+    expect(result.errors).toEqual([
+      { label: "OpenCode", message: "OpenCode Console billing/auto-recharge error 500" },
+      { label: "OpenCode", message: "OpenCode Console usage/cost-by-day error 500" },
+    ]);
+    expect(result.statusDetails).toContainEqual({ key: "auto_reload", value: "(unknown)" });
+    expect(result.statusDetails).toContainEqual({
+      key: "live_fetch_error",
+      value:
+        "OpenCode Console billing/auto-recharge error 500 | OpenCode Console usage/cost-by-day error 500",
+    });
+  });
+
+  it("uses the plugin monthly limit when the Console credit-limit request fails", async () => {
+    configured();
+    success({ monthlyLimit: null, monthlyUsage: 575_000_000 }, [
+      "OpenCode Console billing/account error 500",
+    ]);
+
+    const result = await opencodeZenProvider.fetch(context({ opencodeMonthlyLimit: 200 }));
+
+    expect(result.entries).toEqual([
+      budgetEntry({
+        percentRemaining: 97.125,
+        limit: "200",
+        remaining: "194.25",
+        limitAuthority: "user_configured",
+      }),
+      balanceEntry("supplementary"),
+      autoReloadEntry(),
+    ]);
+    expect(result.errors).toEqual([
+      { label: "OpenCode", message: "OpenCode Console billing/account error 500" },
     ]);
   });
 

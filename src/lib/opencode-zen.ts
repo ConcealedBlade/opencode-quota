@@ -15,16 +15,23 @@ export const OPENCODE_ZEN_BILLING_UNITS_PER_DOLLAR = 100_000_000;
 
 export interface OpenCodeZenBillingData {
   balance: number;
+  /** Credit limit in USD; null when the account has no limit or billing/account failed. */
   monthlyLimit: number | null;
+  /** Current-month usage in billing units; null when usage/cost-by-day failed. */
   monthlyUsage: number | null;
   lastPayment: number | null;
-  reload: boolean;
+  /** Auto-reload state; null (unknown) when billing/auto-recharge failed. */
+  reload: boolean | null;
   reloadAmount: number | null;
   reloadTrigger: number | null;
 }
 
+/**
+ * billing/status (balance) is required. The other routes are optional: when one fails,
+ * its fields are null and its error is listed in `errors`.
+ */
 export type OpenCodeZenResult =
-  | { success: true; data: OpenCodeZenBillingData }
+  | { success: true; data: OpenCodeZenBillingData; errors: string[] }
   | { success: false; error: string };
 
 type ConsoleRoute =
@@ -44,7 +51,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 /** Console micro-cent amounts arrive as decimal strings; numbers are accepted too. */
 function parseMicroCents(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value)) return Number(value);
+  if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
   return null;
 }
 
@@ -101,7 +111,7 @@ function parseMonthlyUsage(json: unknown, now: Date): number {
     if (typeof day?.date !== "string" || cost === null) return invalidResponse();
     if (day.date.slice(0, 7) === month) total += cost;
   }
-  return total;
+  return Number.isFinite(total) ? total : invalidResponse();
 }
 
 function sanitizeMessage(text: string, secrets: string[] = [], maxLength = 120): string {
@@ -162,13 +172,11 @@ async function fetchConsoleRoute<T>(params: {
       },
     });
   } catch (error) {
-    return {
-      success: false,
-      error: sanitizeMessage(error instanceof Error ? error.message : String(error), [
-        params.consoleSessionCookie,
-        params.workspaceId,
-      ]),
-    };
+    const message = sanitizeMessage(error instanceof Error ? error.message : String(error), [
+      params.consoleSessionCookie,
+      params.workspaceId,
+    ]);
+    return { success: false, error: `OpenCode Console ${params.route} request failed: ${message}` };
   }
 }
 
@@ -194,19 +202,23 @@ export async function queryOpenCodeZenQuota(
     }),
   ]);
 
+  const optional = [creditLimit, autoRecharge, monthlyUsage];
+  if ([balance, ...optional].some((result) => !result.success && result.error === SESSION_ERROR)) {
+    return { success: false, error: SESSION_ERROR };
+  }
   if (!balance.success) return balance;
-  if (!creditLimit.success) return creditLimit;
-  if (!autoRecharge.success) return autoRecharge;
-  if (!monthlyUsage.success) return monthlyUsage;
 
   return {
     success: true,
     data: {
       balance: balance.data,
-      monthlyLimit: creditLimit.data,
-      monthlyUsage: monthlyUsage.data,
+      monthlyLimit: creditLimit.success ? creditLimit.data : null,
+      monthlyUsage: monthlyUsage.success ? monthlyUsage.data : null,
       lastPayment: null,
-      ...autoRecharge.data,
+      ...(autoRecharge.success
+        ? autoRecharge.data
+        : { reload: null, reloadAmount: null, reloadTrigger: null }),
     },
+    errors: optional.flatMap((result) => (result.success ? [] : [result.error])),
   };
 }
