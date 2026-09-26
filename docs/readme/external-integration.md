@@ -41,7 +41,7 @@ Threshold exit codes:
 ### CI example
 
 ```bash
-npx @slkiser/opencode-quota show --json --threshold 5
+npx @slkiser/opencode-quota@4 show --json --threshold 5
 ```
 
 ### Read Copilot's percentage with `jq`

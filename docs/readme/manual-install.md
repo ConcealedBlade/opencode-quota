@@ -5,7 +5,7 @@
 The guided installer is easier and safer:
 
 ```bash
-npx @slkiser/opencode-quota@latest init
+npx @slkiser/opencode-quota@4 init
 ```
 
 Use this guide only if you want to edit OpenCode files yourself.
@@ -25,7 +25,7 @@ Add OpenCode Quota to `opencode.jsonc` or `opencode.json`. This is required for 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@slkiser/opencode-quota"],
+  "plugin": ["@slkiser/opencode-quota@4"],
 }
 ```
 
@@ -40,7 +40,7 @@ Add OpenCode Quota to `tui.jsonc` or `tui.json`. This enables TUI slash commands
 ```jsonc
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["@slkiser/opencode-quota"],
+  "plugin": ["@slkiser/opencode-quota@4"],
 }
 ```
 
@@ -111,8 +111,8 @@ See [Configuration](configuration.md) for more examples and every setting.
 Close OpenCode, preview the update, then apply it:
 
 ```bash
-npx @slkiser/opencode-quota@latest update --dry-run
-npx @slkiser/opencode-quota@latest update
+npx @slkiser/opencode-quota@4 update --dry-run
+npx @slkiser/opencode-quota@4 update
 ```
 
 The updater preserves unrelated settings, comments, and plugins where targeted editing is safe. Its preview can include recognized file-backed display migration and report-only credential findings; it never moves or deletes secrets. Restart OpenCode when it finishes. See [Updating safely](updating.md) for the complete workflow.

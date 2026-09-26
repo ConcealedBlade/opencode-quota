@@ -34,14 +34,14 @@ If every provider is missing, confirm OpenCode Quota is listed in `opencode.json
 2. Preview the update:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update --dry-run
+   npx @slkiser/opencode-quota@4 update --dry-run
    ```
 
 3. Inspect both safe changes and manual findings. Do not paste credential values into command output or issue reports.
 4. Apply the plan:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update
+   npx @slkiser/opencode-quota@4 update
    ```
 
 5. Restart OpenCode.
