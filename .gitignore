@@ -1,40 +1,13 @@
-node_modules/
-dist/
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-
-# OS / editors
-.DS_Store
-.vscode/
-
-# Build / tooling artifacts
-*.tsbuildinfo
-coverage/
-.pnpm-store/
-/package-artifacts/
-
-# Local-only config/secrets
+/AGENTS.md
 .env
 .env.*
 .npmrc
+/.agents/
+/.codex/
+/docs/*
+/references/*
+/prompt-exports/
+/opencode-quota/
+/local-live-tests/
 opencode.json
 tui.json
-
-# Local scratch & AI Slop
-references/*
-!references/upstream-plugins/
-!references/upstream-plugins/**
-.git.backup-*/
-docs/*
-!docs/readme/
-!docs/readme/**
-/docs/readme/v4-release-readiness.md
-/docs/adr/
-AGENTS.md
-/.agents
-/prompt-exports
-/opencode-quota
-/local-live-tests/
