@@ -1,0 +1,56 @@
+name: Provider request
+description: Ask for quota support for a new provider
+labels:
+  - provider
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the request. New providers need a way to read quota, so links to the usage API or docs matter most.
+        Review `CONTRIBUTING.md` before submitting.
+        Please write a short, specific title. Issues missing key details get the `needs info` label and close after 21 days without activity.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and did not find a duplicate request.
+          required: true
+
+  - type: input
+    id: provider
+    attributes:
+      label: Provider name and link
+      description: The provider's name and its website.
+      placeholder: Example Provider - https://example.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: plan
+    attributes:
+      label: Plan and quota type
+      description: Which plan you use and what kind of limit it has.
+      placeholder: Pro plan, 5-hour rolling request limit plus a monthly credit balance.
+    validations:
+      required: true
+
+  - type: textarea
+    id: quota_source
+    attributes:
+      label: How quota is exposed
+      description: Link the usage API or docs, or describe where the provider shows usage. Redact any keys or tokens.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: can_test
+    attributes:
+      label: Can you test a build?
+      description: Provider support usually needs someone with an account to check it.
+      options:
+        - Yes, I have an account and can test a build
+        - No, I cannot test
+    validations:
+      required: true

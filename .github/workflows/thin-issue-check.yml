@@ -1,0 +1,65 @@
+name: Thin issue check
+
+on:
+  issues:
+    types: [opened, edited]
+
+concurrency:
+  group: thin-issue-check-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    # Maintainers may open short tracking issues on purpose.
+    if: ${{ !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Label thin issues as needs info
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const label = "needs info";
+            const marker = "<!-- thin-issue-check -->";
+            const issue = context.payload.issue;
+            const params = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+            };
+
+            // Title without a "[bug]:" style prefix.
+            const title = issue.title.replace(/^\s*\[[^\]]*\]\s*:?/u, "").trim();
+            // Body text the reporter typed: drop form headings, empty-field
+            // placeholders, checkbox lines, HTML comments, and whitespace.
+            const typedBody = (issue.body ?? "")
+              .replace(/<!--[\s\S]*?-->/gu, "")
+              .split("\n")
+              .filter((line) => !/^\s*(###\s|_No response_|- \[[ xX]\]\s)/u.test(line))
+              .join("")
+              .replace(/\s+/gu, "");
+            const thin = title.length < 8 || typedBody.length < 40;
+            const labeled = issue.labels.some((l) => l.name === label);
+
+            if (thin && !labeled) {
+              await github.rest.issues.addLabels({ ...params, labels: [label] });
+              await github.rest.issues.createComment({
+                ...params,
+                body: [
+                  marker,
+                  "Thanks for opening this! It looks a bit short right now, so we added the `needs info` label.",
+                  "",
+                  "Please edit the issue to add a clear title and fill in the form fields with the details they ask for. The label comes off automatically once the details are in.",
+                  "",
+                  "Issues labeled `needs info` close after 21 days without activity.",
+                ].join("\n"),
+              });
+            } else if (!thin && labeled) {
+              // Only undo a label this workflow added, never a maintainer's.
+              const comments = await github.paginate(github.rest.issues.listComments, params);
+              if (comments.some((c) => c.body?.includes(marker))) {
+                await github.rest.issues.removeLabel({ ...params, name: label });
+              }
+            }
