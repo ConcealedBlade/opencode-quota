@@ -24,7 +24,7 @@ interface Workflow {
 }
 
 describe("GitHub workflows", () => {
-  it("keeps provider-API-blocked issues exempt from stale automation", async () => {
+  it("only lets stale automation close issues labeled needs info", async () => {
     const source = await readFile(".github/workflows/close-inactive-issues.yml", "utf8");
     const workflow = parse(source) as Workflow;
     const staleJob = workflow.jobs.stale;
@@ -36,14 +36,38 @@ describe("GitHub workflows", () => {
       expect.objectContaining({
         uses: "actions/stale@v10",
         with: expect.objectContaining({
-          "exempt-issue-labels": "Blocked: not in provider API",
-          "days-before-issue-stale": 23,
+          "only-issue-labels": "needs info",
+          "days-before-issue-stale": 14,
           "days-before-issue-close": 7,
           "days-before-pr-stale": -1,
           "days-before-pr-close": -1,
         }),
       }),
     );
+    expect(staleStep?.with).not.toHaveProperty("exempt-issue-labels");
+  });
+
+  it("runs the thin issue check with only issues write permission", async () => {
+    const source = await readFile(".github/workflows/thin-issue-check.yml", "utf8");
+    const workflow = parse(source) as Workflow;
+
+    expect(workflow.jobs.check?.permissions).toEqual({ issues: "write" });
+  });
+
+  it("keeps issue forms without title prefills and with their labels", async () => {
+    const expectedLabels: Record<string, string[]> = {
+      "bug_report.yml": ["bug"],
+      "feature_request.yml": ["enhancement"],
+      "provider_request.yml": ["provider"],
+    };
+    for (const [file, labels] of Object.entries(expectedLabels)) {
+      const form = parse(await readFile(`.github/ISSUE_TEMPLATE/${file}`, "utf8")) as {
+        title?: string;
+        labels?: string[];
+      };
+      expect(form.title, file).toBeUndefined();
+      expect(form.labels, file).toEqual(labels);
+    }
   });
 
   it("keeps upstream issue reconciliation on Node 22 with minimal permissions", async () => {

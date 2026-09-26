@@ -22,7 +22,7 @@
 ## Quick start
 
 ```bash
-npx @slkiser/opencode-quota init
+npx @slkiser/opencode-quota@4 init
 ```
 
 > [!IMPORTANT]
@@ -39,17 +39,19 @@ After installation:
 
 ## Updating
 
+OpenCode 1 users stay on 4.x: OpenCode Quota 5 needs OpenCode 2. The updater pins your plugin to `@4`.
+
 1. Close OpenCode.
 2. Preview the update:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update --dry-run
+   npx @slkiser/opencode-quota@4 update --dry-run
    ```
 
 3. Inspect the safe setting/cache changes and manual credential findings, then apply:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update
+   npx @slkiser/opencode-quota@4 update
    ```
 
 4. Restart OpenCode.
@@ -128,13 +130,13 @@ Use the CLI for setup, updates, terminal checks, and custom providers.
 
 | Command                                                  | What it does                                |
 | -------------------------------------------------------- | ------------------------------------------- |
-| `npx @slkiser/opencode-quota@latest init`                | Set up OpenCode Quota                       |
-| `npx @slkiser/opencode-quota@latest provider add`        | Add or update a custom provider             |
-| `npx @slkiser/opencode-quota@latest show`                | Show current quota                          |
-| `npx @slkiser/opencode-quota@latest status`              | Check configuration and provider problems  |
-| `npx @slkiser/opencode-quota@latest update`              | Update an existing installation             |
+| `npx @slkiser/opencode-quota@4 init`                | Set up OpenCode Quota                       |
+| `npx @slkiser/opencode-quota@4 provider add`        | Add or update a custom provider             |
+| `npx @slkiser/opencode-quota@4 show`                | Show current quota                          |
+| `npx @slkiser/opencode-quota@4 status`              | Check configuration and provider problems  |
+| `npx @slkiser/opencode-quota@4 update`              | Update an existing installation             |
 
-Run `npx @slkiser/opencode-quota@latest --help` for command options. See [External integration](docs/readme/external-integration.md#1-get-json-from-a-command) for JSON, scripts, and CI examples.
+Run `npx @slkiser/opencode-quota@4 --help` for command options. See [External integration](docs/readme/external-integration.md#1-get-json-from-a-command) for JSON, scripts, and CI examples.
 
 ## Providers
 
@@ -224,7 +226,7 @@ These vendors offer team or business plans, but the current integrations report 
 Add a provider that uses a remote quota API or tracks a local usage estimate:
 
 ```bash
-npx @slkiser/opencode-quota@latest provider add
+npx @slkiser/opencode-quota@4 provider add
 ```
 
 The guided setup previews the change before saving. See the [custom-provider guide](docs/readme/providers.md#custom-providers) for details.

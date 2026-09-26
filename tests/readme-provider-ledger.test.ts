@@ -80,7 +80,7 @@ describe("README provider ledger", () => {
     for (const document of [readme, providerGuide]) {
       expect(document).toMatch(/^#.+Providers|^## Providers$/m);
       expect(document).toMatch(/^#{2,3} Custom providers$/m);
-      expect(document).toContain("npx @slkiser/opencode-quota@latest provider add");
+      expect(document).toContain("npx @slkiser/opencode-quota@4 provider add");
     }
   });
 });

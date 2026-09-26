@@ -32,7 +32,10 @@ import {
 } from "./scoped-update-migration.js";
 
 export const QUOTA_PACKAGE_NAME = "@slkiser/opencode-quota";
-export const QUOTA_LATEST_SPEC = `${QUOTA_PACKAGE_NAME}@latest`;
+// 4.x supports only OpenCode 1, and OpenCode Quota 5 needs OpenCode 2, so 4.x pins to @4.
+export const QUOTA_V4_SPEC = `${QUOTA_PACKAGE_NAME}@4`;
+const QUOTA_LATEST_SPEC = `${QUOTA_PACKAGE_NAME}@latest`;
+const V4_PIN_REASON = "Pinned to @4 because OpenCode Quota 5 needs OpenCode 2.";
 const GITHUB_REPO_URL = "https://github.com/slkiser/opencode-quota";
 
 const EXACT_SEMVER =
@@ -66,7 +69,7 @@ export interface ScopedUpdatePlan {
   configPaths: string[];
   foundSpecs: string[];
   cacheCandidates: string[];
-  authoritativeLatest: boolean;
+  authoritativeV4: boolean;
   safeActions: ScopedUpdateSafeAction[];
   manualFindings: ScopedUpdateManualFinding[];
 }
@@ -88,9 +91,13 @@ export class ScopedUpdateError extends Error {
 }
 
 export function isCanonicalQuotaUpdateSpec(spec: string): boolean {
-  if (spec === QUOTA_PACKAGE_NAME || spec === QUOTA_LATEST_SPEC) return true;
+  if (spec === QUOTA_PACKAGE_NAME || spec === QUOTA_LATEST_SPEC || spec === QUOTA_V4_SPEC) {
+    return true;
+  }
   const prefix = `${QUOTA_PACKAGE_NAME}@`;
-  return spec.startsWith(prefix) && EXACT_SEMVER.test(spec.slice(prefix.length));
+  if (!spec.startsWith(prefix)) return false;
+  const version = spec.slice(prefix.length);
+  return EXACT_SEMVER.test(version) && Number(version.split(".")[0]) <= 4;
 }
 
 export function sanitizeOpenCodePackageSpec(
@@ -164,10 +171,10 @@ function updateConfig(
             : null;
       if (spec === null || !isCanonicalQuotaUpdateSpec(spec)) continue;
       specs.push(spec);
-      if (spec === QUOTA_LATEST_SPEC) continue;
+      if (spec === QUOTA_V4_SPEC) continue;
       const targetPath =
         typeof entry === "string" ? [...array.path, index] : [...array.path, index, 0];
-      edits.push({ path: targetPath, value: QUOTA_LATEST_SPEC });
+      edits.push({ path: targetPath, value: QUOTA_V4_SPEC });
       replacements++;
     }
   }
@@ -350,7 +357,7 @@ export async function planScopedUpdate(
   }
 
   const uniqueSpecs = [...new Set(foundSpecs)];
-  const cacheSpecs = [...new Set([...uniqueSpecs, QUOTA_LATEST_SPEC])];
+  const cacheSpecs = [...new Set([...uniqueSpecs, QUOTA_V4_SPEC])];
   const cacheCandidates = runtime.cacheDirs.flatMap((cacheDir) =>
     cacheSpecs.map((spec) =>
       join(cacheDir, "packages", sanitizeOpenCodePackageSpec(spec, params.platform)),
@@ -363,7 +370,7 @@ export async function planScopedUpdate(
     configPaths,
     foundSpecs: uniqueSpecs,
     cacheCandidates: [...new Set(cacheCandidates)],
-    authoritativeLatest: uniqueSpecs.length > 0,
+    authoritativeV4: uniqueSpecs.length > 0,
     safeActions: sortScopedUpdateSafeActions(safeActions),
     manualFindings: sortScopedUpdateManualFindings(manualFindings),
   };
@@ -414,7 +421,7 @@ function formatSafeAction(action: ScopedUpdateSafeAction): string {
   const path = displayUpdatePath(action.path);
   if (action.kind === "package-spec") {
     const noun = action.replacements === 1 ? "replacement" : "replacements";
-    return `  edit ${path} (${action.replacements} package ${noun})`;
+    return `  edit ${path} (${action.replacements} package ${noun} to ${QUOTA_V4_SPEC})`;
   }
 
   switch (action.outcome) {
@@ -483,7 +490,7 @@ export function formatScopedUpdatePreview(plan: ScopedUpdatePlan): string[] {
     lines.push(...plan.manualFindings.map(formatManualFinding));
   }
 
-  if (plan.authoritativeLatest && plan.cacheCandidates.length > 0) {
+  if (plan.authoritativeV4 && plan.cacheCandidates.length > 0) {
     lines.push("", "Package-cache candidates (removed only after verification):");
     lines.push(...plan.cacheCandidates.map((path) => `  ${displayUpdatePath(path)}`));
   }
@@ -607,7 +614,7 @@ export async function applyScopedUpdatePlan(
     });
   }
 
-  let authoritativeLatest = false;
+  let authoritativeV4 = false;
   for (const snapshot of plan.configSnapshots) {
     let current: Buffer;
     try {
@@ -620,12 +627,12 @@ export async function applyScopedUpdatePlan(
     }
     if (!snapshot.roles.includes("package-authority")) continue;
     const currentPlan = updateConfig(current.toString("utf8"), snapshot.path);
-    if (currentPlan.specs.includes(QUOTA_LATEST_SPEC)) authoritativeLatest = true;
+    if (currentPlan.specs.includes(QUOTA_V4_SPEC)) authoritativeV4 = true;
   }
 
   const removedCachePaths: string[] = [];
   const skippedCachePaths: string[] = [];
-  if (authoritativeLatest) {
+  if (authoritativeV4) {
     for (const candidate of plan.cacheCandidates) {
       const result = await removeVerifiedCacheCandidate(candidate);
       (result === "removed" ? removedCachePaths : skippedCachePaths).push(candidate);
@@ -657,7 +664,7 @@ export async function runScopedUpdateCommand(
     for (const line of formatScopedUpdatePreview(plan)) log(line);
 
     const hasConfigChanges = plan.configSnapshots.some((snapshot) => snapshot.changed);
-    const hasAutomaticWork = hasConfigChanges || plan.authoritativeLatest;
+    const hasAutomaticWork = hasConfigChanges || plan.authoritativeV4;
 
     if (dryRun) {
       log(
@@ -698,6 +705,7 @@ export async function runScopedUpdateCommand(
 
     const result = await applyScopedUpdatePlan(plan);
     for (const path of result.writtenPaths) log(`Updated ${displayUpdatePath(path)}`);
+    if (plan.safeActions.some((action) => action.kind === "package-spec")) log(V4_PIN_REASON);
     for (const path of result.removedCachePaths) log(`Removed ${displayUpdatePath(path)}`);
     for (const path of result.skippedCachePaths) {
       log(`Skipped unverified cache candidate ${displayUpdatePath(path)}`);

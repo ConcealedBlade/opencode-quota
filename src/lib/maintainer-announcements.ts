@@ -52,10 +52,17 @@ export const BUNDLED_MAINTAINER_ANNOUNCEMENTS: readonly MaintainerAnnouncement[]
   {
     id: "opencode-2-feedback",
     message:
-      "OpenCode 2 support is coming in OpenCode Quota 5.0, and 4.10.3 is the last release for OpenCode 1. Tell us what you want from the OpenCode 2 version.",
+      "OpenCode 2 support is coming in OpenCode Quota 5.0. Tell us what you want from the OpenCode 2 version.",
     url: "https://github.com/slkiser/opencode-quota/issues/293",
     startsAt: "2026-09-25T00:00:00.000Z",
     endsAt: "2026-11-25T00:00:00.000Z",
+  },
+  {
+    id: "opencode-1-stay-on-4x",
+    message: 'On OpenCode 1? Run "npx @slkiser/opencode-quota@4 update" to stay on 4.x.',
+    url: "https://github.com/slkiser/opencode-quota#updating",
+    startsAt: "2026-09-26T00:00:00.000Z",
+    endsAt: "2026-11-26T00:00:00.000Z",
   },
   {
     id: "google-gemini-cli-org-only",

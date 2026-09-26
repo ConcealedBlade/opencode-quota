@@ -4,7 +4,7 @@
 
 ## What the command does
 
-`npx @slkiser/opencode-quota@latest update` first asks npm to resolve and run the published `@latest` CLI package. That npm resolution and execution begins before the updater can print its preview. The preview guarantee covers changes owned by the updater: OpenCode configuration files and OpenCode Quota package-cache directories.
+`npx @slkiser/opencode-quota@4 update` first asks npm to resolve and run the newest published 4.x CLI package. That npm resolution and execution begins before the updater can print its preview. The preview guarantee covers changes owned by the updater: OpenCode configuration files and OpenCode Quota package-cache directories.
 
 The updater builds one plan, prints it in full, and then either stops or applies that same plan. It does not add runtime compatibility fallbacks.
 
@@ -14,19 +14,19 @@ The updater builds one plan, prints it in full, and then either stops or applies
 2. Preview without changing configuration or package caches:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update --dry-run
+   npx @slkiser/opencode-quota@4 update --dry-run
    ```
 
 3. Read every section. If the plan is correct, apply it:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update
+   npx @slkiser/opencode-quota@4 update
    ```
 
    The interactive command asks once before safe work begins. For a noninteractive run, use:
 
    ```bash
-   npx @slkiser/opencode-quota@latest update --yes
+   npx @slkiser/opencode-quota@4 update --yes
    ```
 
    `--yes` still prints the full preview. It authorizes only deterministic config edits and manifest-verified cache cleanup, never secret changes.
@@ -59,7 +59,7 @@ Manual findings do not make the command fail. They remain your responsibility.
 
 The updater can:
 
-- change supported OpenCode Quota plugin package specs to `@latest`;
+- pin supported OpenCode Quota plugin package specs (bare, `@latest`, or an exact 4.x-or-older version) to `@4`, because OpenCode Quota 5 needs OpenCode 2;
 - remove only package-cache directories that pass path, symlink, containment, and exact package-manifest checks;
 - migrate recognized `opencodeZenDisplay` values in known file-backed quota config locations:
   - `"default"` becomes root `accountingDetail: "summary"`;

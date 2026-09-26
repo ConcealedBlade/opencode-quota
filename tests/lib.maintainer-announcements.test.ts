@@ -29,10 +29,17 @@ const ecosystemAnnouncement = {
 const openCode2FeedbackAnnouncement = {
   id: "opencode-2-feedback",
   message:
-    "OpenCode 2 support is coming in OpenCode Quota 5.0, and 4.10.3 is the last release for OpenCode 1. Tell us what you want from the OpenCode 2 version.",
+    "OpenCode 2 support is coming in OpenCode Quota 5.0. Tell us what you want from the OpenCode 2 version.",
   url: "https://github.com/slkiser/opencode-quota/issues/293",
   startsAt: "2026-09-25T00:00:00.000Z",
   endsAt: "2026-11-25T00:00:00.000Z",
+} satisfies MaintainerAnnouncement;
+const openCode1StayOn4xAnnouncement = {
+  id: "opencode-1-stay-on-4x",
+  message: 'On OpenCode 1? Run "npx @slkiser/opencode-quota@4 update" to stay on 4.x.',
+  url: "https://github.com/slkiser/opencode-quota#updating",
+  startsAt: "2026-09-26T00:00:00.000Z",
+  endsAt: "2026-11-26T00:00:00.000Z",
 } satisfies MaintainerAnnouncement;
 const geminiAnnouncement = {
   id: "google-gemini-cli-org-only",
@@ -176,6 +183,7 @@ describe("maintainer announcements", () => {
     expect(BUNDLED_MAINTAINER_ANNOUNCEMENTS).toEqual([
       ecosystemAnnouncement,
       openCode2FeedbackAnnouncement,
+      openCode1StayOn4xAnnouncement,
       geminiAnnouncement,
     ]);
     expect(active).toEqual([
@@ -224,12 +232,42 @@ describe("maintainer announcements", () => {
     expect(evaluateAt("2026-11-24T23:59:59.999Z", ["google-agy"])?.active).toBe(true);
     expect(evaluateAt("2026-11-25T00:00:00.000Z")?.reasons).toEqual(["ended"]);
 
-    expect(getActiveIds("2026-10-15T12:00:00.000Z", "auto")).toEqual(["opencode-2-feedback"]);
+    expect(getActiveIds("2026-10-15T12:00:00.000Z", "auto")).toEqual([
+      "opencode-2-feedback",
+      "opencode-1-stay-on-4x",
+    ]);
     expect(getActiveIds("2026-10-15T12:00:00.000Z", ["google-gemini-cli"])).toEqual([
       "opencode-2-feedback",
+      "opencode-1-stay-on-4x",
       "google-gemini-cli-org-only",
     ]);
-    expect(getActiveIds("2026-11-25T00:00:00.000Z", "auto")).toEqual([]);
+    expect(getActiveIds("2026-11-25T00:00:00.000Z", "auto")).toEqual(["opencode-1-stay-on-4x"]);
+  });
+
+  it("tells OpenCode 1 users to pin 4.x to everyone only during its two-month window", () => {
+    const evaluateAt = (iso: string, enabledProviders: string[] | "auto" = "auto") =>
+      evaluateMaintainerAnnouncements({ nowMs: Date.parse(iso), enabledProviders }).find(
+        (item) => item.announcement.id === "opencode-1-stay-on-4x",
+      );
+
+    expect(evaluateAt("2026-09-25T23:59:59.999Z")?.reasons).toEqual(["not_started"]);
+    expect(evaluateAt("2026-09-26T00:00:00.000Z")).toEqual({
+      announcement: openCode1StayOn4xAnnouncement,
+      active: true,
+      reasons: [],
+    });
+    expect(evaluateAt("2026-11-25T23:59:59.999Z", ["google-agy"])?.active).toBe(true);
+    expect(evaluateAt("2026-11-26T00:00:00.000Z")?.reasons).toEqual(["ended"]);
+    expect(openCode1StayOn4xAnnouncement.message.split(/\s+/).length).toBeLessThanOrEqual(15);
+    expect(
+      getMaintainerAnnouncementsSummary({
+        nowMs: Date.parse("2026-10-15T12:00:00.000Z"),
+        enabledProviders: "auto",
+      }).activeCount,
+    ).toBe(2);
+    expect(formatMaintainerAnnouncementHomeCountLine(2)).toBe(
+      "Notice: 2 maintainer announcements available. Run /quota_announcements.",
+    );
   });
 
   it("sorts active announcements before inactive, then by end date and id", () => {

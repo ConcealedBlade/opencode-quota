@@ -14,10 +14,10 @@ Thanks for contributing. This repo has strict local-only behavior and regression
 - GitHub Issue Forms are enabled and blank issues are disabled.
 - Use `.github/ISSUE_TEMPLATE/bug_report.yml` for bug reports.
 - Use `.github/ISSUE_TEMPLATE/feature_request.yml` for feature requests.
-- Use template title prefixes for consistent issue titles.
-- Inactive issues may be marked stale after 23 days and closed 7 days later if there are still no updates.
-- Bug title format: `[bug]: <short description>`
-- Feature title format: `[feature]: <short description>`
+- Use `.github/ISSUE_TEMPLATE/provider_request.yml` to ask for a new provider.
+- Write a short, specific title. The template adds the label, so no title prefix is needed.
+- Issues with a very short title or a mostly empty form get the `needs info` label and one bot comment. Editing the issue to add the details removes the label.
+- Only `needs info` issues go stale: marked after 14 days without activity and closed 7 days later. Other bugs and feature requests never auto-close.
 - Pull requests use `.github/pull_request_template.md` and should include tested OpenCode version details.
 
 ## Development Setup

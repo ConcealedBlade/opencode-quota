@@ -24,13 +24,13 @@ v4 adds clearer quota results, guided custom-provider setup, and JSON export v2.
 Preview the changes first:
 
 ```bash
-npx @slkiser/opencode-quota@latest update --dry-run
+npx @slkiser/opencode-quota@4 update --dry-run
 ```
 
 If the preview looks right, apply them:
 
 ```bash
-npx @slkiser/opencode-quota@latest update
+npx @slkiser/opencode-quota@4 update
 ```
 
 Restart OpenCode, then run `/quota` and `/quota_status`.
@@ -44,7 +44,7 @@ v4 replaces the old `customSources` setting with `quotaProviders`. The old setti
 Use the guided command to add each custom provider:
 
 ```bash
-npx @slkiser/opencode-quota@latest provider add
+npx @slkiser/opencode-quota@4 provider add
 ```
 
 It previews the exact global config change and asks before writing. See the [Provider setup guide](providers.md#custom-providers) for full details.

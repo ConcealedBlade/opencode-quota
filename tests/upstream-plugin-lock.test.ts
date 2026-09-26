@@ -6,6 +6,8 @@ import { promisify } from "node:util";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { isolatedGitEnv, stubIsolatedGitEnv } from "./helpers/isolated-git-env.js";
+
 const execFileAsync = promisify(execFile);
 
 const testState = vi.hoisted(() => ({
@@ -72,9 +74,10 @@ describe("upstream-plugin-lock", () => {
       `${JSON.stringify({ plugins: { "opencode-cursor-oauth": previousEntry } }, null, 2)}\n`,
       "utf8",
     );
-    await execFileAsync("git", ["init"], { cwd: testState.repoRoot });
+    await execFileAsync("git", ["init"], { cwd: testState.repoRoot, env: isolatedGitEnv() });
     await execFileAsync("git", ["add", "references/upstream-plugins/lock.json"], {
       cwd: testState.repoRoot,
+      env: isolatedGitEnv(),
     });
     await execFileAsync(
       "git",
@@ -89,7 +92,7 @@ describe("upstream-plugin-lock", () => {
         "-m",
         "baseline",
       ],
-      { cwd: testState.repoRoot },
+      { cwd: testState.repoRoot, env: isolatedGitEnv() },
     );
 
     const currentEntry = {
@@ -110,6 +113,8 @@ describe("upstream-plugin-lock", () => {
     const { buildChangedPluginSummaries } = await import(
       "../scripts/lib/upstream-plugin-review.mjs"
     );
+    // readCommittedUpstreamPluginLock runs `git show` with the inherited process.env.
+    stubIsolatedGitEnv();
     const committedLock = await readCommittedUpstreamPluginLock({
       repositoryRoot: testState.repoRoot,
       lockPath,

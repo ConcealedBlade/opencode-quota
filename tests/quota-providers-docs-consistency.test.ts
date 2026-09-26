@@ -59,7 +59,7 @@ describe("quota provider Phase 7 documentation consistency", () => {
     const troubleshootingProviderFixes = readMarkdownSection(troubleshooting, /^Provider fixes$/);
     const externalJsonBasics = readMarkdownSection(external, /^JSON basics$/);
 
-    const providerAddCommand = "npx @slkiser/opencode-quota@latest provider add";
+    const providerAddCommand = "npx @slkiser/opencode-quota@4 provider add";
     expect(readmeCommands).toContain(providerAddCommand);
     expect(readmeCustomProviders).toContain(providerAddCommand);
     expect(
