@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { isolatedGitEnv } from "./helpers/isolated-git-env.js";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const packageScript = fileURLToPath(
@@ -29,12 +31,12 @@ function run(script: string, args: string[] = [], env: NodeJS.ProcessEnv = {}) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: repoRoot,
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...isolatedGitEnv(), ...env },
   });
 }
 
 function git(cwd: string, args: string[]): string {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", env: isolatedGitEnv() });
   if (result.status !== 0) {
     throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
   }
@@ -132,6 +134,41 @@ describe("v4 release gates", () => {
     });
     expect(history.status).toBe(0);
     expect(history.stdout).toContain("V4 history privacy verified");
+  });
+
+  it("keeps temp-repo git away from the repository named by a git hook's GIT_DIR", async () => {
+    const hookRepo = path.join(tempDir, "hook-repo");
+    await mkdir(hookRepo);
+    git(hookRepo, ["init", "-q"]);
+    git(hookRepo, [
+      "-c",
+      "user.name=Hook Repo",
+      "-c",
+      "user.email=hook-repo@example.invalid",
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "hook repo head",
+    ]);
+    const hookRepoHead = git(hookRepo, ["rev-parse", "HEAD"]);
+    const hookGitDir = path.join(hookRepo, ".git");
+
+    vi.stubEnv("GIT_DIR", hookGitDir);
+    vi.stubEnv("GIT_INDEX_FILE", path.join(hookGitDir, "index"));
+    const historyRepo = path.join(tempDir, "history-under-hook");
+    const base = await createHistoryRepo(historyRepo);
+    const history = run(historyScript, [], {
+      V4_HISTORY_BASE: base,
+      V4_HISTORY_REPO: historyRepo,
+    });
+    vi.unstubAllEnvs();
+
+    expect(history.status).toBe(0);
+    expect(git(historyRepo, ["log", "-1", "--format=%H %s"])).toBe(`${base} base`);
+    expect(git(hookRepo, ["rev-parse", "HEAD"])).toBe(hookRepoHead);
+    expect(git(hookRepo, ["config", "--get", "core.bare"])).toBe("false");
+    expect(git(hookRepo, ["config", "--local", "--list"])).not.toContain("user.");
+    expect(git(hookRepo, ["ls-files"])).toBe("");
   });
 
   it("rejects every forced-added private path from temporary commit history", async () => {
